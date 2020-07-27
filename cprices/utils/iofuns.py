@@ -22,9 +22,8 @@ def load_input_data(spark, config, dev_config):
         
     config : python file/module 
         It has the staged_data dictionary with all the data sources, suppliers
-        and items. Each combination (e.g. web_scraped, mysupermarket, laptop)
-        is a path of dictionary keys that lead to a value. This is initialised
-        as an empty dictionary {}. 
+        and items. Each combination is a path of dictionary keys that lead to a
+        value. This is initialised as an empty dictionary {}.
         
     dev_config : python file/module 
         It has the path to the HDFS directory from where the staged data will 
