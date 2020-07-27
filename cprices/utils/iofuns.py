@@ -9,7 +9,7 @@ from functools import reduce
 from importlib import reload
 
 
-def extract_data(spark, config, dev_config):
+def load_input_data(spark, config, dev_config):
     
     """
     Creates a dictionary of spark dataframes from the staged data to feed into 
@@ -65,7 +65,7 @@ def extract_data(spark, config, dev_config):
     return staged_data
 
     
-def load_data(dfs, dev_config):
+def save_output_hdfs(dfs, dev_config):
     
     """
     Stores output dataframes in HDFS.
