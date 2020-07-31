@@ -13,7 +13,7 @@ from importlib import reload
 from epds_utils.hdfs import hdfs_utils
 
 #import module to test
-from cprices.cprices.utils import helpers
+from cprices.utils import helpers
 
 
 class TestUtils(PySparkTest): 
