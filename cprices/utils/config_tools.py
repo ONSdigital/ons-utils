@@ -54,6 +54,7 @@ class ScenarioConfig:
             'start_date': str(config['preprocessing']['start_date']),
             'end_date': str(config['preprocessing']['end_date']),
             'drop_retailers': config['preprocessing']['drop_retailers']
+            'calc_price_using_size': config['preprocessing']['calc_price_using_size']
         }
 
         self.classification = {
