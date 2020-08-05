@@ -12,9 +12,9 @@ class SelectedScenarioConfig:
     """
     This class stores the selected scenarios
     """
-    def __init__(self, config_path):
+    def __init__(self, root_dir):
 
-        with open(os.path.join(config_path, "scenarios.yaml"), 'r') as f:
+        with open(os.path.join(root_dir, 'config', 'scenarios.yaml'), 'r') as f:
             config = yaml.safe_load(f)
 
         self.selected_scenarios = config['selected_scenarios']
@@ -100,9 +100,9 @@ class DevConfig:
     """
     This class stores the dev config settings
     """
-    def __init__(self, config_path):
+    def __init__(self, root_dir):
 
-        with open(os.path.join(config_path, "dev_config.yaml"), 'r') as f:
+        with open(os.path.join(root_dir, 'config', 'dev_config.yaml'), 'r') as f:
             config = yaml.safe_load(f)
 
         self.groupby_cols = config['groupby_cols']
@@ -117,7 +117,7 @@ class DevConfig:
 
 
 def logging_config(
-    config_dir: str,
+    root_dir: str,
     disable_other_loggers: bool = False
 ):
     """Create dictionary to configure logging.
@@ -137,15 +137,16 @@ def logging_config(
         log_id string which is a timestamp of when the logging was created.
         this is used give the log file a unique name.
     """
-    dev_config = DevConfig(config_dir)
+    dev_config = DevConfig(root_dir)
     log_config = dev_config.logging_config
 
     # Set logging config
     log_id = 'log_' + datetime.now().strftime('%y%m%d_%H%M%S')
 
     # create dir to keeps log files
-    if not os.path.exists('logging'):
-        os.mkdir('logging')
+    logging_dir = os.path.join(root_dir, 'run_logs')
+    if not os.path.exists(logging_dir):
+        os.mkdir(logging_dir)
 
     logging_config = {
         'version': 1,
@@ -170,7 +171,7 @@ def logging_config(
                 'formatter': log_config['text_log'],
                 'level': 'DEBUG',
                 'mode': 'w',
-                'filename': f'logging/{log_id}.log',
+                'filename': os.path.join(logging_dir, f'{log_id}.log'),
             },
         },
         'loggers': {
@@ -186,7 +187,7 @@ def logging_config(
     return log_id
 
 
-def check_params(config_dir, selected_scenarios):
+def check_params(root_dir, selected_scenarios):
 
     """
     This function runs at the very beginning and includes assert statements
@@ -197,7 +198,7 @@ def check_params(config_dir, selected_scenarios):
     for scenario in selected_scenarios:
 
         # import and reload config file for scenario
-        validating_config = ScenarioConfig(os.path.join(config_dir, f'{scenario}.yaml'))
+        validating_config = ScenarioConfig(os.path.join(root_dir, 'config', f'{scenario}.yaml'))
 
 
         required_keys = [
