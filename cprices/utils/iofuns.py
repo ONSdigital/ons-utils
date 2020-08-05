@@ -147,9 +147,12 @@ def local_file_to_hdfs(
         true if action sucessfull false if not
     """
     
-    process = subprocess.Popen(["hadoop","fs",f"-{action}FromLocal", from_path, to_path], 
-                               stdout=subprocess.PIPE, 
-                               stderr=subprocess.PIPE)
+    process = subprocess.Popen(
+        ["hadoop","fs",f"-{copy_or_move}FromLocal", from_path, to_path], 
+        stdout=subprocess.PIPE, 
+        stderr=subprocess.PIPE
+    )
+
     stdout, stderr = process.communicate()
     return 0 == process.returncode
         
