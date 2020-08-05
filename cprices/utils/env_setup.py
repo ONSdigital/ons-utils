@@ -6,7 +6,11 @@
 # import python libraries
 import os
 import re
+import logging
+from datetime import datetime
 
+
+LOGGER = logging.getLogger('')
 
 def set_pyspark_python_env(pipeline_miscmods_version):
     """Ensure that the PYSPARK_PYTHON environment variable is up to date.
@@ -31,7 +35,7 @@ def set_pyspark_python_env(pipeline_miscmods_version):
         pipeline_environ_pyspark_python: string
             The path to be set for PYSPARK_PYTHON
         """
-        print(f'Setting PYSPARK_PYTHON environment variable to {pipeline_environ_pyspark_python}')
+        LOGGER.info(f'Setting PYSPARK_PYTHON environment variable to {pipeline_environ_pyspark_python}')
         os.environ['PYSPARK_PYTHON'] = pipeline_environ_pyspark_python
 
     # This is the version of miscMods that will be set if it is higher than the
@@ -43,7 +47,7 @@ def set_pyspark_python_env(pipeline_miscmods_version):
     if default_environ_pyspark_python is not None:
         # The PYSPARK_PYTHON variable is predefined so will try and check this
 
-        print(f'PYSPARK_PYTHON environment variable is preset to {default_environ_pyspark_python}')
+        LOGGER.info(f'PYSPARK_PYTHON environment variable is preset to {default_environ_pyspark_python}')
 
         try:
             default_miscmods_version = (

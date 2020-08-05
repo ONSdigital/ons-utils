@@ -7,10 +7,14 @@ import copy
 from datetime import datetime
 from functools import reduce
 from importlib import reload
+import logging
+import subprocess
 
 
-def load_input_data(spark, config, dev_config):
-    
+LOGGER = logging.getLogger()
+
+
+def load_input_data(spark, config, dev_config): 
     """
     Creates a dictionary of spark dataframes from the staged data to feed into 
     the core pipepline.
@@ -103,7 +107,7 @@ def save_output_hdfs(dfs, dev_config):
     processed_dir = os.path.join(dev_config.processed_dir, run_id)
         
     for name in dfs:
-        print(f'{name}...')
+        LOGGER.info(f'{name}...')
         if name in ['analysis']:
             # store analysis output as csv
             df = dfs[name] 
@@ -116,5 +120,36 @@ def save_output_hdfs(dfs, dev_config):
             dfs[name].write.parquet(path)  
             
     return run_id
+
+
+def local_file_to_hdfs(
+    copy_or_move: str,
+    from_path: str,
+    to_path: str,
+) -> bool:
     
+    """Moves or copies a local file to hdfs.
+    
+    Parameters
+    ----------
+    copy_or_move: string
+        specify copy or move
+    
+    from_path: string
+        path to local file
+    
+    to_path: string
+        full hdfs path
+        
+    Returns
+    -------
+    boolean : bool
+        true if action sucessfull false if not
+    """
+    
+    process = subprocess.Popen(["hadoop","fs",f"-{action}FromLocal", from_path, to_path], 
+                               stdout=subprocess.PIPE, 
+                               stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    return 0 == process.returncode
         
