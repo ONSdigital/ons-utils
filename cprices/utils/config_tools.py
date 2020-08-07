@@ -109,7 +109,7 @@ class DevConfig:
         self.processed_dir = config['directories']['processed_dir']
         self.test_dir = config['directories']['test_dir']
         self.mappers_dir = config['directories']['mappers_dir']
-
+        self.multi_item_datasets = config['multi_item_datasets']
         self.analysis_params = {}
         for analysis_param in config['analysis_params'].keys():
             self.analysis_params[analysis_param] = config['analysis_params'][analysis_param]
