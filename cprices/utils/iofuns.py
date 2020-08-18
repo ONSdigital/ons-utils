@@ -7,10 +7,13 @@ import copy
 from datetime import datetime
 from functools import reduce
 from importlib import reload
+import logging
 
 
-def load_input_data(spark, config, dev_config):
-    
+LOGGER = logging.getLogger()
+
+
+def load_input_data(spark, config, dev_config): 
     """
     Creates a dictionary of spark dataframes from the staged data to feed into 
     the core pipepline.
@@ -103,7 +106,7 @@ def save_output_hdfs(dfs, dev_config):
     processed_dir = os.path.join(dev_config.processed_dir, run_id)
         
     for name in dfs:
-        print(f'{name}...')
+        LOGGER.info(f'{name}...')
         if name in ['analysis']:
             # store analysis output as csv
             df = dfs[name] 
@@ -116,5 +119,4 @@ def save_output_hdfs(dfs, dev_config):
             dfs[name].write.parquet(path)  
             
     return run_id
-    
-        
+

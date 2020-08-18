@@ -1,6 +1,7 @@
 # import python libraries
 import ast
 from datetime import datetime
+from logging.config import dictConfig
 import os
 import yaml
 
@@ -11,9 +12,9 @@ class SelectedScenarioConfig:
     """
     This class stores the selected scenarios
     """
-    def __init__(self, config_path):
+    def __init__(self, root_dir):
 
-        with open(os.path.join(config_path, "scenarios.yaml"), 'r') as f:
+        with open(os.path.join(root_dir, 'config', 'scenarios.yaml'), 'r') as f:
             config = yaml.safe_load(f)
 
         self.selected_scenarios = config['selected_scenarios']
@@ -52,9 +53,10 @@ class ScenarioConfig:
         self.preprocessing = {
             'start_date': str(config['preprocessing']['start_date']),
             'end_date': str(config['preprocessing']['end_date']),
-            'drop_retailers': config['preprocessing']['drop_retailers']
+            'drop_retailers': config['preprocessing']['drop_retailers'],
+            'calc_price_using_size': config['preprocessing']['calc_price_using_size'],
         }
-        
+
         self.classification = {
             'web_scraped_active': config['classification']['web_scraped_active'],
             'mapper_settings': config['classification']['mapper_settings']
@@ -65,7 +67,7 @@ class ScenarioConfig:
             'active': config['outlier_detection']['active'],
             'log_transform': config['outlier_detection']['log_transform'],
             'method': config['outlier_detection']['method'],
-            'k': config['outlier_detection']['k'], 
+            'k': config['outlier_detection']['k'],
         }
 
         self.averaging = {
@@ -99,9 +101,9 @@ class DevConfig:
     """
     This class stores the dev config settings
     """
-    def __init__(self, config_path):
+    def __init__(self, root_dir):
 
-        with open(os.path.join(config_path, "dev_config.yaml"), 'r') as f:
+        with open(os.path.join(root_dir, 'config', 'dev_config.yaml'), 'r') as f:
             config = yaml.safe_load(f)
 
         self.groupby_cols = config['groupby_cols']
@@ -109,26 +111,97 @@ class DevConfig:
         self.processed_dir = config['directories']['processed_dir']
         self.test_dir = config['directories']['test_dir']
         self.mappers_dir = config['directories']['mappers_dir']
-
+        self.logging_config = config['logging_config']
         self.analysis_params = {}
         for analysis_param in config['analysis_params'].keys():
             self.analysis_params[analysis_param] = config['analysis_params'][analysis_param]
 
 
-def check_params(config_dir, selected_scenarios):
-    
+def logging_config(
+    root_dir: str,
+    disable_other_loggers: bool = False
+):
+    """Create dictionary to configure logging.
+
+    Parameters
+    ----------
+    config_dir: string
+        - path to dev conf
+
+    disable_other_loggers: bool
+        - setting this to True allows to overwrite the current
+        logger within the same session.
+
+    Returns
+    -------
+    log_id: string
+        log_id string which is a timestamp of when the logging was created.
+        this is used give the log file a unique name.
+    """
+    dev_config = DevConfig(root_dir)
+    log_config = dev_config.logging_config
+
+    # Set logging config
+    log_id = 'log_' + datetime.now().strftime('%y%m%d_%H%M%S')
+
+    # create dir to keeps log files
+    logging_dir = os.path.join(root_dir, 'run_logs')
+    if not os.path.exists(logging_dir):
+        os.mkdir(logging_dir)
+
+    logging_config = {
+        'version': 1,
+        'disable_existing_loggers': disable_other_loggers,
+        'formatters': {
+            'basic': {
+                'format': '%(message)s',
+            },
+            'debug': {
+                'format': '[%(asctime)s %(levelname)s - file=%(filename)s:%(lineno)d] %(message)s',
+                'datefmt': '%y/%m/%d %H:%M:%S',
+            },
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': log_config['console'],
+                'level': 'INFO',
+            },
+            'file_log': {
+                'class': 'logging.FileHandler',
+                'formatter': log_config['text_log'],
+                'level': 'DEBUG',
+                'mode': 'w',
+                'filename': os.path.join(logging_dir, f'{log_id}.log'),
+            },
+        },
+        'loggers': {
+            '': {  # root logger
+                'handlers': ['console','file_log'],
+                'level': 'INFO',
+                'propagate': False,
+            },
+        },
+    }
+    dictConfig(logging_config)
+
+    return log_id
+
+
+def check_params(root_dir, selected_scenarios):
+
     """
     This function runs at the very beginning and includes assert statements
-    to ensure that the config parameters are valid, i.e. they have the right 
+    to ensure that the config parameters are valid, i.e. they have the right
     data type and values within the permitted range.
     """
-    
-    for scenario in selected_scenarios:
-        
-        # import and reload config file for scenario
-        validating_config = ScenarioConfig(os.path.join(config_dir, f'{scenario}.yaml'))
 
-        
+    for scenario in selected_scenarios:
+
+        # import and reload config file for scenario
+        validating_config = ScenarioConfig(os.path.join(root_dir, 'config', f'{scenario}.yaml'))
+
+
         required_keys = [
             'input_data',
             'preprocessing',
@@ -145,16 +218,16 @@ def check_params(config_dir, selected_scenarios):
             if key not in validating_config.__dict__.keys():
                 msg = f'{scenario}: {key} does not appear among the config parameters.'
                 raise Exception(msg)
-        
+
         # Preprocessing
         try:
             datetime.strptime(validating_config.preprocessing['start_date'], "%Y-%m-%d")
-        except: 
+        except:
             raise ValueError("{scenario}: Datestamp in incorrect format - must be 'YYYY-mm-dd'")
-    
+
         try:
             datetime.strptime(validating_config.preprocessing['end_date'], "%Y-%m-%d")
-        except: 
+        except:
             raise ValueError("{scenario}: Datestamp in incorrect format - must be 'YYYY-mm-dd'")
 
 
@@ -167,7 +240,7 @@ def check_params(config_dir, selected_scenarios):
                 if data_source == 'scanner':
                         msg = f"{scenario}: parameter 'user_defined_mapper' in classification, mapper_settings, {data_source} {supplier} is not a boolean"
                         assert isinstance(mapper_settings[data_source][supplier]['user_defined_mapper'], bool), msg
-                        
+
                         if mapper_settings[data_source][supplier]['mapper_path'] == None:
                             msg = f"{scenario}:\n The {data_source} {supplier} config setting \"user_defined_mapper\" " \
                                 "is set to True but no path is provided.\n Please provide a path or set " \
@@ -184,13 +257,13 @@ def check_params(config_dir, selected_scenarios):
                     for item in mapper_settings[data_source][supplier]:
                         msg = f"{scenario}: parameter 'user_defined_mapper' in classification, mapper_settings, {data_source} {supplier} {item} is not a boolean"
                         assert isinstance(mapper_settings[data_source][supplier][item]['user_defined_mapper'], bool), msg
-                        
+
                         if mapper_settings[data_source][supplier][item]['mapper_path'] == None:
                             msg = f"{scenario}:\n The {data_source} {supplier} config setting \"user_defined_mapper\" " \
                                 "is set to True but no path is provided.\n Please provide a path or set " \
                                 "\"user_defined_mapper\" to False"
                             raise Exception(msg)
-                            
+
                         if ('user_defined_mapper' in mapper_settings[data_source][supplier][item]) \
                         and (mapper_settings[data_source][supplier][item]['user_defined_mapper']):
                             # check user defined mapper exists
@@ -207,7 +280,7 @@ def check_params(config_dir, selected_scenarios):
                 assert isinstance(validating_config.outlier_detection['log_transform'], bool), msg
 
                 method = validating_config.outlier_detection['method']
-                msg = ("{scenario}: the outlier detection method must be a string " + 
+                msg = ("{scenario}: the outlier detection method must be a string " +
                        "among 'tukey', 'kimber', 'ksigma', 'udf_fences'")
                 assert isinstance(method, str), msg
                 assert method in ['tukey', 'kimber', 'ksigma', 'udf_fences'], msg
@@ -220,9 +293,9 @@ def check_params(config_dir, selected_scenarios):
 
         # Averaging
         methods = [
-            'unweighted_arithmetic', 
-            'unweighted_geometric', 
-            'weighted_arithmetic', 
+            'unweighted_arithmetic',
+            'unweighted_geometric',
+            'weighted_arithmetic',
             'weighted_geometric'
         ]
         for data_source in ['web_scraped', 'scanner']:
