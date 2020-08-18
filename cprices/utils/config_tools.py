@@ -5,6 +5,8 @@ from logging.config import dictConfig
 import os
 import yaml
 
+from cerberus import Validator
+
 from epds_utils import hdfs
 
 
@@ -219,123 +221,176 @@ def check_params(root_dir, selected_scenarios):
                 msg = f'{scenario}: {key} does not appear among the config parameters.'
                 raise Exception(msg)
 
-        # Preprocessing
-        try:
-            datetime.strptime(validating_config.preprocessing['start_date'], "%Y-%m-%d")
-        except:
-            raise ValueError("{scenario}: Datestamp in incorrect format - must be 'YYYY-mm-dd'")
 
-        try:
-            datetime.strptime(validating_config.preprocessing['end_date'], "%Y-%m-%d")
-        except:
-            raise ValueError("{scenario}: Datestamp in incorrect format - must be 'YYYY-mm-dd'")
+        outlier_methods_list = [
+            'tukey',
+            'kimber',
+            'ksigma',
+            'udf_fences'
+        ]
 
-
-        # Classification
-        mapper_settings = validating_config.classification['mapper_settings']
-        msg = "{scenario}: parameter 'active' in classification, web_scraped is not a boolean"
-        assert isinstance(validating_config.classification['web_scraped_active'], bool), msg
-        for data_source in mapper_settings:
-            for supplier in mapper_settings[data_source]:
-                if data_source == 'scanner':
-                        msg = f"{scenario}: parameter 'user_defined_mapper' in classification, mapper_settings, {data_source} {supplier} is not a boolean"
-                        assert isinstance(mapper_settings[data_source][supplier]['user_defined_mapper'], bool), msg
-
-                        if mapper_settings[data_source][supplier]['mapper_path'] == None:
-                            msg = f"{scenario}:\n The {data_source} {supplier} config setting \"user_defined_mapper\" " \
-                                "is set to True but no path is provided.\n Please provide a path or set " \
-                                "\"user_defined_mapper\" to False"
-                            raise Exception(msg)
-
-                        if ('user_defined_mapper' in mapper_settings[data_source][supplier]) \
-                        and (mapper_settings[data_source][supplier]['user_defined_mapper']):
-                            # check user defined mapper exists
-                            if not hdfs.test(mapper_settings[data_source][supplier]['mapper_path']):
-                                raise Exception(f"{scenario}: {data_source} {supplier} user defined mapper ({mapper_settings[data_source][supplier]['mapper_path']}) does not exist")
-
-                if data_source == 'web_scraped':
-                    for item in mapper_settings[data_source][supplier]:
-                        msg = f"{scenario}: parameter 'user_defined_mapper' in classification, mapper_settings, {data_source} {supplier} {item} is not a boolean"
-                        assert isinstance(mapper_settings[data_source][supplier][item]['user_defined_mapper'], bool), msg
-
-                        if mapper_settings[data_source][supplier][item]['mapper_path'] == None:
-                            msg = f"{scenario}:\n The {data_source} {supplier} config setting \"user_defined_mapper\" " \
-                                "is set to True but no path is provided.\n Please provide a path or set " \
-                                "\"user_defined_mapper\" to False"
-                            raise Exception(msg)
-
-                        if ('user_defined_mapper' in mapper_settings[data_source][supplier][item]) \
-                        and (mapper_settings[data_source][supplier][item]['user_defined_mapper']):
-                            # check user defined mapper exists
-                            if not hdfs.test(mapper_settings[data_source][supplier][item]['mapper_path']):
-                                raise Exception(f"{scenario}: {data_source} {supplier} {item} user defined mapper ({mapper_settings[data_source][supplier][item]['mapper_path']}) does not exist.")
-
-        # Outlier detection
-        msg = "{scenario}: parameter 'active' in outlier_detection is not a boolean"
-        isbool = isinstance(validating_config.outlier_detection['active'], bool)
-        assert isbool, msg
-        if isbool:
-            if validating_config.outlier_detection['active']:
-                msg = "{scenario}: parameter 'log_transform' in outlier_detection is not a boolean"
-                assert isinstance(validating_config.outlier_detection['log_transform'], bool), msg
-
-                method = validating_config.outlier_detection['method']
-                msg = ("{scenario}: the outlier detection method must be a string " +
-                       "among 'tukey', 'kimber', 'ksigma', 'udf_fences'")
-                assert isinstance(method, str), msg
-                assert method in ['tukey', 'kimber', 'ksigma', 'udf_fences'], msg
-
-                k = validating_config.outlier_detection['k']
-                msg = '{scenario}: k for outlier detection must be a float between 1 and 4'
-                assert isinstance(k, float), msg
-                assert (k>=1)&(k<=4), msg
-
-
-        # Averaging
-        methods = [
+        averaging_methods_list = [
             'unweighted_arithmetic',
             'unweighted_geometric',
             'weighted_arithmetic',
             'weighted_geometric'
         ]
+
+        index_methods_list = [
+            'carli_fixed_base',
+            'carli_chained',
+            'dutot_fixed_base',
+            'dutot_chained',
+            'jevons_fixed_base',
+            'jevons_chained',
+            'rygeks_jevons',
+            'geks_jevons',
+            'fisher_fixed_base',
+            'laspeyres_fixed_base',
+            'paasche_fixed_base',
+            'tornqvist_fixed_base',
+            'rygeks_tornqvist',
+            'rygeks_fisher',
+            'rygeks_laspeyres',
+            'rygeks_paasche',
+            'geks_tornqvist',
+            'geks_paasche',
+            'geks_laspeyres',
+            'geary_khamis'
+        ]
+
+        v = Validator()
+        v.schema = {
+            # Preprocessing
+            'start_date': {'type': 'string', 'regex': '([12]\d{3}-(0[1-9]|1[0-2])-01)'},
+            'end_date': {'type': 'string', 'regex': '([12]\d{3}-(0[1-9]|1[0-2])-01)'},
+            'drop_retailers': {'type': 'boolean'},
+            # Classification
+            'web_scraped_active': {'type': 'boolean'},
+            'user_defined_mapper': {'type': 'boolean'},
+            # Outlier detection/ Averaging/ Grouping/ Filtering/ Imputation
+            'active': {'type': 'boolean'},
+            # Outlier detection
+            'log_transform': {'type': 'boolean'},
+            'outlier_methods': {'type': 'string', 'allowed': outlier_methods_list},
+            'k': {'type': 'float', 'min': 1, 'max': 4},
+            'fence_value': {'type': 'float'},
+            # Averaging/ Grouping
+            'web_scraped': {'type': 'string', 'allowed': averaging_methods_list},
+            'scanner': {'type': 'string', 'allowed': averaging_methods_list},
+            # Imputation
+            'ffill_limit': {'type': 'integer', 'min': 1},
+            # Imputation
+            'max_cumsum_share': {'type': 'float', 'min': 0, 'max': 1},
+            # Indices
+            'index_methods': {'type': 'list', 'allowed': index_methods_list},
+            'splice_window_length': {'type': 'integer', 'min': 0},
+        }
+
+
+        # Preprocessing
+        if not v.validate({'start_date': validating_config.preprocessing['start_date']}):
+            raise ValueError(f"{scenario}: parameter 'start_date' in preprocessing must be a string in the format YYYY-MM-01")
+
+        if not v.validate({'end_date': validating_config.preprocessing['end_date']}):
+            raise ValueError(f"{scenario}: parameter 'end_date' in preprocessing must be a string in the format YYYY-MM-01")
+
+        if not v.validate({'drop_retailers': validating_config.preprocessing['drop_retailers']}):
+            raise ValueError(f"{scenario}: parameter 'drop_retailers' in preprocessing must be a boolean")
+
+
+        # Classification
+        mapper_settings = validating_config.classification['mapper_settings']
+        if not v.validate({'web_scraped_active': validating_config.classification['web_scraped_active']}):
+            raise ValueError(f"{scenario}: parameter 'active' in classification, web_scraped is not a boolean")
+
+        for data_source in mapper_settings:
+            for supplier in mapper_settings[data_source]:
+
+                def classification_validation(classification_mapper_dict, mapper_source):
+                    if not v.validate({'user_defined_mapper': classification_mapper_dict['user_defined_mapper']}):
+                        raise ValueError(f"{scenario}: parameter 'user_defined_mapper' in classification, mapper_settings, {mapper_source} is not a boolean")
+
+                    # convert to cerberus?
+                    if classification_mapper_dict['mapper_path'] == None:
+                        msg = f"{scenario}:\n The {mapper_source} config setting \"user_defined_mapper\" " \
+                            "is set to True but no path is provided.\n Please provide a path or set " \
+                            "\"user_defined_mapper\" to False"
+                        raise Exception(msg)
+
+                    if ('user_defined_mapper' in classification_mapper_dict) \
+                    and (classification_mapper_dict['user_defined_mapper']):
+                        # check user defined mapper exists
+                        if not hdfs.test(classification_mapper_dict['mapper_path']):
+                            raise Exception(f"{scenario}: {mapper_source} user defined mapper ({classification_mapper_dict['mapper_path']}) does not exist")
+
+                if data_source == 'scanner':
+                    mapper_source = f'{data_source}, {supplier}'
+                    classification_validation(mapper_settings[data_source][supplier], mapper_source)
+
+                if data_source == 'web_scraped':
+                    for item in mapper_settings[data_source][supplier]:
+                        mapper_source = f'{data_source}, {supplier}, {item}'
+                        classification_validation(mapper_settings[data_source][supplier][item], mapper_source)
+
+
+        # Outlier detection
+        if v.validate({'active': validating_config.outlier_detection['active']}):
+            if not v.validate({'log_transform': validating_config.outlier_detection['log_transform']}):
+                raise ValueError(f"{scenario}: parameter 'log_transform' in outlier_detection must be a boolean")
+
+            if not v.validate({'outlier_methods': validating_config.outlier_detection['method']}):
+                raise ValueError(f"{scenario}: parameter 'method' for outlier_detection must be a string among {outlier_methods_list}'")
+
+            if not v.validate({'k': validating_config.outlier_detection['k']}):
+                raise ValueError(f"{scenario}: parameter 'k' for outlier detection must be a float between 1 and 4")
+        else:
+            raise ValueError(f"{scenario}: parameter 'active' in outlier_detection is not a boolean")
+
+        for fence_dictionary in [validating_config.outlier_detection['fences']]:
+            for fence_list in fence_dictionary.values():
+                for list_value in fence_list:
+                    if not v.validate({'fence_value': list_value}):
+                        raise ValueError(f"{scenario}: value {list_value} in fences in outlier detection must be a float")
+
+
+        # Averaging
         for data_source in ['web_scraped', 'scanner']:
-            method = validating_config.averaging[data_source]
-            msg = (f"{scenario}: the averaging method for {data_source} must be a string among {methods}")
-            assert isinstance(method, str), msg
-            assert method in methods, msg
+            if not v.validate({data_source: validating_config.averaging[data_source]}):
+                raise ValueError(f"{scenario}: parameter {data_source} in averaging must be a string among {averaging_methods_list}")
 
 
         # Grouping
-        msg = "{scenario}: parameter 'active' in grouping is not a boolean"
-        assert isinstance(validating_config.grouping['active'], bool), msg
+        if v.validate({'active': validating_config.grouping['active']}):
+            if validating_config.grouping['active'] == True:
+                for data_source in ['web_scraped', 'scanner']:
+                    if not v.validate({data_source: validating_config.grouping[data_source]}):
+                        raise ValueError(f"{scenario}: {data_source} for grouping must be a string among {averaging_methods_list}")
+        else:
+            raise ValueError(f"{scenario}: parameter 'active' in grouping is not a boolean")
 
 
         # Imputation
-        msg = "{scenario}: parameter 'active' in imputation is not a boolean"
-        isbool = isinstance(validating_config.imputation['active'], bool)
-        assert isbool, msg
-        if isbool:
-            if validating_config.imputation['active']:
-                ffill_limit = validating_config.imputation['ffill_limit']
-                msg = '{scenario}: ffill_limit for imputation must be an integer greater than 0'
-                assert isinstance(ffill_limit, int), msg
-                assert (ffill_limit>0), msg
+        if v.validate({'active': validating_config.imputation['active']}):
+            if validating_config.imputation['active'] == True:
+                if not v.validate({'ffill_limit': validating_config.imputation['ffill_limit']}):
+                    raise ValueError(f"{scenario}: ffill_limit for imputation must be an integer greater than 0")
+        else:
+            raise ValueError(f"{scenario}: parameter 'active' in imputation is not a boolean")
 
 
         # Filtering
-        msg = "{scenario}: parameter 'active' in filtering is not a boolean"
-        isbool = isinstance(validating_config.filtering['active'], bool)
-        assert isbool, msg
-        if isbool:
-            if validating_config.filtering['active']:
-                mcs = params['filtering']['max_cumsum_share']
-                msg = '{scenario}: max_cumsum_share for filtering must be a float between 0 and 1'
-                assert isinstance(mcs, float), msg
-                assert (mcs>=0)&(mcs<=1), msg
+        if v.validate({'active': validating_config.filtering['active']}):
+            if validating_config.filtering['active'] == True:
+                if not v.validate({'max_cumsum_share': validating_config.filtering['max_cumsum_share']}):
+                    raise ValueError(f"{scenario}: max_cumsum_share in filtering must be a float between 0 and 1")
+        else:
+            raise ValueError(f"{scenario}: parameter 'active' in filtering is not a boolean")
 
 
         # Indices
-        d = validating_config.indices['splice_window_length']
-        msg = '{scenario}: splice window length for rygeks must be a positive integer'
-        assert isinstance(d, int), msg
-        assert d>0, msg
+        if not v.validate({'index_methods': validating_config.indices['index_methods']}):
+            raise ValueError(f"{scenario}: parameter 'methods' in indices must be a list, only containing values among {index_methods_list}")
+
+        if not v.validate({'splice_window_length': validating_config.indices['splice_window_length']}):
+            raise ValueError(f"{scenario}: parameter 'splice_window_length' in indices must be a positive integer")
