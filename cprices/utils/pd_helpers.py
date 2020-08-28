@@ -58,7 +58,7 @@ class Stacker():
         unstacked_df = df.unstack(self.index_cols)
 
         if self.transpose:
-            unstacked_df = unstack_df.T
+            unstacked_df = unstacked_df.T
 
         return unstacked_df
 
