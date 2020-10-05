@@ -1,3 +1,4 @@
+"""Configuration file loader and validation functions."""
 # import python libraries
 import ast
 from datetime import datetime
@@ -11,9 +12,7 @@ from epds_utils import hdfs
 
 
 class SelectedScenarioConfig:
-    """
-    This class stores the selected scenarios
-    """
+    """Class to store the selected scenarios."""
     def __init__(self, root_dir):
 
         with open(os.path.join(root_dir, 'config', 'scenarios.yaml'), 'r') as f:
@@ -22,11 +21,8 @@ class SelectedScenarioConfig:
         self.selected_scenarios = config['selected_scenarios']
 
 
-
 class ScenarioConfig:
-    """
-    This class stores the configuration settings for a particular scenario
-    """
+    """Class to store the configuration settings for particular scenario."""
     def __init__(self, config_path):
 
         def iterdict(d):
@@ -100,9 +96,7 @@ class ScenarioConfig:
 
 
 class DevConfig:
-    """
-    This class stores the dev config settings
-    """
+    """Class to store the dev config settings."""
     def __init__(self, root_dir):
 
         with open(os.path.join(root_dir, 'config', 'dev_config.yaml'), 'r') as f:
@@ -133,7 +127,7 @@ def logging_config(
 
     disable_other_loggers: bool
         - setting this to True allows to overwrite the current
-        logger within the same session.
+          logger within the same session.
 
     Returns
     -------
@@ -191,14 +185,16 @@ def logging_config(
     return log_id
 
 
-def check_params(root_dir, selected_scenarios):
+def check_params(
+    root_dir: str,
+    selected_scenarios: list,
+):
+    """Validate scenario config parameters.
 
-    """
     This function runs at the very beginning and includes assert statements
     to ensure that the config parameters are valid, i.e. they have the right
     data type and values within the permitted range.
     """
-
     for scenario in selected_scenarios:
 
         # import and reload config file for scenario
