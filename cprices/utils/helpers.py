@@ -1,9 +1,4 @@
-"""Contains methods:
-- find
-    used in union_dfs_from_all_scenarios
-- union_dfs_from_all_scenarios
-    used in main.py
-"""
+"""Miscellaneous helper functions."""
 # import pyspark libraries
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
