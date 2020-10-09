@@ -93,7 +93,7 @@ def save_output_hdfs(
 
     Notes
     -----
-    That's the name of the folder that will be created inside the processed
+    Run_id is the name of the folder that will be created inside the processed
     data folder in HDFS for this particular run and will contain all the
     output dataframes. The run_id is printed on the screen for the user to
     explore the output data.
