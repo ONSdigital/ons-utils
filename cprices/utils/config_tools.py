@@ -53,6 +53,7 @@ class ScenarioConfig:
             'end_date': str(config['preprocessing']['end_date']),
             'drop_retailers': config['preprocessing']['drop_retailers'],
             'calc_price_using_size': config['preprocessing']['calc_price_using_size'],
+            'scanner_expenditure_column': config['preprocessing']['scanner_expenditure_column'],
         }
 
         self.classification = {
