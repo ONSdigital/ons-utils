@@ -61,7 +61,7 @@ def union_dfs_from_all_scenarios(dfs):
 
     for scenario in dfs:
         # scenarios have names: scenario_x, extract number
-        scenario_no = scenario.split('_')[1]
+        scenario_no = ''.join(scenario.split('_')[1:])
         for df in dfs[scenario]:
             dfs[scenario][df] = (
                 dfs[scenario][df]
