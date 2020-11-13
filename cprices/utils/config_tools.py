@@ -109,6 +109,7 @@ class DevConfig:
         self.test_dir = config['directories']['test_dir']
         self.mappers_dir = config['directories']['mappers_dir']
         self.multi_item_datasets = config['multi_item_datasets']
+        self.multi_item_sep_char = config['multi_item_sep_char']
         self.logging_config = config['logging_config']
         self.analysis_params = {}
         for analysis_param in config['analysis_params'].keys():
