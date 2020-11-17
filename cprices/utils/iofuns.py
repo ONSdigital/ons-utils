@@ -61,12 +61,24 @@ def load_input_data(
                         .parquet(path)
                     )
 
-        # conventional and scanner data has 2 levels: data_source, supplier
-        elif data_source in ('conventional', 'scanner'):
+        # conventional and scanner data have 2 levels: data_source, supplier
+        elif data_source == 'scanner':
             for supplier in input_data[data_source]:
                 path = os.path.join(staged_dir, data_source, supplier)
 
                 staged_data[data_source][supplier] = spark.read.parquet(path)
+
+        elif data_source == 'conventional':
+            # Currently only single supplier (local_collection) and file
+            # (historic) available for conventional data
+            path = os.path.join(
+                staged_dir,
+                data_source,
+                'local_collection',
+                'historic_201701_202001.parquet'
+            )
+
+            staged_data[data_source] = spark.read.parquet(path)
 
     return staged_data
 
