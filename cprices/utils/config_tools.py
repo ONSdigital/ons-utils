@@ -252,6 +252,7 @@ def check_params(
             'rygeks_fisher',
             'rygeks_laspeyres',
             'rygeks_paasche',
+            'geks_fisher',
             'geks_tornqvist',
             'geks_paasche',
             'geks_laspeyres',
