@@ -68,33 +68,30 @@ def union_dfs_from_all_scenarios(
         particular stage.
     """
     # ADD SCENARIO COLUMN TO ALL DATAFRAMES
-
     for scenario in dfs:
-        # scenarios have names: scenario_x, extract number
-        scenario_no = ''.join(scenario.split('_')[1:])
+        # scenarios have names: scenario_x
+        scenario_name = ''.join(scenario.split('_')[1:])
 
-        for df in dfs[scenario]:
+        for df_key, df in dfs[scenario].items():
             # if the dataframe is in pandas we need it in spark for unioning
-            if isinstance(dfs[scenario][df], pd.DataFrame):
-                dfs[scenario][df] = pd_to_pyspark_df(spark, dfs[scenario][df])
+            if isinstance(df, pd.DataFrame):
+                df = pd_to_pyspark_df(spark, df)
 
-            dfs[scenario][df] = (
-                dfs[scenario][df]
+            dfs[scenario][df_key] = (
+                df
                 .withColumn(
                     'scenario',
-                    F.lit(scenario_no)
+                    F.lit(scenario_name)
                 )
             )
 
     # UNION DATAFRAMES (IF THERE ARE MORE THAN 1 SCENARIOS)
-
-    # name of first scenario
-    scenario = list(dfs.keys())[0]
-
     if len(dfs) > 1:
-        # names of dataframes - they are the same for each scenario
-        # they can be collected from any scenario in dfs
-        names = dfs[scenario].keys()
+        # Collate unique dataframe names within scenarios
+        names = set(
+            val for dfs_vals in dfs.values()
+            for val in dfs_vals.keys()
+        )
 
         dfs_unioned = {}
         for name in names:
