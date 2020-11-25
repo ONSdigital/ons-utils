@@ -1,10 +1,15 @@
 """Miscellaneous helper functions."""
-# import pyspark libraries
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as F
-
 # import python libraries
 from functools import reduce
+from typing import Dict
+
+import pandas as pd
+
+# import pyspark libraries
+from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame as sparkDF
+from pyspark.sql import functions as F
+from pyspark.sql import SparkSession
 
 
 def find(key, dictionary):
@@ -36,20 +41,25 @@ def find(key, dictionary):
                     yield result
 
 
-def union_dfs_from_all_scenarios(dfs):
-    """
+def union_dfs_from_all_scenarios(
+    spark: SparkSession,
+    dfs: Dict[str, Dict[str, sparkDF]]
+) -> Dict[str, sparkDF]:
+    """Combine dictionary of spark dataframes into one spark dataframe.
+
     Unions the corresponding dataframes from all scenarios so in the output
     dictionary, each stage has one dataframe. Before doing that, a scenario
     column is added to each dataframe to distinguish between scenarios.
 
+    Any pandas dataframes are converted to spark also.
+
     Parameters
     ----------
+    spark: spark session
+
     dfs : nested dictionary of spark dataframes
         Every key in the dfs dictionary holds the dataframes for the stages of
         the scenario run.
-
-    scenario : string
-        The name of the scenario, i.e. scenario_1, scenario_2, etc
 
     Returns
     -------
@@ -58,28 +68,30 @@ def union_dfs_from_all_scenarios(dfs):
         particular stage.
     """
     # ADD SCENARIO COLUMN TO ALL DATAFRAMES
-
     for scenario in dfs:
-        # scenarios have names: scenario_x, extract number
-        scenario_no = ''.join(scenario.split('_')[1:])
-        for df in dfs[scenario]:
-            dfs[scenario][df] = (
-                dfs[scenario][df]
+        # scenarios have names: scenario_x
+        scenario_name = ''.join(scenario.split('_')[1:])
+
+        for df_key, df in dfs[scenario].items():
+            # if the dataframe is in pandas we need it in spark for unioning
+            if isinstance(df, pd.DataFrame):
+                df = pd_to_pyspark_df(spark, df)
+
+            dfs[scenario][df_key] = (
+                df
                 .withColumn(
                     'scenario',
-                    F.lit(scenario_no)
+                    F.lit(scenario_name)
                 )
             )
 
     # UNION DATAFRAMES (IF THERE ARE MORE THAN 1 SCENARIOS)
-
-    # name of first scenario
-    scenario = list(dfs.keys())[0]
-
     if len(dfs) > 1:
-        # names of dataframes - they are the same for each scenario
-        # they can be collected from any scenario in dfs
-        names = dfs[scenario].keys()
+        # Collate unique dataframe names within scenarios
+        names = set(
+            val for dfs_vals in dfs.values()
+            for val in dfs_vals.keys()
+        )
 
         dfs_unioned = {}
         for name in names:
@@ -93,3 +105,12 @@ def union_dfs_from_all_scenarios(dfs):
         dfs = dfs[scenario]
 
     return dfs
+
+
+def pd_to_pyspark_df(
+    spark,
+    df: pd.DataFrame,
+    num_partitions: int = 1,
+) -> sparkDF:
+    """Convert pandas dataframe to spark with specified partitions."""
+    return spark.createDataFrame(df).coalesce(num_partitions)
