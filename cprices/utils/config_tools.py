@@ -54,6 +54,7 @@ class ScenarioConfig:
             'drop_retailers': config['preprocessing']['drop_retailers'],
             'calc_price_using_size': config['preprocessing']['calc_price_using_size'],
             'scanner_expenditure_column': config['preprocessing']['scanner_expenditure_column'],
+            'add_promo': config['preprocessing']['add_promo'],
         }
 
         self.classification = {
