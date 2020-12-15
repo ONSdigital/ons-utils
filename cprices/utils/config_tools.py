@@ -54,6 +54,7 @@ class ScenarioConfig:
             'drop_retailers': config['preprocessing']['drop_retailers'],
             'calc_price_using_size': config['preprocessing']['calc_price_using_size'],
             'scanner_expenditure_column': config['preprocessing']['scanner_expenditure_column'],
+            'add_promo': config['preprocessing']['add_promo'],
         }
 
         self.classification = {
@@ -265,6 +266,7 @@ def check_params(
             'start_date': {'type': 'string', 'regex': '([12]\d{3}-(0[1-9]|1[0-2])-01)'},
             'end_date': {'type': 'string', 'regex': '([12]\d{3}-(0[1-9]|1[0-2])-01)'},
             'drop_retailers': {'type': 'boolean'},
+            'add_promo': {'type': 'integer', 'min': 0, 'max': 2},
             # Classification
             'web_scraped_active': {'type': 'boolean'},
             'user_defined_mapper': {'type': 'boolean'},
