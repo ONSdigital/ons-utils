@@ -4,7 +4,7 @@ import copy
 from datetime import datetime
 import logging
 import os
-from typing import Dict, Tuple
+from typing import Dict
 
 # import pyspark libraries
 from pyspark.sql import DataFrame as sparkDF
@@ -18,7 +18,7 @@ def load_input_data(
     spark: SparkSession,
     input_data: dict,
     staged_dir: str,
-) -> Tuple[Dict[dict, sparkDF], sparkDF]:
+) -> Dict[dict, sparkDF]:
     """Load data for processing as specified in the scenario config.
 
     Parameters
@@ -40,9 +40,7 @@ def load_input_data(
         from HDFS for the corresponding table.
     """
     # Create a full copy of the input_data dictionary
-    LC_staged_data = copy.deepcopy(input_data)
-    # Assign None as default in case conventional does not exist
-    AS_staged_data = None
+    staged_data = copy.deepcopy(input_data)
 
     for data_source in input_data:
 
@@ -57,7 +55,7 @@ def load_input_data(
                         item+'.parquet'
                     )
 
-                    LC_staged_data[data_source][supplier][item] = (
+                    staged_data[data_source][supplier][item] = (
                         spark
                         .read
                         .parquet(path)
@@ -68,7 +66,7 @@ def load_input_data(
             for supplier in input_data[data_source]:
                 path = os.path.join(staged_dir, data_source, supplier)
 
-                LC_staged_data[data_source][supplier] = spark.read.parquet(path)
+                staged_data[data_source][supplier] = spark.read.parquet(path)
 
         elif data_source == 'conventional':
             # Currently only single supplier (local_collection) and file
@@ -80,9 +78,9 @@ def load_input_data(
                 'historic_201701_202001.parquet'
             )
 
-            AS_staged_data = spark.read.parquet(path)
+            staged_data[data_source] = spark.read.parquet(path)
 
-    return LC_staged_data, AS_staged_data
+    return staged_data
 
 
 def save_output_hdfs(
