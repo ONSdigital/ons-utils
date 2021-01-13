@@ -52,7 +52,7 @@ def chunk_up(
 def get_chunks(df: pd.DataFrame, chunksize: int) -> List[pd.DataFrame]:
     """Slice a DataFrame into chunks of a given size."""
     lower_bounds = list(range(0, len(df), chunksize))
-    upper_bounds = lower_bounds + chunksize
+    upper_bounds = [lb + chunksize for lb in lower_bounds]
 
     chunks = zip(lower_bounds, upper_bounds)
 
@@ -83,9 +83,9 @@ def _align_chunks(
 
     """
     last_val = chunk[keep_distinct].iloc[-1]
-    is_last_val = f'{keep_distinct} == @last_val'
+    is_last_val = other[keep_distinct].eq(last_val)
 
-    chunk = pd.concat([chunk, other.query(is_last_val)])
-    other = other.query(f'not {is_last_val}')
+    chunk = pd.concat([chunk, other[is_last_val]])
+    other = other[~is_last_val]
 
     return chunk, other
