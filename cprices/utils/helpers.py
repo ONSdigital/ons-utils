@@ -1,21 +1,20 @@
 """Miscellaneous helper functions."""
 # import python libraries
 from functools import reduce
-from typing import Dict
+from typing import Dict, Mapping, Iterator, Any
 
 import pandas as pd
 
 # import pyspark libraries
 from pyspark.sql import DataFrame
-from pyspark.sql import DataFrame as sparkDF
+from pyspark.sql import DataFrame as SparkDF
 from pyspark.sql import functions as F
 from pyspark.sql import SparkSession
 
 
-def find(key, dictionary):
+def find(key: str, dictionary: Mapping[str, Any]) -> Iterator[Any]:
     """
-    Returns all values in a dictionary (with nested dictionaries) that have
-    to the user-specified key.
+    Return all values in a nested dictionary that match key.
 
     Parameters
     ----------
@@ -43,8 +42,8 @@ def find(key, dictionary):
 
 def union_dfs_from_all_scenarios(
     spark: SparkSession,
-    dfs: Dict[str, Dict[str, sparkDF]]
-) -> Dict[str, sparkDF]:
+    dfs: Mapping[str, Mapping[str, SparkDF]]
+) -> Dict[str, SparkDF]:
     """Combine dictionary of spark dataframes into one spark dataframe.
 
     Unions the corresponding dataframes from all scenarios so in the output
@@ -111,6 +110,20 @@ def pd_to_pyspark_df(
     spark,
     df: pd.DataFrame,
     num_partitions: int = 1,
-) -> sparkDF:
+) -> SparkDF:
     """Convert pandas dataframe to spark with specified partitions."""
     return spark.createDataFrame(df).coalesce(num_partitions)
+
+
+def map_column_names(df: SparkDF, mapper: Mapping[str, str]) -> SparkDF:
+    """Map column names to the given values in the mapper.
+
+    If the column name is not in the mapper the name doesn't change.
+    """
+    # def _(df):
+    cols = [
+        F.col(col_name).alias(mapper.get(col_name, col_name))
+        for col_name in df.columns
+    ]
+    return df.select(*cols)
+    # return _
