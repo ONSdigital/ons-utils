@@ -32,7 +32,12 @@ def load_input_data(
         initialised as an empty dictionary {}.
 
     staged_dir: string
-        The path to the HDFS directory from where the staged data is located.
+        The path to the HDFS directory from where the staged webscraped data
+        is located.
+
+    staged_hive: string
+        The path to the HIVE table from where the staged scanner data is
+        located.
 
     Returns
     -------
