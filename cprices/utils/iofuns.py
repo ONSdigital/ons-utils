@@ -18,6 +18,7 @@ def load_input_data(
     spark: SparkSession,
     input_data: dict,
     staged_dir: str,
+    staged_hive: str,
 ) -> Dict[dict, sparkDF]:
     """Load data for processing as specified in the scenario config.
 
@@ -64,9 +65,11 @@ def load_input_data(
         # conventional and scanner data have 2 levels: data_source, supplier
         elif data_source == 'scanner':
             for supplier in input_data[data_source]:
-                path = os.path.join(staged_dir, data_source, supplier)
+                # path = os.path.join(staged_dir, data_source, supplier)
+                path = (staged_hive + data_source + '_' + supplier)
 
-                staged_data[data_source][supplier] = spark.read.parquet(path)
+                # staged_data[data_source][supplier] = spark.read.parquet(path)
+                staged_data[data_source][supplier] = spark.table(path)
 
         elif data_source == 'conventional':
             # Currently only single supplier (local_collection) and file
