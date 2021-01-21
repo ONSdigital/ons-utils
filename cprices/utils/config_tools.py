@@ -110,6 +110,8 @@ class DevConfig:
         self.test_dir = config['directories']['test_dir']
         self.mappers_dir = config['directories']['mappers_dir']
         self.staged_hive = config['directories']['staged_hive']
+        self.scanner_mapper = config['scanner_mapper']
+        self.scanner_data_columns = config['scanner_data_columns']
         self.multi_item_datasets = config['multi_item_datasets']
         self.multi_item_sep_char = config['multi_item_sep_char']
         self.logging_config = config['logging_config']

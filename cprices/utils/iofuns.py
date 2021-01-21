@@ -19,6 +19,8 @@ def load_input_data(
     input_data: dict,
     staged_dir: str,
     staged_hive: str,
+    scanner_data_columns: list,
+    scanner_mapper: dict,
 ) -> Dict[dict, sparkDF]:
     """Load data for processing as specified in the scenario config.
 
@@ -35,9 +37,14 @@ def load_input_data(
         The path to the HDFS directory from where the staged webscraped data
         is located.
 
-    staged_hive: string
-        The path to the HIVE table from where the staged scanner data is
-        located.
+    staged_hive: list
+        List of paths to HIVE tables where the staged scanner data is located.
+
+    scanner_data_columns: list
+        TODO
+
+    scanner_mapper: dict
+        TODO
 
     Returns
     -------
@@ -47,6 +54,11 @@ def load_input_data(
     """
     # Create a full copy of the input_data dictionary
     staged_data = copy.deepcopy(input_data)
+
+#    print(scanner_mapper)
+#    print(type(scanner_mapper))
+#    print(input_data["scanner"])
+#    print(list(input_data["scanner"].keys()))
 
     for data_source in input_data:
 
@@ -70,11 +82,13 @@ def load_input_data(
         # conventional and scanner data have 2 levels: data_source, supplier
         elif data_source == 'scanner':
             for supplier in input_data[data_source]:
+                supplier_path = scanner_mapper.get(supplier)
                 # path = os.path.join(staged_dir, data_source, supplier)
-                path = (staged_hive + data_source + '_' + supplier)
+                path = (staged_hive + supplier_path)
 
-                # staged_data[data_source][supplier] = spark.read.parquet(path)
-                staged_data[data_source][supplier] = spark.table(path)
+                staged_data[data_source][supplier] = spark.sql(
+                    "SELECT " + ",".join(scanner_data_columns) + f" FROM {path}"
+                )
 
         elif data_source == 'conventional':
             # Currently only single supplier (local_collection) and file
