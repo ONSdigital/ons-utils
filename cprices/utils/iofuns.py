@@ -18,7 +18,6 @@ def load_input_data(
     spark: SparkSession,
     input_data: dict,
     staged_dir: str,
-    staged_hive: str,
     scanner_data_columns: list,
     scanner_mapper: dict,
 ) -> Dict[dict, sparkDF]:
@@ -36,9 +35,6 @@ def load_input_data(
     staged_dir: string
         The path to the HDFS directory from where the staged webscraped data
         is located.
-
-    staged_hive: list
-        List of paths to HIVE tables where the staged scanner data is located.
 
     scanner_data_columns: list
         List of columns to be loaded in.
@@ -77,14 +73,10 @@ def load_input_data(
         # conventional and scanner data have 2 levels: data_source, supplier
         elif data_source == 'scanner':
             for supplier in input_data[data_source]:
-                supplier_path = scanner_mapper.get(supplier)
-                # path = os.path.join(staged_dir, data_source, supplier)
-                path = (staged_hive + supplier_path)
+                path = scanner_mapper.get(supplier)
 
                 staged_data[data_source][supplier] = spark.sql(
-                    "SELECT " + ",".join(
-                        scanner_data_columns
-                    ) + f" FROM {path}"
+                    f"SELECT {','.join(scanner_data_columns)} FROM {path}"
                 )
 
         elif data_source == 'conventional':
