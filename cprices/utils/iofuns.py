@@ -45,7 +45,6 @@ def load_input_data(
     Dict[dict, sparkDF]
         Each path of keys leads to a value/spark dataframe as it was read
         from HDFS for the corresponding table.
-        from HDFS for the corresponding table.
     """
     # Create a full copy of the input_data dictionary
     staged_data = copy.deepcopy(input_data)
