@@ -25,27 +25,26 @@ def load_input_data(
 
     Parameters
     ----------
-    spark: spark session
+    spark
+        Spark session.
 
-    input_data: nested dictionary
+    input_data
         Dictionary with all the data sources, suppliers and items. Each
         combination is a path of dictionary keys that lead to a value. This is
         initialised as an empty dictionary {}.
-
-    staged_dir: string
+    staged_dir
         The path to the HDFS directory from where the staged webscraped data
         is located.
-
-    scanner_data_columns: list
+    scanner_data_columns
         List of columns to be loaded in.
-
-    scanner_mapper: dict
+    scanner_mapper
         Mapper to map the supplier to a HIVE table path.
 
     Returns
     -------
-    staged_dir : dictionary of spark dataframes
+    Dict[dict, sparkDF]
         Each path of keys leads to a value/spark dataframe as it was read
+        from HDFS for the corresponding table.
         from HDFS for the corresponding table.
     """
     # Create a full copy of the input_data dictionary
