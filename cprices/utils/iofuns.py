@@ -41,10 +41,10 @@ def load_input_data(
         List of paths to HIVE tables where the staged scanner data is located.
 
     scanner_data_columns: list
-        TODO
+        List of columns to be loaded in.
 
     scanner_mapper: dict
-        TODO
+        Mapper to map the supplier to a HIVE table path.
 
     Returns
     -------
@@ -87,7 +87,9 @@ def load_input_data(
                 path = (staged_hive + supplier_path)
 
                 staged_data[data_source][supplier] = spark.sql(
-                    "SELECT " + ",".join(scanner_data_columns) + f" FROM {path}"
+                    "SELECT " + ",".join(
+                        scanner_data_columns
+                    ) + f" FROM {path}"
                 )
 
         elif data_source == 'conventional':
