@@ -109,6 +109,8 @@ class DevConfig:
         self.processed_dir = config['directories']['processed_dir']
         self.test_dir = config['directories']['test_dir']
         self.mappers_dir = config['directories']['mappers_dir']
+        self.scanner_input_tables = config['scanner_input_tables']
+        self.scanner_data_columns = config['scanner_data_columns']
         self.multi_item_datasets = config['multi_item_datasets']
         self.multi_item_sep_char = config['multi_item_sep_char']
         self.logging_config = config['logging_config']

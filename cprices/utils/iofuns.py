@@ -18,24 +18,31 @@ def load_input_data(
     spark: SparkSession,
     input_data: dict,
     staged_dir: str,
+    scanner_data_columns: list,
+    scanner_input_tables: dict,
 ) -> Dict[dict, sparkDF]:
     """Load data for processing as specified in the scenario config.
 
     Parameters
     ----------
-    spark: spark session
+    spark
+        Spark session.
 
-    input_data: nested dictionary
+    input_data
         Dictionary with all the data sources, suppliers and items. Each
         combination is a path of dictionary keys that lead to a value. This is
         initialised as an empty dictionary {}.
-
-    staged_dir: string
-        The path to the HDFS directory from where the staged data is located.
+    staged_dir
+        The path to the HDFS directory from where the staged webscraped data
+        is located.
+    scanner_data_columns
+        List of columns to be loaded in.
+    scanner_input_tables
+        Dictionary to map the supplier to a HIVE table path.
 
     Returns
     -------
-    staged_dir : dictionary of spark dataframes
+    Dict[dict, sparkDF]
         Each path of keys leads to a value/spark dataframe as it was read
         from HDFS for the corresponding table.
     """
@@ -64,9 +71,11 @@ def load_input_data(
         # conventional and scanner data have 2 levels: data_source, supplier
         elif data_source == 'scanner':
             for supplier in input_data[data_source]:
-                path = os.path.join(staged_dir, data_source, supplier)
+                path = scanner_input_tables.get(supplier)
 
-                staged_data[data_source][supplier] = spark.read.parquet(path)
+                staged_data[data_source][supplier] = spark.sql(
+                    f"SELECT {','.join(scanner_data_columns)} FROM {path}"
+                )
 
         elif data_source == 'conventional':
             # Currently only single supplier (local_collection) and file
@@ -91,15 +100,14 @@ def save_output_hdfs(
 
     Parameters
     ----------
-    dfs: Dictionary of spark dataframes
+    dfs
         The output dataframes from all scenarios to store in HDFS.
-
-    processed_dir: string
+    processed_dir
         It has the path to the HDFS directory where the dfs will be stored.
 
     Returns
     -------
-    run_id: string
+    str
         The unique identifying string for the run, of the form
         current date, time and username (YYYYMMDD_HHMMSS_username).
 
