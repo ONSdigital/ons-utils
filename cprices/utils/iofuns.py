@@ -55,11 +55,6 @@ def load_input_data(
     # Create a full copy of the input_data dictionary
     staged_data = copy.deepcopy(input_data)
 
-#    print(scanner_mapper)
-#    print(type(scanner_mapper))
-#    print(input_data["scanner"])
-#    print(list(input_data["scanner"].keys()))
-
     for data_source in input_data:
 
         # webscraped data has 3 levels: data_source, supplier, item
