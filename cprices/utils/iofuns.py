@@ -4,7 +4,7 @@ import copy
 from datetime import datetime
 import logging
 import os
-from typing import Dict
+from typing import Dict, List
 
 # import pyspark libraries
 from pyspark.sql import DataFrame as sparkDF
@@ -18,8 +18,10 @@ def load_input_data(
     spark: SparkSession,
     input_data: dict,
     staged_dir: str,
-    scanner_data_columns: list,
-    scanner_input_tables: dict,
+    conventional_data_columns: List[str],
+    scanner_data_columns: List[str],
+    scanner_input_tables: Dict[str, str],
+    webscraped_data_columns: List[str],
 ) -> Dict[dict, sparkDF]:
     """Load data for processing as specified in the scenario config.
 
@@ -35,10 +37,14 @@ def load_input_data(
     staged_dir
         The path to the HDFS directory from where the staged webscraped data
         is located.
+    conventional_data_columns
+        List of columns to be loaded in for conventional data.
     scanner_data_columns
-        List of columns to be loaded in.
+        List of columns to be loaded in for scanner data.
     scanner_input_tables
         Dictionary to map the supplier to a HIVE table path.
+    webscraped_data_columns
+        List of columns to be loaded in for web-scraped data.
 
     Returns
     -------
@@ -66,6 +72,7 @@ def load_input_data(
                         spark
                         .read
                         .parquet(path)
+                        .select(webscraped_data_columns)
                     )
 
         # conventional and scanner data have 2 levels: data_source, supplier
@@ -87,7 +94,12 @@ def load_input_data(
                 'historic_201701_202001.parquet'
             )
 
-            staged_data[data_source] = spark.read.parquet(path)
+            staged_data[data_source] = (
+                spark
+                .read
+                .parquet(path)
+                .select(conventional_data_columns)
+            )
 
     return staged_data
 
