@@ -18,6 +18,7 @@ def load_input_data(
     spark: SparkSession,
     input_data: dict,
     staged_dir: str,
+    conventional_data_columns: List[str],
     scanner_data_columns: List[str],
     scanner_input_tables: Dict[str, str],
     webscraped_data_columns: List[str],
