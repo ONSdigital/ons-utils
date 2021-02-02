@@ -36,6 +36,8 @@ def load_input_data(
     staged_dir
         The path to the HDFS directory from where the staged webscraped data
         is located.
+    conventional_data_columns
+        List of columns to be loaded in for conventional data.
     scanner_data_columns
         List of columns to be loaded in for scanner data.
     scanner_input_tables
@@ -91,7 +93,12 @@ def load_input_data(
                 'historic_201701_202001.parquet'
             )
 
-            staged_data[data_source] = spark.read.parquet(path)
+            staged_data[data_source] = (
+                spark
+                .read
+                .parquet(path)
+                .select(conventional_data_columns)
+            )
 
     return staged_data
 

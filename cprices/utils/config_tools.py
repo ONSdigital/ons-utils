@@ -109,6 +109,7 @@ class DevConfig:
         self.processed_dir = config['directories']['processed_dir']
         self.test_dir = config['directories']['test_dir']
         self.mappers_dir = config['directories']['mappers_dir']
+        self.conventional_data_columns = config['conventional_data_columns']
         self.scanner_input_tables = config['scanner_input_tables']
         self.scanner_data_columns = config['scanner_data_columns']
         self.webscraped_data_columns = config['webscraped_data_columns']
