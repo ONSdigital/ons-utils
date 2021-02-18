@@ -284,9 +284,9 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             # Imputation
             'max_cumsum_share': {'type': 'float', 'min': 0, 'max': 1},
             # Indices
-            'base_price_methods': {'type': 'list', 'allowed': base_price_methods_list},
+            'base_price_methods': {'type': 'list', 'allowed': base_price_methods_list, 'nullable': True},
             'index_methods': {'type': 'list', 'allowed': index_methods_list},
-            'multilateral_methods': {'type': 'list', 'allowed': multilateral_methods_list},
+            'multilateral_methods': {'type': 'list', 'allowed': multilateral_methods_list, 'nullable': True},
             'base_period': {'type': 'integer', 'min': 1, 'max': 12},
             'window': {'type': 'integer', 'min': 0},
         }
@@ -447,4 +447,13 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             raise ValueError(
                 f"{scenario}: parameter 'base_period' in indices must be"
                 " an integer representing a month between 1 and 12 inclusive."
+            )
+
+        if not (
+            validating_config.indices['base_price_methods']
+            or validating_config.indices['multilateral_methods']
+        ):
+            raise ValueError(
+                "One of either 'base_price_methods' or 'multilateral_methods'"
+                " must be provided. They can't both be None."
             )
