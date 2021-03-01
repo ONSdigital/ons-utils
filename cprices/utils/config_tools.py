@@ -116,6 +116,7 @@ class DevConfig:
         self.conventional_data_columns = config['conventional_data_columns']
         self.scanner_input_tables = config['scanner_input_tables']
         self.scanner_data_columns = config['scanner_data_columns']
+        self.webscraped_input_tables = config['webscraped_input_tables']
         self.webscraped_data_columns = config['webscraped_data_columns']
         self.multi_item_datasets = config['multi_item_datasets']
         self.multi_item_sep_char = config['multi_item_sep_char']

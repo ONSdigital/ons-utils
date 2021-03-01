@@ -4,7 +4,7 @@ import copy
 from datetime import datetime
 import logging
 import os
-from typing import Dict, List
+from typing import Dict, List, Mapping
 
 # import pyspark libraries
 from pyspark.sql import DataFrame as sparkDF
@@ -20,8 +20,9 @@ def load_input_data(
     staged_dir: str,
     conventional_data_columns: List[str],
     scanner_data_columns: List[str],
-    scanner_input_tables: Dict[str, str],
+    scanner_input_tables: Mapping[str, str],
     webscraped_data_columns: List[str],
+    webscraped_input_tables: Mapping[str, str],
 ) -> Dict[dict, sparkDF]:
     """Load data for processing as specified in the scenario config.
 
@@ -29,7 +30,6 @@ def load_input_data(
     ----------
     spark
         Spark session.
-
     input_data
         Dictionary with all the data sources, suppliers and items. Each
         combination is a path of dictionary keys that lead to a value. This is
@@ -45,6 +45,8 @@ def load_input_data(
         Dictionary to map the supplier to a HIVE table path.
     webscraped_data_columns
         List of columns to be loaded in for web-scraped data.
+    webscraped_input_tables
+        Dictionary to map the supplier+item to a HIVE table path.
 
     Returns
     -------
@@ -61,18 +63,10 @@ def load_input_data(
         if data_source == 'web_scraped':
             for supplier in input_data[data_source]:
                 for item in input_data[data_source][supplier]:
-                    path = os.path.join(
-                        staged_dir,
-                        data_source,
-                        supplier,
-                        item+'.parquet'
-                    )
+                    path = webscraped_input_tables[supplier][item]
 
-                    staged_data[data_source][supplier][item] = (
-                        spark
-                        .read
-                        .parquet(path)
-                        .select(webscraped_data_columns)
+                    staged_data[data_source][supplier][item] = spark.sql(
+                        f"SELECT {','.join(webscraped_data_columns)} FROM {path}"  # noqa E501
                     )
 
         # conventional and scanner data have 2 levels: data_source, supplier
