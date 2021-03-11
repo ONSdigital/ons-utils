@@ -14,38 +14,34 @@ from pyspark.sql import SparkSession
 LOGGER = logging.getLogger()
 
 
-def load_input_data(
-    spark: SparkSession,
+def filter_input_data(
     input_data: dict,
-    staged_dir: str,
-    conventional_data_columns: List[str],
-    scanner_data_columns: List[str],
-    scanner_input_tables: Mapping[str, str],
-    webscraped_data_columns: List[str],
-    webscraped_input_tables: Mapping[str, str],
+    data_source: str,
+) -> dict:
+    """Loop through dictionary and return specified data source."""
+    filtered_data = {i: input_data[i] for i in input_data if i == data_source}
+
+    return filtered_data
+
+
+def load_web_scraped_data(
+    spark: SparkSession,
+    web_scraped_data: dict,
+    web_scraped_data_columns: List[str],
+    web_scraped_input_tables: Mapping[str, str],
 ) -> Dict[dict, sparkDF]:
-    """Load data for processing as specified in the scenario config.
+    """Load web scraped data for processing as specified in scenario config.
 
     Parameters
     ----------
     spark
         Spark session.
-    input_data
-        Dictionary with all the data sources, suppliers and items. Each
-        combination is a path of dictionary keys that lead to a value. This is
-        initialised as an empty dictionary {}.
-    staged_dir
-        The path to the HDFS directory from where the staged webscraped data
+    web_scraped_data
+        Dictionary with all the web scraped suppliers and items.
         is located.
-    conventional_data_columns
-        List of columns to be loaded in for conventional data.
-    scanner_data_columns
-        List of columns to be loaded in for scanner data.
-    scanner_input_tables
-        Dictionary to map the supplier to a HIVE table path.
-    webscraped_data_columns
+    web_scraped_data_columns
         List of columns to be loaded in for web-scraped data.
-    webscraped_input_tables
+    web_scraped_input_tables
         Dictionary to map the supplier+item to a HIVE table path.
 
     Returns
@@ -54,48 +50,106 @@ def load_input_data(
         Each path of keys leads to a value/spark dataframe as it was read
         from HDFS for the corresponding table.
     """
-    # Create a full copy of the input_data dictionary
-    staged_data = copy.deepcopy(input_data)
+    # Create a full copy of the web_scraped_data dictionary
+    web_scraped_staged_data = copy.deepcopy(web_scraped_data)
 
-    for data_source in input_data:
+    # webscraped data has 3 levels: data_source, supplier, item
+    for supplier in web_scraped_data['web_scraped']:
+        for item in web_scraped_data['web_scraped'][supplier]:
+            path = web_scraped_input_tables[supplier][item]
 
-        # webscraped data has 3 levels: data_source, supplier, item
-        if data_source == 'web_scraped':
-            for supplier in input_data[data_source]:
-                for item in input_data[data_source][supplier]:
-                    path = webscraped_input_tables[supplier][item]
-
-                    staged_data[data_source][supplier][item] = spark.sql(
-                        f"SELECT {','.join(webscraped_data_columns)} FROM {path}"  # noqa E501
-                    )
-
-        # conventional and scanner data have 2 levels: data_source, supplier
-        elif data_source == 'scanner':
-            for supplier in input_data[data_source]:
-                path = scanner_input_tables.get(supplier)
-
-                staged_data[data_source][supplier] = spark.sql(
-                    f"SELECT {','.join(scanner_data_columns)} FROM {path}"
-                )
-
-        elif data_source == 'conventional':
-            # Currently only single supplier (local_collection) and file
-            # (historic) available for conventional data
-            path = os.path.join(
-                staged_dir,
-                data_source,
-                'local_collection',
-                'historic_201701_202001.parquet'
+            web_scraped_staged_data['web_scraped'][supplier][item] = spark.sql(
+                f"SELECT {','.join(web_scraped_data_columns)} FROM {path}"  # noqa E501
             )
 
-            staged_data[data_source] = (
-                spark
-                .read
-                .parquet(path)
-                .select(conventional_data_columns)
-            )
+    return web_scraped_staged_data
 
-    return staged_data
+
+def load_scanner_data(
+    spark: SparkSession,
+    scanner_data: dict,
+    scanner_data_columns: List[str],
+    scanner_input_tables: Mapping[str, str],
+) -> Dict[dict, sparkDF]:
+    """Load data for processing as specified in the scenario config.
+
+    Parameters
+    ----------
+    spark
+        Spark session.
+    scanner_data
+        Dictionary with all the scanner suppliers and items.
+    scanner_data_columns
+        List of columns to be loaded in for scanner data.
+    scanner_input_tables
+        Dictionary to map the supplier to a HIVE table path.
+
+    Returns
+    -------
+    Dict[dict, sparkDF]
+        Each path of keys leads to a value/spark dataframe as it was read
+        from HDFS for the corresponding table.
+    """
+    # Create a full copy of the scanner_data dictionary
+    scanner_staged_data = copy.deepcopy(scanner_data)
+
+    # conventional and scanner data have 2 levels: data_source, supplier
+    for supplier in scanner_data['scanner']:
+        path = scanner_input_tables.get(supplier)
+
+        scanner_staged_data['scanner'][supplier] = spark.sql(
+            f"SELECT {','.join(scanner_data_columns)} FROM {path}"
+        )
+
+    return scanner_staged_data
+
+
+def load_conventional_data(
+    spark: SparkSession,
+    conventional_data: dict,
+    staged_dir: str,
+    conventional_data_columns: List[str],
+) -> Dict[dict, sparkDF]:
+    """Load data for processing as specified in the scenario config.
+
+    Parameters
+    ----------
+    spark
+        Spark session.
+    conventional_data
+        Dictionary with all the conventional suppliers and items.
+    staged_dir
+        The path to the HDFS directory from where the conventional data
+        is located.
+    conventional_data_columns
+        List of columns to be loaded in for conventional data.
+
+    Returns
+    -------
+    Dict[dict, sparkDF]
+        Each path of keys leads to a value/spark dataframe as it was read
+        from HDFS for the corresponding table.
+    """
+    # Create a full copy of the conventional_data dictionary
+    conventional_staged_data = copy.deepcopy(conventional_data)
+
+    # Currently only single supplier (local_collection) and file
+    # (historic) available for conventional data
+    path = os.path.join(
+        staged_dir,
+        'conventional',
+        'local_collection',
+        'historic_201701_202001.parquet'
+        )
+
+    conventional_staged_data['conventional'] = (
+        spark
+        .read
+        .parquet(path)
+        .select(conventional_data_columns)
+    )
+
+    return conventional_staged_data
 
 
 def save_output_hdfs(
