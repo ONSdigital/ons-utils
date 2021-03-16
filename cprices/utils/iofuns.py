@@ -139,8 +139,8 @@ def load_conventional_data(
         staged_dir,
         'conventional',
         'local_collection',
-        'historic_201701_202001.parquet'
-        )
+        'historic_201701_202001.parquet',
+    )
 
     conventional_staged_data['conventional'] = (
         spark.read.parquet(path)
