@@ -143,9 +143,7 @@ def load_conventional_data(
         )
 
     conventional_staged_data['conventional'] = (
-        spark
-        .read
-        .parquet(path)
+        spark.read.parquet(path)
         .select(conventional_data_columns)
     )
 
