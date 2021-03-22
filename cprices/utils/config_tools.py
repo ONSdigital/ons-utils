@@ -55,7 +55,7 @@ class ScenarioConfig:
             'calc_p_and_q_using_size': config['preprocessing']['calc_p_and_q_using_size'],
             'scanner_expenditure_column': config['preprocessing']['scanner_expenditure_column'],
             'add_promo': config['preprocessing']['add_promo'],
-            'product_id': config['preprocessing']['product_id'],
+            'product_id_code_column': config['preprocessing']['product_id_code_column'],
         }
 
         self.classification = {
@@ -270,7 +270,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'end_date': {'type': 'string', 'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)'},
             'drop_retailers': {'type': 'boolean'},
             'add_promo': {'type': 'integer', 'min': 0, 'max': 2},
-            'product_id': {'type': 'string', 'allowed': ['ean', 'retail_line_code']},
+            'product_id_code_column': {'type': 'string', 'allowed': ['ean', 'retail_line_code']},
             # Classification
             'web_scraped_active': {'type': 'boolean'},
             'user_defined_mapper': {'type': 'boolean'},
@@ -322,10 +322,11 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 " 2 (Add multibuy promotion to expenditure)."
             )
 
-        if not v.validate({'product_id': validating_config.preprocessing['product_id']}):
+        to_validate = validating_config.preprocessing['product_id_code_column']
+        if not v.validate({'product_id_code_column': to_validate}):
             raise ValueError(
-                f"{scenario}: parameter 'product_id' in preprocessing must be one of:"
-                " {'ean', 'retail_line_code'}."
+                f"{scenario}: parameter 'product_id_code_column' in preprocessing must be one of:"
+                f" {'ean_code', 'retail_line_code'}. Instead got '{to_validate}'."
             )
 
 
