@@ -15,16 +15,6 @@ from pyspark.sql import SparkSession
 LOGGER = logging.getLogger()
 
 
-def filter_input_data(
-    input_data: dict,
-    data_source: str,
-) -> dict:
-    """Loop through dictionary and return specified data source."""
-    filtered_data = {i: input_data[i] for i in input_data if i == data_source}
-
-    return filtered_data
-
-
 def load_web_scraped_data(
     spark: SparkSession,
     config_data: dict,
@@ -52,14 +42,18 @@ def load_web_scraped_data(
     """
     supplier_item_dfs = []
 
+    filtered_data = {
+        i: config_data[i] for i in config_data if i == 'web_scraped'
+    }
+
     # Multiple Hive tables contain the web scraped data for the varying
     # supplier and item combinations. The paths for these tables are
     # specified in the dev config file.
-    for supplier in config_data['web_scraped']:
+    for supplier in filtered_data['web_scraped']:
 
         # Loop through all web scrapped supplier and item combinations.
         # Append data from Hive tables to a list then combine.
-        for item in config_data['web_scraped'][supplier]:
+        for item in filtered_data['web_scraped'][supplier]:
 
             path = config_table_path[supplier][item]
 
@@ -110,9 +104,13 @@ def load_scanner_data(
     """
     retailer_dfs = []
 
+    filtered_data = {
+        i: config_data[i] for i in config_data if i == 'scanner'
+    }
+
     # Multiple Hive tables contain the scanner data for varying retailers.
     # The paths for these tables are specified in the dev config file.
-    for retailer in config_data['scanner']:
+    for retailer in filtered_data['scanner']:
 
         # Loop through all retailers for scanner data.
         # Append data from Hive tables to a list then combine.
