@@ -1,13 +1,14 @@
 """I/O functions for pipeline interaction with HDFS."""
 # import python libraries
-import copy
 from datetime import datetime
+from functools import reduce
 import logging
 import os
 from typing import Dict, List, Mapping
 
 # import pyspark libraries
 from pyspark.sql import DataFrame as sparkDF
+from pyspark.sql.functions import lit
 from pyspark.sql import SparkSession
 
 
@@ -26,128 +27,151 @@ def filter_input_data(
 
 def load_web_scraped_data(
     spark: SparkSession,
-    web_scraped_data: dict,
-    web_scraped_data_columns: List[str],
-    web_scraped_input_tables: Mapping[str, str],
-) -> Dict[dict, sparkDF]:
+    config_data: dict,
+    filtered_columns: List[str],
+    config_table_path: Mapping[str, str],
+) -> sparkDF:
     """Load web scraped data for processing as specified in scenario config.
 
     Parameters
     ----------
     spark
         Spark session.
-    web_scraped_data
-        Dictionary with all the web scraped suppliers and items.
-        is located.
-    web_scraped_data_columns
-        List of columns to be loaded in for web-scraped data.
-    web_scraped_input_tables
-        Dictionary to map the supplier+item to a HIVE table path.
+    config_data
+        Dictionary with the web scraped suppliers and items.
+    filtered_columns
+        List of columns to be loaded from Hive table.
+    config_table_path
+        Dictionary to map the supplier+item to a Hive table path.
 
     Returns
     -------
-    Dict[dict, sparkDF]
-        Each path of keys leads to a value/spark dataframe as it was read
-        from HDFS for the corresponding table.
+    sparkDF
+        A Spark DataFrame containing the web scraped data across
+        all supplier and item combinations.
     """
-    # Create a full copy of the web_scraped_data dictionary
-    web_scraped_staged_data = copy.deepcopy(web_scraped_data)
+    supplier_item_dfs = []
 
-    # webscraped data has 3 levels: data_source, supplier, item
-    for supplier in web_scraped_data['web_scraped']:
-        for item in web_scraped_data['web_scraped'][supplier]:
-            path = web_scraped_input_tables[supplier][item]
+    # Multiple Hive tables contain the web scraped data for the varying
+    # supplier and item combinations. The paths for these tables are
+    # specified in the dev config file.
+    for supplier in config_data['web_scraped']:
 
-            web_scraped_staged_data['web_scraped'][supplier][item] = spark.sql(
-                f"SELECT {','.join(web_scraped_data_columns)} FROM {path}"  # noqa E501
+        # Loop through all web scrapped supplier and item combinations.
+        # Append data from Hive tables to a list then combine.
+        for item in config_data['web_scraped'][supplier]:
+
+            path = config_table_path[supplier][item]
+
+            # Join columns to comma-separated string for the SQL query.
+            variable = "','.join(filtered_columns)"
+            staged_data = spark.sql(
+                f"SELECT {eval(variable)} FROM {path}"  # noqa E501
             )
 
-    return web_scraped_staged_data
+            staged_data = (
+                staged_data
+                .withColumn('supplier', lit(supplier))
+                .withColumn('item', lit(item))
+            )
+
+            supplier_item_dfs.append(staged_data)
+
+    # Use Spark DataFrame column names to union rows.
+    web_scraped_data = reduce(sparkDF.unionByName, supplier_item_dfs)
+
+    return web_scraped_data
 
 
 def load_scanner_data(
     spark: SparkSession,
-    scanner_data: dict,
-    scanner_data_columns: List[str],
-    scanner_input_tables: Mapping[str, str],
-) -> Dict[dict, sparkDF]:
-    """Load data for processing as specified in the scenario config.
+    config_data: dict,
+    filtered_columns: List[str],
+    config_table_path: Mapping[str, str],
+) -> sparkDF:
+    """Load scanner data for processing as specified in scenario config.
 
     Parameters
     ----------
     spark
         Spark session.
-    scanner_data
-        Dictionary with all the scanner suppliers and items.
-    scanner_data_columns
-        List of columns to be loaded in for scanner data.
-    scanner_input_tables
-        Dictionary to map the supplier to a HIVE table path.
+    config_data
+        Dictionary with the scanner retailer data.
+    filtered_columns
+        List of columns to be loaded from Hive table.
+    config_table_path
+        Dictionary to map the retailers to a Hive table path.
 
     Returns
     -------
-    Dict[dict, sparkDF]
-        Each path of keys leads to a value/spark dataframe as it was read
-        from HDFS for the corresponding table.
+    sparkDF
+        A Spark DataFrame containing the scanner data across
+        all retailer combinations.
     """
-    # Create a full copy of the scanner_data dictionary
-    scanner_staged_data = copy.deepcopy(scanner_data)
+    retailer_dfs = []
 
-    # conventional and scanner data have 2 levels: data_source, supplier
-    for supplier in scanner_data['scanner']:
-        path = scanner_input_tables.get(supplier)
+    # Multiple Hive tables contain the scanner data for varying retailers.
+    # The paths for these tables are specified in the dev config file.
+    for retailer in config_data['scanner']:
 
-        scanner_staged_data['scanner'][supplier] = spark.sql(
-            f"SELECT {','.join(scanner_data_columns)} FROM {path}"
+        # Loop through all retailers for scanner data.
+        # Append data from Hive tables to a list then combine.
+        path = config_table_path.get(retailer)
+
+        # Join columns to comma-separated string for the SQL query.
+        variable = "','.join(filtered_columns)"
+        staged_data = spark.sql(
+            f"SELECT {eval(variable)} FROM {path}"  # noqa E501
         )
 
-    return scanner_staged_data
+        staged_data = staged_data.withColumn('retailer', lit(retailer))
+
+        retailer_dfs.append(staged_data)
+
+    # Use Spark DataFrame column names to union rows.
+    scanner_data = reduce(sparkDF.unionByName, retailer_dfs)
+
+    return scanner_data
 
 
 def load_conventional_data(
     spark: SparkSession,
-    conventional_data: dict,
-    staged_dir: str,
-    conventional_data_columns: List[str],
-) -> Dict[dict, sparkDF]:
-    """Load data for processing as specified in the scenario config.
+    filtered_columns: List[str],
+    config_dir_path: str,
+) -> sparkDF:
+    """Load conventional data for processing as specified in scenario config.
 
     Parameters
     ----------
     spark
         Spark session.
-    conventional_data
-        Dictionary with all the conventional suppliers and items.
-    staged_dir
+    filtered_columns
+        List of columns to be loaded in for conventional data.
+    config_dir_path
         The path to the HDFS directory from where the conventional data
         is located.
-    conventional_data_columns
-        List of columns to be loaded in for conventional data.
 
     Returns
     -------
-    Dict[dict, sparkDF]
-        Each path of keys leads to a value/spark dataframe as it was read
-        from HDFS for the corresponding table.
+    sparkDF
+        A Spark DataFrame containing the conventional data as it was read
+        from HDFS.
     """
-    # Create a full copy of the conventional_data dictionary
-    conventional_staged_data = copy.deepcopy(conventional_data)
-
     # Currently only single supplier (local_collection) and file
-    # (historic) available for conventional data
+    # (historic) available for conventional data.
     path = os.path.join(
-        staged_dir,
+        config_dir_path,
         'conventional',
         'local_collection',
         'historic_201701_202001.parquet',
     )
 
-    conventional_staged_data['conventional'] = (
+    staged_data = (
         spark.read.parquet(path)
-        .select(conventional_data_columns)
+        .select(filtered_columns)
     )
 
-    return conventional_staged_data
+    return staged_data
 
 
 def save_output_hdfs(
