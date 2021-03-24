@@ -270,7 +270,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'end_date': {'type': 'string', 'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)'},
             'drop_retailers': {'type': 'boolean'},
             'add_promo': {'type': 'integer', 'min': 0, 'max': 2},
-            'product_id_code_column': {'type': 'string', 'allowed': ['ean', 'retail_line_code']},
+            'product_id_code_column': {'type': 'string', 'allowed': ['ean_code', 'retail_line_code']},
             # Classification
             'web_scraped_active': {'type': 'boolean'},
             'user_defined_mapper': {'type': 'boolean'},
