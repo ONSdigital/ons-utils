@@ -8,7 +8,7 @@ from typing import Dict, List, Mapping
 
 # import pyspark libraries
 from pyspark.sql import DataFrame as sparkDF
-from pyspark.sql.functions import lit
+import pyspark.sql.functions as F
 from pyspark.sql import SparkSession
 
 
@@ -65,8 +65,8 @@ def load_web_scraped_data(
 
             staged_data = (
                 staged_data
-                .withColumn('supplier', lit(supplier))
-                .withColumn('item', lit(item))
+                .withColumn('supplier', F.lit(supplier))
+                .withColumn('item', F.lit(item))
             )
 
             supplier_item_dfs.append(staged_data)
@@ -122,7 +122,7 @@ def load_scanner_data(
             f"SELECT {eval(variable)} FROM {path}"  # noqa E501
         )
 
-        staged_data = staged_data.withColumn('retailer', lit(retailer))
+        staged_data = staged_data.withColumn('retailer', F.lit(retailer))
 
         retailer_dfs.append(staged_data)
 
