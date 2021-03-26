@@ -17,9 +17,9 @@ LOGGER = logging.getLogger()
 
 def load_web_scraped_data(
     spark: SparkSession,
-    config_data: dict,
+    config_data: Mapping[str, Mapping[str, Mapping[str, str]]],
     filtered_columns: List[str],
-    config_table_path: Mapping[str, str],
+    config_table_path: Mapping[str, Mapping[str, str]],
 ) -> SparkDF:
     """Load web scraped data for processing as specified in scenario config.
 
@@ -28,17 +28,16 @@ def load_web_scraped_data(
     spark
         Spark session.
     config_data
-        Dictionary with the web scraped suppliers and items.
+        Nested mapping of suppliers, items, and retailer weights.
     filtered_columns
-        List of columns to be loaded from Hive table.
+        Columns to load from Hive table.
     config_table_path
-        Dictionary to map the supplier+item to a Hive table path.
+        Nested mapping of path to supplier and item Hive table.
 
     Returns
     -------
     SparkDF
-        A Spark DataFrame containing the web scraped data across
-        all supplier and item combinations.
+        Unionised web scraped data across all supplier and item combinations.
     """
     supplier_item_dfs = []
 
@@ -79,7 +78,7 @@ def load_web_scraped_data(
 
 def load_scanner_data(
     spark: SparkSession,
-    config_data: dict,
+    config_data: Mapping[str, str],
     filtered_columns: List[str],
     config_table_path: Mapping[str, str],
 ) -> SparkDF:
@@ -90,17 +89,16 @@ def load_scanner_data(
     spark
         Spark session.
     config_data
-        Dictionary with the scanner retailer data.
+        Nested mapping of retailer weights.
     filtered_columns
-        List of columns to be loaded from Hive table.
+        Columns to load from Hive table.
     config_table_path
-        Dictionary to map the retailers to a Hive table path.
+        Nested mapping of path to retailer Hive table.
 
     Returns
     -------
     SparkDF
-        A Spark DataFrame containing the scanner data across
-        all retailer combinations.
+        Unionised scanner data across all retailer combinations.
     """
     retailer_dfs = []
 
@@ -144,7 +142,7 @@ def load_conventional_data(
     spark
         Spark session.
     filtered_columns
-        List of columns to be loaded in for conventional data.
+        Columns to load from Hive table.
     config_dir_path
         The path to the HDFS directory from where the conventional data
         is located.
@@ -152,8 +150,7 @@ def load_conventional_data(
     Returns
     -------
     SparkDF
-        A Spark DataFrame containing the conventional data as it was read
-        from HDFS.
+        The conventional data as it was read from HDFS.
     """
     # Currently only single supplier (local_collection) and file
     # (historic) available for conventional data.
