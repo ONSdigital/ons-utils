@@ -41,18 +41,14 @@ def load_web_scraped_data(
     """
     supplier_item_dfs = []
 
-    filtered_data = {
-        i: config_data[i] for i in config_data if i == 'web_scraped'
-    }
-
     # Multiple Hive tables contain the web scraped data for the varying
     # supplier and item combinations. The paths for these tables are
     # specified in the dev config file.
-    for supplier in filtered_data['web_scraped']:
+    for supplier in config_data['web_scraped']:
 
         # Loop through all web scrapped supplier and item combinations.
         # Append data from Hive tables to a list then combine.
-        for item in filtered_data['web_scraped'][supplier]:
+        for item in config_data['web_scraped'][supplier]:
 
             path = config_table_path[supplier][item]
 
@@ -102,13 +98,9 @@ def load_scanner_data(
     """
     retailer_dfs = []
 
-    filtered_data = {
-        i: config_data[i] for i in config_data if i == 'scanner'
-    }
-
     # Multiple Hive tables contain the scanner data for varying retailers.
     # The paths for these tables are specified in the dev config file.
-    for retailer in filtered_data['scanner']:
+    for retailer in config_data['scanner']:
 
         # Loop through all retailers for scanner data.
         # Append data from Hive tables to a list then combine.
