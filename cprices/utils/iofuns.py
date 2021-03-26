@@ -55,7 +55,7 @@ def load_web_scraped_data(
             # Join columns to comma-separated string for the SQL query.
             variable = "','.join(filtered_columns)"
             staged_data = spark.sql(
-                f"SELECT {eval(variable)} FROM {path}"  # noqa E501
+                f"SELECT {eval(variable)} FROM {path}"
             )
 
             staged_data = (
@@ -109,7 +109,7 @@ def load_scanner_data(
         # Join columns to comma-separated string for the SQL query.
         variable = "','.join(filtered_columns)"
         staged_data = spark.sql(
-            f"SELECT {eval(variable)} FROM {path}"  # noqa E501
+            f"SELECT {eval(variable)} FROM {path}"
         )
 
         staged_data = staged_data.withColumn('retailer', F.lit(retailer))
