@@ -7,7 +7,7 @@ import os
 from typing import Dict, List, Mapping
 
 # import pyspark libraries
-from pyspark.sql import DataFrame as sparkDF
+from pyspark.sql import DataFrame as SparkDF
 import pyspark.sql.functions as F
 from pyspark.sql import SparkSession
 
@@ -20,7 +20,7 @@ def load_web_scraped_data(
     config_data: dict,
     filtered_columns: List[str],
     config_table_path: Mapping[str, str],
-) -> sparkDF:
+) -> SparkDF:
     """Load web scraped data for processing as specified in scenario config.
 
     Parameters
@@ -36,7 +36,7 @@ def load_web_scraped_data(
 
     Returns
     -------
-    sparkDF
+    SparkDF
         A Spark DataFrame containing the web scraped data across
         all supplier and item combinations.
     """
@@ -72,7 +72,7 @@ def load_web_scraped_data(
             supplier_item_dfs.append(staged_data)
 
     # Use Spark DataFrame column names to union rows.
-    web_scraped_data = reduce(sparkDF.unionByName, supplier_item_dfs)
+    web_scraped_data = reduce(SparkDF.unionByName, supplier_item_dfs)
 
     return web_scraped_data
 
@@ -82,7 +82,7 @@ def load_scanner_data(
     config_data: dict,
     filtered_columns: List[str],
     config_table_path: Mapping[str, str],
-) -> sparkDF:
+) -> SparkDF:
     """Load scanner data for processing as specified in scenario config.
 
     Parameters
@@ -98,7 +98,7 @@ def load_scanner_data(
 
     Returns
     -------
-    sparkDF
+    SparkDF
         A Spark DataFrame containing the scanner data across
         all retailer combinations.
     """
@@ -127,7 +127,7 @@ def load_scanner_data(
         retailer_dfs.append(staged_data)
 
     # Use Spark DataFrame column names to union rows.
-    scanner_data = reduce(sparkDF.unionByName, retailer_dfs)
+    scanner_data = reduce(SparkDF.unionByName, retailer_dfs)
 
     return scanner_data
 
@@ -136,7 +136,7 @@ def load_conventional_data(
     spark: SparkSession,
     filtered_columns: List[str],
     config_dir_path: str,
-) -> sparkDF:
+) -> SparkDF:
     """Load conventional data for processing as specified in scenario config.
 
     Parameters
@@ -151,7 +151,7 @@ def load_conventional_data(
 
     Returns
     -------
-    sparkDF
+    SparkDF
         A Spark DataFrame containing the conventional data as it was read
         from HDFS.
     """
@@ -173,7 +173,7 @@ def load_conventional_data(
 
 
 def save_output_hdfs(
-    dfs: Dict[str, sparkDF],
+    dfs: Dict[str, SparkDF],
     processed_dir: str,
 ) -> str:
     """Store output dataframes (combined across all scenarios) in HDFS.
