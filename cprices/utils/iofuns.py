@@ -1,12 +1,15 @@
 """I/O functions for pipeline interaction with HDFS."""
-# import python libraries
+# Import Python libraries.
 from datetime import datetime
 from functools import reduce
 import logging
 import os
 from typing import Dict, List, Mapping
 
-# import pyspark libraries
+# Import third party libraries.
+from flatten_dict import flatten
+
+# Import Spark libraries.
 from pyspark.sql import DataFrame as SparkDF
 import pyspark.sql.functions as F
 from pyspark.sql import SparkSession
@@ -17,21 +20,23 @@ LOGGER = logging.getLogger()
 
 def load_web_scraped_data(
     spark: SparkSession,
-    config_data: Mapping[str, Mapping[str, Mapping[str, int]]],
+    selected_scenario: Mapping[str, Mapping[str, Mapping[str, int]]],
     filtered_columns: List[str],
     config_table_path: Mapping[str, Mapping[str, str]],
 ) -> SparkDF:
     """Load web scraped data for processing as specified in scenario config.
 
-    Multiple Hive tables contain the web scraped data for the varying
-    supplier and item combinations. The paths for these tables are
-    specified in the dev config file.
+    Several Hive tables contain the web scraped data for the varying supplier
+    and item combinations, and the paths for these tables are specified in the
+    dev config file. The data corresponding to each selected scenario is saved
+    to its own SparkDF, appended to a list, then all the SparkDFs in this list
+    are unionised to output one SparkDF containing all the web scraped data.
 
     Parameters
     ----------
     spark
         Spark session.
-    config_data
+    selected_scenario
         Nested mapping: supplier -> item -> retailer weights.
     filtered_columns
         Columns to load from Hive table.
@@ -45,27 +50,25 @@ def load_web_scraped_data(
     """
     supplier_item_dfs = []
 
-    # Loop through all web scrapped supplier and item combinations.
-    # Append data from Hive tables to a list then combine.
-    for supplier in config_data:
+    # This prevents unpacking nested dict with multiple for loops.
+    selected_data = flatten(selected_scenario, reducer='tuple')
 
-        for item in config_data[supplier]:
+    for supplier, item, retailer in selected_data:
+        path = config_table_path[supplier][item]
 
-            path = config_table_path[supplier][item]
+        # Join columns to comma-separated string for the SQL query.
+        variable = ','.join(filtered_columns)
+        staged_data = spark.sql(
+            f"SELECT {variable} FROM {path}"
+        )
 
-            # Join columns to comma-separated string for the SQL query.
-            variable = ','.join(filtered_columns)
-            staged_data = spark.sql(
-                f"SELECT {variable} FROM {path}"
-            )
+        staged_data = (
+            staged_data
+            .withColumn('supplier', F.lit(supplier))
+            .withColumn('item', F.lit(item))
+        )
 
-            staged_data = (
-                staged_data
-                .withColumn('supplier', F.lit(supplier))
-                .withColumn('item', F.lit(item))
-            )
-
-            supplier_item_dfs.append(staged_data)
+        supplier_item_dfs.append(staged_data)
 
     # Use Spark DataFrame column names to union rows.
     web_scraped_data = reduce(SparkDF.unionByName, supplier_item_dfs)
@@ -75,20 +78,23 @@ def load_web_scraped_data(
 
 def load_scanner_data(
     spark: SparkSession,
-    config_data: Mapping[str, int],
+    selected_scenario: Mapping[str, int],
     filtered_columns: List[str],
     config_table_path: Mapping[str, str],
 ) -> SparkDF:
     """Load scanner data for processing as specified in scenario config.
 
-    Multiple Hive tables contain the scanner data for varying retailers.
-    The paths for these tables are specified in the dev config file.
+    Several Hive tables contain the scanner data for each retailer, and the
+    paths for these tables are specified in the dev config file. The data
+    corresponding to each retailer for the scanner data is saved to its own
+    SparkDF, appended to a list, then all the SparkDFs in this list are
+    unionised to output one SparkDF containing all the scanner data.
 
     Parameters
     ----------
     spark
         Spark session.
-    config_data
+    selected_scenario
         Retailer weights.
     filtered_columns
         Columns to load from Hive table.
@@ -102,9 +108,7 @@ def load_scanner_data(
     """
     retailer_dfs = []
 
-    # Loop through all retailers for scanner data.
-    # Append data from Hive tables to a list then combine.
-    for retailer in config_data:
+    for retailer in selected_scenario:
 
         path = config_table_path[retailer]
 
