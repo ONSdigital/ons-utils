@@ -17,7 +17,7 @@ LOGGER = logging.getLogger()
 
 def load_web_scraped_data(
     spark: SparkSession,
-    config_data: Mapping[str, Mapping[str, Mapping[str, str]]],
+    config_data: Mapping[str, Mapping[str, Mapping[str, int]]],
     filtered_columns: List[str],
     config_table_path: Mapping[str, Mapping[str, str]],
 ) -> SparkDF:
@@ -28,7 +28,7 @@ def load_web_scraped_data(
     spark
         Spark session.
     config_data
-        Nested mapping of suppliers, items, and retailer weights.
+        Nested mapping: supplier -> item -> retailer weights.
     filtered_columns
         Columns to load from Hive table.
     config_table_path
@@ -74,7 +74,7 @@ def load_web_scraped_data(
 
 def load_scanner_data(
     spark: SparkSession,
-    config_data: Mapping[str, str],
+    config_data: Mapping[str, int],
     filtered_columns: List[str],
     config_table_path: Mapping[str, str],
 ) -> SparkDF:
@@ -85,7 +85,7 @@ def load_scanner_data(
     spark
         Spark session.
     config_data
-        Nested mapping of retailer weights.
+        Retailer weights.
     filtered_columns
         Columns to load from Hive table.
     config_table_path
