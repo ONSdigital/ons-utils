@@ -23,6 +23,10 @@ def load_web_scraped_data(
 ) -> SparkDF:
     """Load web scraped data for processing as specified in scenario config.
 
+    Multiple Hive tables contain the web scraped data for the varying
+    supplier and item combinations. The paths for these tables are
+    specified in the dev config file.
+
     Parameters
     ----------
     spark
@@ -41,14 +45,11 @@ def load_web_scraped_data(
     """
     supplier_item_dfs = []
 
-    # Multiple Hive tables contain the web scraped data for the varying
-    # supplier and item combinations. The paths for these tables are
-    # specified in the dev config file.
-    for supplier in config_data['web_scraped']:
+    # Loop through all web scrapped supplier and item combinations.
+    # Append data from Hive tables to a list then combine.
+    for supplier in config_data:
 
-        # Loop through all web scrapped supplier and item combinations.
-        # Append data from Hive tables to a list then combine.
-        for item in config_data['web_scraped'][supplier]:
+        for item in config_data[supplier]:
 
             path = config_table_path[supplier][item]
 
@@ -80,6 +81,9 @@ def load_scanner_data(
 ) -> SparkDF:
     """Load scanner data for processing as specified in scenario config.
 
+    Multiple Hive tables contain the scanner data for varying retailers.
+    The paths for these tables are specified in the dev config file.
+
     Parameters
     ----------
     spark
@@ -98,13 +102,11 @@ def load_scanner_data(
     """
     retailer_dfs = []
 
-    # Multiple Hive tables contain the scanner data for varying retailers.
-    # The paths for these tables are specified in the dev config file.
-    for retailer in config_data['scanner']:
+    # Loop through all retailers for scanner data.
+    # Append data from Hive tables to a list then combine.
+    for retailer in config_data:
 
-        # Loop through all retailers for scanner data.
-        # Append data from Hive tables to a list then combine.
-        path = config_table_path.get(retailer)
+        path = config_table_path[retailer]
 
         # Join columns to comma-separated string for the SQL query.
         variable = "','.join(filtered_columns)"
