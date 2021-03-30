@@ -5,7 +5,7 @@ import os
 import yaml
 
 from cerberus import Validator
-
+from flatten_dict import flatten
 from epds_utils import hdfs
 
 
@@ -44,7 +44,9 @@ class ScenarioConfig:
         self.input_data = {}
         for input_data in config['input_data'].keys():
             if input_data == 'web_scraped':
-                self.input_data[input_data] = iterdict(config['input_data'][input_data])
+                init_dict = iterdict(config['input_data'][input_data])
+                # This prevents unpacking nested dict with multiple for loops.
+                self.input_data[input_data] = flatten(init_dict, reducer='tuple')
             else:
                 self.input_data[input_data] = config['input_data'][input_data]
 

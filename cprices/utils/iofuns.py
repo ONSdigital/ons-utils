@@ -4,10 +4,7 @@ from datetime import datetime
 from functools import reduce
 import logging
 import os
-from typing import Dict, List, Mapping
-
-# Import third party libraries.
-from flatten_dict import flatten
+from typing import Dict, List, Mapping, Tuple
 
 # Import Spark libraries.
 from pyspark.sql import DataFrame as SparkDF
@@ -20,7 +17,7 @@ LOGGER = logging.getLogger()
 
 def load_web_scraped_data(
     spark: SparkSession,
-    selected_scenario: Mapping[str, Mapping[str, Mapping[str, int]]],
+    selected_scenario: Mapping[Tuple[str, str, str], float],
     filtered_columns: List[str],
     config_table_path: Mapping[str, Mapping[str, str]],
 ) -> SparkDF:
@@ -37,7 +34,7 @@ def load_web_scraped_data(
     spark
         Spark session.
     selected_scenario
-        Nested mapping: supplier -> item -> retailer weights.
+        The weights for each supplier, item and retailer in a flattened dict.
     filtered_columns
         Columns to load from Hive table.
     config_table_path
@@ -50,10 +47,7 @@ def load_web_scraped_data(
     """
     supplier_item_dfs = []
 
-    # This prevents unpacking nested dict with multiple for loops.
-    selected_data = flatten(selected_scenario, reducer='tuple')
-
-    for supplier, item, retailer in selected_data:
+    for supplier, item, retailer in selected_scenario:
         path = config_table_path[supplier][item]
 
         # Join columns to comma-separated string for the SQL query.
@@ -78,7 +72,7 @@ def load_web_scraped_data(
 
 def load_scanner_data(
     spark: SparkSession,
-    selected_scenario: Mapping[str, int],
+    selected_scenario: Mapping[str, float],
     filtered_columns: List[str],
     config_table_path: Mapping[str, str],
 ) -> SparkDF:
