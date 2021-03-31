@@ -1,15 +1,25 @@
-"""I/O functions for pipeline interaction with HDFS."""
-# Import Python libraries.
+"""Load and save functions for pipeline interaction with HDFS and HUE.
+
+* Webscraped and scanner data is read in from Hive tables.
+* Conventional data is read in from a parquet file in the staged data
+  directory in HDFS.
+* Outputs are saved in a sub-directoy of the processed data directory in
+  HDFS, named after the run_id which is a combination of current
+  datetime and name of the user running the pipeline.
+    - Analysis outputs are saved as CSVs.
+    - All other outputs are saved as parquets.
+"""
 from datetime import datetime
 from functools import reduce
 import logging
 import os
-from typing import Dict, List, Mapping, Tuple
+from typing import Mapping, Tuple, Optional, Sequence
 
-# Import Spark libraries.
-from pyspark.sql import DataFrame as SparkDF
-import pyspark.sql.functions as F
-from pyspark.sql import SparkSession
+from pyspark.sql import (
+    DataFrame as SparkDF,
+    functions as F,
+    SparkSession,
+)
 
 
 LOGGER = logging.getLogger()
@@ -17,154 +27,157 @@ LOGGER = logging.getLogger()
 
 def load_web_scraped_data(
     spark: SparkSession,
+    # NOTE: change type hint when weights removed from scenario file.
     selected_scenario: Mapping[Tuple[str, str, str], float],
-    filtered_columns: List[str],
-    config_table_path: Mapping[str, Mapping[str, str]],
+    columns: Sequence[str],
+    table_paths: Mapping[str, Mapping[str, str]],
 ) -> SparkDF:
-    """Load web scraped data for processing as specified in scenario config.
+    """Load webscraped data as specified in scenario config.
 
-    Several Hive tables contain the web scraped data for the varying supplier
-    and item combinations, and the paths for these tables are specified in the
-    dev config file. The data corresponding to each selected scenario is saved
-    to its own SparkDF, appended to a list, then all the SparkDFs in this list
-    are unionised to output one SparkDF containing all the web scraped data.
+    Returns a single DataFrame with additional columns to identify the
+    chosen suppliers and items. The suppliers and items chosen in the
+    scenario file are used as the lookup keys for the Hive Tables,
+    listed under "webscraped_input_tables" in the dev config file.
 
     Parameters
     ----------
-    spark
-        Spark session.
     selected_scenario
-        The weights for each supplier, item and retailer in a flattened dict.
-    filtered_columns
+        Mapping of (supplier, item, retailer) -> weight. From
+        "input_data" in scenario file.
+
+        The weights are unused and will soon be implemented differently
+        and removed from the scenario file. Only the supplier and item
+        keys are used by the function.
+    columns
         Columns to load from Hive table.
-    config_table_path
-        Nested mapping of path to supplier and item Hive table.
+    table_paths
+        Nested mapping of path -> supplier -> Hive table path. Table
+        paths are in the the format "database_name.table_name".
 
     Returns
     -------
     SparkDF
-        Unionised web scraped data across all supplier and item combinations.
+        Selected webscraped data with differentiating supplier and item
+        columns.
+
     """
     supplier_item_dfs = []
 
-    for supplier, item, retailer in selected_scenario:
-        path = config_table_path[supplier][item]
+    for supplier, item, _ in selected_scenario:
+        # Grab the table path as specified by the user scenario.
+        table_path = table_paths[supplier][item]
+        df = read_hive_table(spark, table_path, columns)
 
-        # Join columns to comma-separated string for the SQL query.
-        variable = ','.join(filtered_columns)
-        staged_data = spark.sql(
-            f"SELECT {variable} FROM {path}"
-        )
+        # Add columns to retain data origin after union step.
+        df = df.withColumn('supplier', F.lit(supplier))
+        df = df.withColumn('item', F.lit(item))
 
-        staged_data = (
-            staged_data
-            .withColumn('supplier', F.lit(supplier))
-            .withColumn('item', F.lit(item))
-        )
+        supplier_item_dfs.append(df)
 
-        supplier_item_dfs.append(staged_data)
-
-    # Use Spark DataFrame column names to union rows.
-    web_scraped_data = reduce(SparkDF.unionByName, supplier_item_dfs)
-
-    return web_scraped_data
+    # DataFrames should have the same schema so union all in the list.
+    return reduce(SparkDF.union, supplier_item_dfs)
 
 
 def load_scanner_data(
     spark: SparkSession,
+    # NOTE: change type hint when weights removed from scenario file.
     selected_scenario: Mapping[str, float],
-    filtered_columns: List[str],
-    config_table_path: Mapping[str, str],
+    columns: Sequence[str],
+    table_paths: Mapping[str, str],
 ) -> SparkDF:
-    """Load scanner data for processing as specified in scenario config.
+    """Load scanner data as specified in scenario config.
 
-    Several Hive tables contain the scanner data for each retailer, and the
-    paths for these tables are specified in the dev config file. The data
-    corresponding to each retailer for the scanner data is saved to its own
-    SparkDF, appended to a list, then all the SparkDFs in this list are
-    unionised to output one SparkDF containing all the scanner data.
+    Returns a single DataFrame with an additional column to identify the
+    chosen retailers. The retailers chosen in the scenario file are used
+    as the lookup keys for the Hive Tables, listed under
+    "scanner_input_tables" in the dev config file.
 
     Parameters
     ----------
-    spark
-        Spark session.
     selected_scenario
-        Retailer weights.
-    filtered_columns
+        Mapping of retailer -> weight. From "input_data" in scenario
+        file.
+
+        The weights are unused and will soon be implemented differently
+        and removed from the scenario file. Only the retailer key is
+        used by the function.
+    columns
         Columns to load from Hive table.
-    config_table_path
-        Nested mapping of path to retailer Hive table.
+    table_paths
+        Mapping of retailer -> Hive table path. Table paths are in the
+        the format "database_name.table_name".
 
     Returns
     -------
     SparkDF
-        Unionised scanner data across all retailer combinations.
+        Selected scanner data with differentiating retailer column.
+
     """
     retailer_dfs = []
 
     for retailer in selected_scenario:
+        # Grab the table path as specified by the user scenario.
+        table_path = table_paths[retailer]
+        df = read_hive_table(spark, table_path, columns)
 
-        path = config_table_path[retailer]
+        # Add columns to retain data origin after union step.
+        df = df.withColumn('retailer', F.lit(retailer))
 
-        # Join columns to comma-separated string for the SQL query.
-        variable = ','.join(filtered_columns)
-        staged_data = spark.sql(
-            f"SELECT {variable} FROM {path}"
-        )
+        retailer_dfs.append(df)
 
-        staged_data = staged_data.withColumn('retailer', F.lit(retailer))
+    # DataFrames should have the same schema so union all in the list.
+    return reduce(SparkDF.union, retailer_dfs)
 
-        retailer_dfs.append(staged_data)
 
-    # Use Spark DataFrame column names to union rows.
-    scanner_data = reduce(SparkDF.unionByName, retailer_dfs)
+def read_hive_table(
+    spark: SparkSession,
+    table_path: str,
+    columns: Optional[Sequence[str]] = None,
+) -> SparkDF:
+    """Read Hive table given table path and column selection.
 
-    return scanner_data
+    Parameters
+    ----------
+    table_path : str
+        Hive table path in format "database_name.table_name".
+    columns : list of str, optional
+        The column selection. Selects all columns if None passed.
+
+    """
+    # Join columns to comma-separated string for the SQL query.
+    selection = ','.join(columns) if columns else '*'
+
+    return spark.sql(f"SELECT {selection} FROM {table_path}")
 
 
 def load_conventional_data(
     spark: SparkSession,
-    filtered_columns: List[str],
-    config_dir_path: str,
+    columns: Sequence[str],
+    dir_path: str,
 ) -> SparkDF:
-    """Load conventional data for processing as specified in scenario config.
+    """Load conventional price collection data.
 
     Parameters
     ----------
-    spark
-        Spark session.
-    filtered_columns
+    columns
         Columns to load from Hive table.
-    config_dir_path
-        The path to the HDFS directory from where the conventional data
-        is located.
+    dir_path
+        Path to the staged data directory on HDFS.
 
-    Returns
-    -------
-    SparkDF
-        The conventional data as it was read from HDFS.
     """
     # Currently only single supplier (local_collection) and file
     # (historic) available for conventional data.
     path = os.path.join(
-        config_dir_path,
+        dir_path,
         'conventional',
         'local_collection',
         'historic_201701_202001.parquet',
     )
 
-    staged_data = (
-        spark.read.parquet(path)
-        .select(filtered_columns)
-    )
-
-    return staged_data
+    return spark.read.parquet(path).select(columns)
 
 
-def save_output_hdfs(
-    dfs: Dict[str, SparkDF],
-    processed_dir: str,
-) -> str:
+def save_output_hdfs(dfs: Mapping[str, SparkDF], processed_dir: str) -> str:
     """Store output dataframes (combined across all scenarios) in HDFS.
 
     Parameters
