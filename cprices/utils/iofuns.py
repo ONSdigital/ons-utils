@@ -14,7 +14,7 @@ from datetime import datetime
 from functools import reduce
 import logging
 import os
-from typing import Mapping, Tuple, Optional, Sequence
+from typing import Mapping, Optional, Sequence
 
 from pyspark.sql import (
     DataFrame as SparkDF,
@@ -28,8 +28,7 @@ LOGGER = logging.getLogger()
 
 def load_web_scraped_data(
     spark: SparkSession,
-    # NOTE: change type hint when weights removed from scenario file.
-    selected_scenario: Mapping[Tuple[str, str, str], float],
+    selected_scenario: Mapping[str, Sequence[str]],
     columns: Sequence[str],
     table_paths: Mapping[str, Mapping[str, str]],
 ) -> SparkDF:
@@ -43,12 +42,8 @@ def load_web_scraped_data(
     Parameters
     ----------
     selected_scenario
-        Mapping of (supplier, item, retailer) -> weight. From
-        "input_data" in scenario file.
-
-        The weights are unused and will soon be implemented differently
-        and removed from the scenario file. Only the supplier and item
-        keys are used by the function.
+        Mapping of supplier -> sequence of items from "input_data" in
+        scenario file.
     columns
         Columns to load from Hive table.
     table_paths
@@ -64,29 +59,25 @@ def load_web_scraped_data(
     """
     supplier_item_dfs = []
 
-    for supplier, item, _ in selected_scenario:
-        # Grab the table path as specified by the user scenario.
-        table_path = table_paths[supplier][item]
-        df = read_hive_table(spark, table_path, columns)
+    for supplier, items in selected_scenario.items():
+        for item in items:
+            # Grab the table path as specified by the user scenario.
+            table_path = table_paths[supplier][item]
+            df = read_hive_table(spark, table_path, columns)
 
-        # Add columns to retain data origin after union step.
-        df = df.withColumn('supplier', F.lit(supplier))
-        df = df.withColumn('item', F.lit(item))
+            # Add columns to retain data origin after union step.
+            df = df.withColumn('supplier', F.lit(supplier))
+            df = df.withColumn('item', F.lit(item))
 
-        supplier_item_dfs.append(df)
+            supplier_item_dfs.append(df)
 
     # DataFrames should have the same schema so union all in the list.
-    # Because of the current setup, where we're using the weights
-    # unnecessarily, it reads in duplicates of the tables since supplier
-    # and item are duplicated for each retailer.
-    # TODO: remove dropDuplicates() when weights are changed.
-    return reduce(SparkDF.union, supplier_item_dfs).dropDuplicates()
+    return reduce(SparkDF.union, supplier_item_dfs)
 
 
 def load_scanner_data(
     spark: SparkSession,
-    # NOTE: change type hint when weights removed from scenario file.
-    selected_scenario: Mapping[str, float],
+    selected_scenario: Sequence[str],
     columns: Sequence[str],
     table_paths: Mapping[str, str],
 ) -> SparkDF:
@@ -100,12 +91,7 @@ def load_scanner_data(
     Parameters
     ----------
     selected_scenario
-        Mapping of retailer -> weight. From "input_data" in scenario
-        file.
-
-        The weights are unused and will soon be implemented differently
-        and removed from the scenario file. Only the retailer key is
-        used by the function.
+        Sequence of chosen retailers from "input_data" in scenario file.
     columns
         Columns to load from Hive table.
     table_paths

@@ -5,7 +5,6 @@ import os
 import yaml
 
 from cerberus import Validator
-from flatten_dict import flatten
 from epds_utils import hdfs
 
 
@@ -25,32 +24,12 @@ class ScenarioConfig:
 
     def __init__(self, config_path):
         """Init the scenario config."""
-        # NOTE: Iterdict can be deleted when weights are removed from config.
-        def iterdict(d):
-            """Evaluate the fractions given in the weights inplace."""
-            for k, v in d.items():
-                if isinstance(v, dict):
-                    iterdict(v)
-                else:
-                    if type(v) == str:
-                        v = eval(v)
-                    d.update({k: v})
-            return d
-
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
 
-
-#        config['input_data']['web_scraped'] = iterdict(config['input_data']['web_scraped'])
-
         self.input_data = {}
-        for input_data in config['input_data'].keys():
-            if input_data == 'web_scraped':
-                init_dict = iterdict(config['input_data'][input_data])
-                # This prevents unpacking nested dict with multiple for loops.
-                self.input_data[input_data] = flatten(init_dict, reducer='tuple')
-            else:
-                self.input_data[input_data] = config['input_data'][input_data]
+        for source in config['input_data'].keys():
+            self.input_data[source] = config['input_data'][source]
 
         self.preprocessing = {
             'start_date': str(config['preprocessing']['start_date']),
