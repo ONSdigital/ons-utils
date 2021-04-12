@@ -3,11 +3,12 @@
 * Webscraped and scanner data is read in from Hive tables.
 * Conventional data is read in from a parquet file in the staged data
   directory in HDFS.
-* Outputs are saved in a sub-directoy of the processed data directory in
-  HDFS, named after the run_id which is a combination of current
+* Outputs are saved in a sub-directory of the processed data directory
+  in HDFS, named after the run_id which is a combination of current
   datetime and name of the user running the pipeline.
     - Analysis outputs are saved as CSVs.
     - All other outputs are saved as parquets.
+
 """
 from datetime import datetime
 from functools import reduce
