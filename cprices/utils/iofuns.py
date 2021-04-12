@@ -76,7 +76,11 @@ def load_web_scraped_data(
         supplier_item_dfs.append(df)
 
     # DataFrames should have the same schema so union all in the list.
-    return reduce(SparkDF.union, supplier_item_dfs)
+    # Because of the current setup, where we're using the weights
+    # unnecessarily, it reads in duplicates of the tables since supplier
+    # and item are duplicated for each retailer.
+    # TODO: remove dropDuplicates() when weights are changed.
+    return reduce(SparkDF.union, supplier_item_dfs).dropDuplicates()
 
 
 def load_scanner_data(
