@@ -25,7 +25,9 @@ class ScenarioConfig:
 
     def __init__(self, config_path):
         """Init the scenario config."""
+        # NOTE: Iterdict can be deleted when weights are removed from config.
         def iterdict(d):
+            """Evaluate the fractions given in the weights inplace."""
             for k, v in d.items():
                 if isinstance(v, dict):
                     iterdict(v)
