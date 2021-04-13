@@ -48,16 +48,9 @@ class ScenarioConfig:
             else:
                 self.input_data[input_data] = config['input_data'][input_data]
 
-        self.preprocessing = {
-            'start_date': str(config['preprocessing']['start_date']),
-            'end_date': str(config['preprocessing']['end_date']),
-            'drop_retailers': config['preprocessing']['drop_retailers'],
-            'calc_p_and_q_using_size': config['preprocessing']['calc_p_and_q_using_size'],
-            'scanner_expenditure_column': config['preprocessing']['scanner_expenditure_column'],
-            'add_promo': config['preprocessing']['add_promo'],
-            'product_id_code_column': config['preprocessing']['product_id_code_column'],
-            'date_trim_strategy': config['preprocessing']['date_trim_strategy'],
-        }
+        self.preprocessing = config['preprocessing']
+        self.preprocessing['start_date'] = str(self.preprocessing['start_date'])
+        self.preprocessing['end_date'] = str(self.preprocessing['end_date'])
 
         self.classification = {
             'web_scraped_active': config['classification']['web_scraped_active'],
