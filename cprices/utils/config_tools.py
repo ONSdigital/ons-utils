@@ -221,14 +221,6 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 msg = f'{scenario}: {key} does not appear among the config parameters.'
                 raise Exception(msg)
 
-        date_trim_strategies = {
-            'full_weeks',
-            'first_full_week',
-            'first_2_full_weeks',
-            'first_3_full_weeks',
-            'mid_2_full_weeks',
-        }
-
         outlier_methods_list = [
             'tukey',
             'kimber',
@@ -273,7 +265,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'drop_retailers': {'type': 'boolean'},
             'add_promo': {'type': 'integer', 'min': 0, 'max': 2},
             'product_id_code_column': {'type': 'string', 'allowed': ['ean_code', 'retail_line_code']},
-            'date_trim_strategy': {'type': 'string', 'allowed': date_trim_strategies},
+            'week_selection': {'type': 'list', 'allowed': [1, 2, 3, 4], 'nullable': True},
             # Classification
             'web_scraped_active': {'type': 'boolean'},
             'user_defined_mapper': {'type': 'boolean'},
@@ -332,11 +324,11 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 f" {{'ean_code', 'retail_line_code'}}. Instead got '{to_validate}'."
             )
 
-        to_validate = validating_config.preprocessing['date_trim_strategy']
-        if not v.validate({'date_trim_strategy': to_validate}):
+        to_validate = validating_config.preprocessing['week_selection']
+        if not v.validate({'week_selection': to_validate}):
             raise ValueError(
-                f"{scenario}: parameter 'date_trim_strategy' in preprocessing must be one of:"
-                f" {date_trim_strategies}. Instead got '{to_validate}'."
+                f"{scenario}: parameter 'week_selection' in preprocessing should be a combination"
+                f" of integers [1, 2, 3, 4]. Instead got '{to_validate}'."
             )
 
 
