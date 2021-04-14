@@ -34,7 +34,6 @@ class ScenarioConfig:
         self.preprocessing = {
             'start_date': str(config['preprocessing']['start_date']),
             'end_date': str(config['preprocessing']['end_date']),
-            'drop_retailers': config['preprocessing']['drop_retailers'],
             'calc_p_and_q_using_size': config['preprocessing']['calc_p_and_q_using_size'],
             'scanner_expenditure_column': config['preprocessing']['scanner_expenditure_column'],
             'add_promo': config['preprocessing']['add_promo'],
@@ -92,10 +91,7 @@ class DevConfig:
             config = yaml.safe_load(f)
 
         self.groupby_cols = config['groupby_cols']
-        self.staged_dir = config['directories']['staged_dir']
-        self.processed_dir = config['directories']['processed_dir']
-        self.test_dir = config['directories']['test_dir']
-        self.mappers_dir = config['directories']['mappers_dir']
+        self.__dict__.update(config['directories'])
         self.conventional_data_columns = config['conventional_data_columns']
         self.scanner_input_tables = config['scanner_input_tables']
         self.scanner_data_columns = config['scanner_data_columns']
@@ -250,7 +246,6 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             # Preprocessing
             'start_date': {'type': 'string', 'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)'},
             'end_date': {'type': 'string', 'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)'},
-            'drop_retailers': {'type': 'boolean'},
             'add_promo': {'type': 'integer', 'min': 0, 'max': 2},
             # Classification
             'web_scraped_active': {'type': 'boolean'},
@@ -289,11 +284,6 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             raise ValueError(
                 f"{scenario}: parameter 'end_date' in preprocessing must be"
                 " a string in the format YYYY-MM-01"
-            )
-
-        if not v.validate({'drop_retailers': validating_config.preprocessing['drop_retailers']}):
-            raise ValueError(
-                f"{scenario}: parameter 'drop_retailers' in preprocessing must be a boolean"
             )
 
 
