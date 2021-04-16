@@ -2,11 +2,14 @@
 from datetime import datetime
 from logging.config import dictConfig
 import os
+from typing import Mapping, Sequence
 import yaml
 
 from cerberus import Validator
 from flatten_dict import flatten
 from epds_utils import hdfs
+import pandas as pd
+from pyspark.sql import DataFrame as SparkDF
 
 
 class SelectedScenarioConfig:
@@ -72,6 +75,10 @@ class ScenarioConfig:
             'log_transform': config['outlier_detection']['log_transform'],
             'method': config['outlier_detection']['method'],
             'k': config['outlier_detection']['k'],
+        }
+        # Convert fences values to tuple.
+        self.outlier_detection['fences'] = {
+            k: tuple(v) for k, v in self.outlier_detection['fences']
         }
 
         self.averaging = {
