@@ -15,7 +15,6 @@ from datetime import datetime
 from functools import reduce
 import logging
 import os
-from codetiming import Timer
 from typing import Mapping, Tuple, Optional, Sequence
 
 # Import PySpark libraries.
@@ -24,9 +23,6 @@ from pyspark.sql import (
     functions as F,
     SparkSession,
 )
-
-# Import local modules.
-from cprices.utils import helpers
 
 
 LOGGER = logging.getLogger()
@@ -38,7 +34,7 @@ def load_web_scraped_data(
     selected_scenario: Mapping[Tuple[str, str, str], float],
     columns: Sequence[str],
     table_paths: Mapping[str, Mapping[str, str]],
-) -> Tuple[SparkDF, float]:
+) -> SparkDF:
     """Load webscraped data as specified in scenario config.
 
     Returns a single DataFrame with additional columns to identify the
@@ -63,38 +59,31 @@ def load_web_scraped_data(
 
     Returns
     -------
-    Tuple[SparkDF, float]
-
-        * At index[0] Selected webscraped data with differentiating supplier
-          and item columns.
-        * At index[1] the run times for the module.
+    SparkDF
+        Selected webscraped data with differentiating supplier and item
+        columns.
     """
-    with Timer(**helpers.timer_args('load')):
+    dfs = []
 
-        dfs = []
+    for supplier, item, _ in selected_scenario:
+        # Grab the table path as specified by the user scenario.
+        table_path = table_paths[supplier][item]
+        df = read_hive_table(spark, table_path, columns)
 
-        for supplier, item, _ in selected_scenario:
-            # Grab the table path as specified by the user scenario.
-            table_path = table_paths[supplier][item]
-            df = read_hive_table(spark, table_path, columns)
+        # Add columns to retain data origin after union step.
+        df = df.withColumn('supplier', F.lit(supplier))
+        df = df.withColumn('item', F.lit(item))
 
-            # Add columns to retain data origin after union step.
-            df = df.withColumn('supplier', F.lit(supplier))
-            df = df.withColumn('item', F.lit(item))
+        dfs.append(df)
 
-            dfs.append(df)
+    # DataFrames should have the same schema so union all in the list.
+    # Because of the current setup, where we're using the weights
+    # unnecessarily, it reads in duplicates of the tables since supplier
+    # and item are duplicated for each retailer.
+    # TODO: remove dropDuplicates() when weights are changed.
+    web_scraped_data = reduce(SparkDF.union, dfs).dropDuplicates()
 
-        # DataFrames should have the same schema so union all in the list.
-        # Because of the current setup, where we're using the weights
-        # unnecessarily, it reads in duplicates of the tables since supplier
-        # and item are duplicated for each retailer.
-        # TODO: remove dropDuplicates() when weights are changed.
-        web_scraped_data = reduce(SparkDF.union, dfs).dropDuplicates()
-
-    web_scraped_timer = dict(Timer.timers)
-    Timer.timers.clear()
-
-    return web_scraped_data, web_scraped_timer
+    return web_scraped_data
 
 
 def load_scanner_data(
@@ -103,7 +92,7 @@ def load_scanner_data(
     selected_scenario: Mapping[str, float],
     columns: Sequence[str],
     table_paths: Mapping[str, str],
-) -> Tuple[SparkDF, float]:
+) -> SparkDF:
     """Load scanner data as specified in scenario config.
 
     Returns a single DataFrame with an additional column to identify the
@@ -128,33 +117,25 @@ def load_scanner_data(
 
     Returns
     -------
-    Tuple[SparkDF, float]
-
-        * At index[0] Selected scanner data with differentiating retailer
-          column.
-        * At index[1] the run times for the module.
+    SparkDF
+        Selected scanner data with differentiating retailer column.
     """
-    with Timer(**helpers.timer_args('load')):
+    dfs = []
 
-        dfs = []
+    for retailer in selected_scenario:
+        # Grab the table path as specified by the user scenario.
+        table_path = table_paths[retailer]
+        df = read_hive_table(spark, table_path, columns)
 
-        for retailer in selected_scenario:
-            # Grab the table path as specified by the user scenario.
-            table_path = table_paths[retailer]
-            df = read_hive_table(spark, table_path, columns)
+        # Add columns to retain data origin after union step.
+        df = df.withColumn('retailer', F.lit(retailer))
 
-            # Add columns to retain data origin after union step.
-            df = df.withColumn('retailer', F.lit(retailer))
+        dfs.append(df)
 
-            dfs.append(df)
+    # DataFrames should have the same schema so union all in the list.
+    scanner_data = reduce(SparkDF.union, dfs)
 
-        # DataFrames should have the same schema so union all in the list.
-        scanner_data = reduce(SparkDF.union, dfs)
-
-    scanner_timer = dict(Timer.timers)
-    Timer.timers.clear()
-
-    return scanner_data, scanner_timer
+    return scanner_data
 
 
 def read_hive_table(
