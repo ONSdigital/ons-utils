@@ -4,7 +4,11 @@ import itertools
 from typing import Mapping, Any, Sequence, Callable, Union
 
 from py4j.protocol import Py4JError
-from pyspark.sql import Column as SparkCol
+from pyspark.sql import (
+    Column as SparkCol,
+    Window,
+    WindowSpec,
+)
 from pyspark.sql.functions import lit, create_map, col, array
 
 
@@ -64,3 +68,19 @@ def map_col(col_name: str, mapping: Mapping[Any, Any]) -> SparkCol:
 def is_list_or_tuple(x):
     """Return True if list or tuple."""
     return isinstance(x, tuple) or isinstance(x, list)
+
+
+def get_window_spec(levels: Sequence[str] = None) -> WindowSpec:
+    """Return WindowSpec partitioned by levels, defaulting to whole df."""
+    if not levels:
+        return whole_frame_window()
+    else:
+        return Window.partitionBy(levels)
+
+
+def whole_frame_window() -> WindowSpec:
+    """Return WindowSpec for whole DataFrame."""
+    return Window.rowsBetween(
+        Window.unboundedPreceding,
+        Window.unboundedFollowing,
+    )
