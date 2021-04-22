@@ -81,9 +81,8 @@ def load_web_scraped_data(
     # unnecessarily, it reads in duplicates of the tables since supplier
     # and item are duplicated for each retailer.
     # TODO: remove dropDuplicates() when weights are changed.
-    web_scraped_data = reduce(SparkDF.union, dfs).dropDuplicates()
 
-    return web_scraped_data
+    return reduce(SparkDF.union, dfs).dropDuplicates()
 
 
 def load_scanner_data(
@@ -133,9 +132,8 @@ def load_scanner_data(
         dfs.append(df)
 
     # DataFrames should have the same schema so union all in the list.
-    scanner_data = reduce(SparkDF.union, dfs)
 
-    return scanner_data
+    return reduce(SparkDF.union, dfs)
 
 
 def read_hive_table(
