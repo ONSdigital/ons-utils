@@ -10,12 +10,14 @@
     - All other outputs are saved as parquets.
 
 """
+# Import Python libraries.
 from datetime import datetime
 from functools import reduce
 import logging
 import os
 from typing import Mapping, Tuple, Optional, Sequence
 
+# Import PySpark libraries.
 from pyspark.sql import (
     DataFrame as SparkDF,
     functions as F,
@@ -60,9 +62,8 @@ def load_web_scraped_data(
     SparkDF
         Selected webscraped data with differentiating supplier and item
         columns.
-
     """
-    supplier_item_dfs = []
+    dfs = []
 
     for supplier, item, _ in selected_scenario:
         # Grab the table path as specified by the user scenario.
@@ -73,14 +74,15 @@ def load_web_scraped_data(
         df = df.withColumn('supplier', F.lit(supplier))
         df = df.withColumn('item', F.lit(item))
 
-        supplier_item_dfs.append(df)
+        dfs.append(df)
 
     # DataFrames should have the same schema so union all in the list.
     # Because of the current setup, where we're using the weights
     # unnecessarily, it reads in duplicates of the tables since supplier
     # and item are duplicated for each retailer.
     # TODO: remove dropDuplicates() when weights are changed.
-    return reduce(SparkDF.union, supplier_item_dfs).dropDuplicates()
+
+    return reduce(SparkDF.union, dfs).dropDuplicates()
 
 
 def load_scanner_data(
@@ -116,9 +118,8 @@ def load_scanner_data(
     -------
     SparkDF
         Selected scanner data with differentiating retailer column.
-
     """
-    retailer_dfs = []
+    dfs = []
 
     for retailer in selected_scenario:
         # Grab the table path as specified by the user scenario.
@@ -128,10 +129,11 @@ def load_scanner_data(
         # Add columns to retain data origin after union step.
         df = df.withColumn('retailer', F.lit(retailer))
 
-        retailer_dfs.append(df)
+        dfs.append(df)
 
     # DataFrames should have the same schema so union all in the list.
-    return reduce(SparkDF.union, retailer_dfs)
+
+    return reduce(SparkDF.union, dfs)
 
 
 def read_hive_table(

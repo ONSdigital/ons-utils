@@ -1,15 +1,30 @@
 """Miscellaneous helper functions."""
-# import python libraries
+# Import Python libraries.
+from humanfriendly import format_timespan
 from functools import reduce
+import logging
 from typing import Dict, Mapping, Iterator, Any
 
+# Import third party libraries.
 import pandas as pd
 
-# import pyspark libraries
+# Import PySpark libraries.
 from pyspark.sql import DataFrame
 from pyspark.sql import DataFrame as SparkDF
 from pyspark.sql import functions as F
 from pyspark.sql import SparkSession
+
+
+LOGGER = logging.getLogger()
+
+
+def timer_args(name):
+    """Initialise timer args as workaround for 'text' arg."""
+    return {
+        'name': name,
+        'text': lambda secs: name + f": {format_timespan(secs)}",
+        'logger': LOGGER.info,
+    }
 
 
 def find(key: str, dictionary: Mapping[str, Any]) -> Iterator[Any]:
