@@ -1,15 +1,14 @@
 """Miscellaneous helper functions."""
-# import python libraries
 from functools import reduce
-from typing import Dict, Mapping, Iterator, Any
+from typing import Dict, Mapping, Iterator, Any, List
 
 import pandas as pd
 
-# import pyspark libraries
-from pyspark.sql import DataFrame
-from pyspark.sql import DataFrame as SparkDF
-from pyspark.sql import functions as F
-from pyspark.sql import SparkSession
+from pyspark.sql import (
+    DataFrame as SparkDF,
+    functions as F,
+    SparkSession,
+)
 
 
 def find(key: str, dictionary: Mapping[str, Any]) -> Iterator[Any]:
@@ -95,7 +94,7 @@ def union_dfs_from_all_scenarios(
         dfs_unioned = {}
         for name in names:
             dfs_to_union = list(find(name, dfs))
-            dfs_unioned[name] = reduce(DataFrame.unionByName, dfs_to_union)
+            dfs_unioned[name] = reduce(SparkDF.unionByName, dfs_to_union)
             dfs_unioned[name].cache().count()
 
         dfs = dfs_unioned
@@ -127,3 +126,8 @@ def map_column_names(df: SparkDF, mapper: Mapping[str, str]) -> SparkDF:
     ]
     return df.select(*cols)
     # return _
+
+
+def _list_convert(x: Any) -> List[Any]:
+    """Return obj as a single item list if not already a list or tuple."""
+    return [x] if not (isinstance(x, list) or isinstance(x, tuple)) else x

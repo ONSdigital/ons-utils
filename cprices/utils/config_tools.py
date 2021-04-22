@@ -48,15 +48,9 @@ class ScenarioConfig:
             else:
                 self.input_data[input_data] = config['input_data'][input_data]
 
-        self.preprocessing = {
-            'start_date': str(config['preprocessing']['start_date']),
-            'end_date': str(config['preprocessing']['end_date']),
-            'drop_retailers': config['preprocessing']['drop_retailers'],
-            'calc_p_and_q_using_size': config['preprocessing']['calc_p_and_q_using_size'],
-            'scanner_expenditure_column': config['preprocessing']['scanner_expenditure_column'],
-            'add_promo': config['preprocessing']['add_promo'],
-            'product_id_code_column': config['preprocessing']['product_id_code_column'],
-        }
+        self.preprocessing = config['preprocessing']
+        self.preprocessing['start_date'] = str(self.preprocessing['start_date'])
+        self.preprocessing['end_date'] = str(self.preprocessing['end_date'])
 
         self.classification = {
             'web_scraped_active': config['classification']['web_scraped_active'],
@@ -271,6 +265,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'drop_retailers': {'type': 'boolean'},
             'add_promo': {'type': 'integer', 'min': 0, 'max': 2},
             'product_id_code_column': {'type': 'string', 'allowed': ['ean_code', 'retail_line_code']},
+            'week_selection': {'type': 'list', 'allowed': [1, 2, 3, 4], 'nullable': True},
             # Classification
             'web_scraped_active': {'type': 'boolean'},
             'user_defined_mapper': {'type': 'boolean'},
@@ -326,8 +321,16 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
         if not v.validate({'product_id_code_column': to_validate}):
             raise ValueError(
                 f"{scenario}: parameter 'product_id_code_column' in preprocessing must be one of:"
-                f" {'ean_code', 'retail_line_code'}. Instead got '{to_validate}'."
+                f" {{'ean_code', 'retail_line_code'}}. Instead got '{to_validate}'."
             )
+
+        to_validate = validating_config.preprocessing['week_selection']
+        if not v.validate({'week_selection': to_validate}):
+            raise ValueError(
+                f"{scenario}: parameter 'week_selection' in preprocessing should be a combination"
+                f" of integers [1, 2, 3, 4]. Instead got '{to_validate}'."
+            )
+
 
 
         # Classification
