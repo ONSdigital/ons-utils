@@ -2,14 +2,11 @@
 from datetime import datetime
 from logging.config import dictConfig
 import os
-from typing import Mapping, Sequence
 import yaml
 
 from cerberus import Validator
 from flatten_dict import flatten
 from epds_utils import hdfs
-import pandas as pd
-from pyspark.sql import DataFrame as SparkDF
 
 
 class SelectedScenarioConfig:
@@ -55,14 +52,9 @@ class ScenarioConfig:
             else:
                 self.input_data[input_data] = config['input_data'][input_data]
 
-        self.preprocessing = {
-            'start_date': str(config['preprocessing']['start_date']),
-            'end_date': str(config['preprocessing']['end_date']),
-            'drop_retailers': config['preprocessing']['drop_retailers'],
-            'calc_p_and_q_using_size': config['preprocessing']['calc_p_and_q_using_size'],
-            'scanner_expenditure_column': config['preprocessing']['scanner_expenditure_column'],
-            'add_promo': config['preprocessing']['add_promo'],
-        }
+        self.preprocessing = config['preprocessing']
+        self.preprocessing['start_date'] = str(self.preprocessing['start_date'])
+        self.preprocessing['end_date'] = str(self.preprocessing['end_date'])
 
         self.classification = {
             'web_scraped_active': config['classification']['web_scraped_active'],
@@ -280,6 +272,8 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'end_date': {'type': 'string', 'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)'},
             'drop_retailers': {'type': 'boolean'},
             'add_promo': {'type': 'integer', 'min': 0, 'max': 2},
+            'product_id_code_column': {'type': 'string', 'allowed': ['ean_code', 'retail_line_code']},
+            'week_selection': {'type': 'list', 'allowed': [1, 2, 3, 4], 'nullable': True},
             # Classification
             'web_scraped_active': {'type': 'boolean'},
             'user_defined_mapper': {'type': 'boolean'},
@@ -323,6 +317,28 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             raise ValueError(
                 f"{scenario}: parameter 'drop_retailers' in preprocessing must be a boolean"
             )
+
+        if not v.validate({'add_promo': validating_config.preprocessing['add_promo']}):
+            raise ValueError(
+                f"{scenario}: parameter 'add_promo' in preprocessing must be one of:"
+                " 0 (Disabled), 1 (Add price promotion to expenditure),"
+                " 2 (Add multibuy promotion to expenditure)."
+            )
+
+        to_validate = validating_config.preprocessing['product_id_code_column']
+        if not v.validate({'product_id_code_column': to_validate}):
+            raise ValueError(
+                f"{scenario}: parameter 'product_id_code_column' in preprocessing must be one of:"
+                f" {{'ean_code', 'retail_line_code'}}. Instead got '{to_validate}'."
+            )
+
+        to_validate = validating_config.preprocessing['week_selection']
+        if not v.validate({'week_selection': to_validate}):
+            raise ValueError(
+                f"{scenario}: parameter 'week_selection' in preprocessing should be a combination"
+                f" of integers [1, 2, 3, 4]. Instead got '{to_validate}'."
+            )
+
 
 
         # Classification

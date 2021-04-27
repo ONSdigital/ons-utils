@@ -1,14 +1,30 @@
 """Miscellaneous helper functions."""
+# Import Python libraries.
 from functools import reduce
-from typing import Dict, Mapping, Iterator, Any
+import logging
+from typing import Dict, Mapping, Iterator, Any, List
 
+# Import third party libraries.
+from humanfriendly import format_timespan
 import pandas as pd
 
+# Import PySpark libraries.
 from pyspark.sql import (
     DataFrame as SparkDF,
     functions as F,
     SparkSession,
 )
+
+LOGGER = logging.getLogger()
+
+
+def timer_args(name):
+    """Initialise timer args as workaround for 'text' arg."""
+    return {
+        'name': name,
+        'text': lambda secs: name + f": {format_timespan(secs)}",
+        'logger': LOGGER.info,
+    }
 
 
 def find(key: str, dictionary: Mapping[str, Any]) -> Iterator[Any]:
@@ -126,3 +142,8 @@ def map_column_names(df: SparkDF, mapper: Mapping[str, str]) -> SparkDF:
     ]
     return df.select(*cols)
     # return _
+
+
+def _list_convert(x: Any) -> List[Any]:
+    """Return obj as a single item list if not already a list or tuple."""
+    return [x] if not (isinstance(x, list) or isinstance(x, tuple)) else x
