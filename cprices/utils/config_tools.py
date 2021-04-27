@@ -61,17 +61,7 @@ class ScenarioConfig:
             'mapper_settings': config['classification']['mapper_settings']
         }
 
-        self.outlier_detection = {
-            'fences': config['outlier_detection']['fences'],
-            'active': config['outlier_detection']['active'],
-            'log_transform': config['outlier_detection']['log_transform'],
-            'method': config['outlier_detection']['method'],
-            'k': config['outlier_detection']['k'],
-        }
-        # Convert fences values to tuple.
-        self.outlier_detection['fences'] = {
-            k: tuple(v) for k, v in self.outlier_detection['fences']
-        }
+        self.outlier_detection = config['outlier_detection']
 
         self.averaging = {
             'scanner': config['averaging']['scanner'],
@@ -233,7 +223,6 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'tukey',
             'kimber',
             'ksigma',
-            'udf_fences'
         ]
 
         averaging_methods_list = [
