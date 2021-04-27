@@ -253,7 +253,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
         ]
 
         multilateral_methods_list = [
-            'geks',
+            'ewgeks',
             'rygeks',
             'geks_movement_splice',
             'geks_window_splice',
