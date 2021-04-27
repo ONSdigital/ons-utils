@@ -155,3 +155,39 @@ class TestGetWindowSpec:
         )
 
         assert_df_equality(actual_df, expected_df_sum_all)
+
+
+class TestMapCol:
+    """Tests for map_col pyspark helper."""
+
+    def test_maps_simple_python_dict(self, to_spark):
+        """Simple test for map_col working with a Python native dict."""
+        df = to_spark(pd.DataFrame([1, 2, 3, 4], columns=['position']))
+        mapping = {1: 'first', 2: 'second', 3: 'third'}
+
+        actual = df.withColumn('ranking', map_col('position', mapping))
+
+        expected = to_spark(
+            pd.DataFrame({
+                'position': [1, 2, 3, 4],
+                'ranking': ['first', 'second', 'third', None]
+            })
+        )
+
+        assert_df_equality(actual, expected)
+
+    def test_maps_python_dict_with_list(self, to_spark):
+        """Simple test for map_col working with a Python native dict."""
+        df = to_spark(pd.DataFrame(['tiger', 'lion'], columns=['animal']))
+        mapping = {'tiger': ['orange', 'stripy'], 'lion': ['golden', 'king']}
+
+        actual = df.withColumn('attribute', map_col('animal', mapping))
+
+        expected = to_spark(
+            pd.DataFrame({
+                'animal': ['tiger', 'lion'],
+                'attribute': [['orange', 'stripy'], ['golden', 'king']]
+            })
+        )
+
+        assert_df_equality(actual, expected, ignore_nullable=True)
