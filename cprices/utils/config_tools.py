@@ -259,6 +259,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'geks_window_splice',
             'geks_half_window_splice',
             'geks_december_link_splice',
+            'geks_mean_splice',
         ]
 
         v = Validator()
