@@ -76,6 +76,8 @@ def load_web_scraped_data(
 
         dfs.append(df)
 
+    df = df.withColumn('data_source', F.lit('web_scraped'))
+
     # DataFrames should have the same schema so union all in the list.
     # Because of the current setup, where we're using the weights
     # unnecessarily, it reads in duplicates of the tables since supplier
@@ -130,6 +132,8 @@ def load_scanner_data(
         df = df.withColumn('retailer', F.lit(retailer))
 
         dfs.append(df)
+
+    df = df.withColumn('data_source', F.lit('scanner'))
 
     # DataFrames should have the same schema so union all in the list.
 
