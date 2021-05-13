@@ -71,12 +71,14 @@ def load_web_scraped_data(
         df = read_hive_table(spark, table_path, columns)
 
         # Add columns to retain data origin after union step.
-        df = df.withColumn('supplier', F.lit(supplier))
-        df = df.withColumn('item', F.lit(item))
+        df = (
+            df
+            .withColumn('supplier', F.lit(supplier))
+            .withColumn('item', F.lit(item))
+            .withColumn('data_source', F.lit('web_scraped'))
+        )
 
         dfs.append(df)
-
-    df = df.withColumn('data_source', F.lit('web_scraped'))
 
     # DataFrames should have the same schema so union all in the list.
     # Because of the current setup, where we're using the weights
@@ -129,11 +131,13 @@ def load_scanner_data(
         df = read_hive_table(spark, table_path, columns)
 
         # Add columns to retain data origin after union step.
-        df = df.withColumn('retailer', F.lit(retailer))
+        df = (
+            df
+            .withColumn('retailer', F.lit(retailer))
+            .withColumn('data_source', F.lit('scanner'))
+        )
 
         dfs.append(df)
-
-    df = df.withColumn('data_source', F.lit('scanner'))
 
     # DataFrames should have the same schema so union all in the list.
 
