@@ -70,7 +70,7 @@ class TestUtils(PySparkTest):
 @pytest.mark.spark
 @pytest.mark.unit
 def test_map_column_names(to_spark):
-    """."""
+    """Test column names are mapped to given values."""
     input_df = to_spark(create_dataframe([
         ('col_A', 'col_B', 'col_Y', 'col_D', 'col_Z'),
         ('aaa',   'bbb',   'ccc',   'ddd',   'eee'),
