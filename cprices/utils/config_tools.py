@@ -61,13 +61,7 @@ class ScenarioConfig:
             'mapper_settings': config['classification']['mapper_settings']
         }
 
-        self.outlier_detection = {
-            'fences': config['outlier_detection']['fences'],
-            'active': config['outlier_detection']['active'],
-            'log_transform': config['outlier_detection']['log_transform'],
-            'method': config['outlier_detection']['method'],
-            'k': config['outlier_detection']['k'],
-        }
+        self.outlier_detection = config['outlier_detection']
 
         self.averaging = {
             'scanner': config['averaging']['scanner'],
@@ -229,7 +223,6 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'tukey',
             'kimber',
             'ksigma',
-            'udf_fences'
         ]
 
         averaging_methods_list = [
@@ -279,7 +272,9 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'log_transform': {'type': 'boolean'},
             'outlier_methods': {'type': 'string', 'allowed': outlier_methods_list},
             'k': {'type': 'float', 'min': 1, 'max': 4},
-            'fence_value': {'type': 'float'},
+            'stddev_method': {'type': 'string', 'allowed': ['population', 'sample']},
+            'quartile_method': {'type': 'string', 'allowed': ['exact', 'approx']},
+            'accuracy': {'type': 'float', 'min': 1},
             # Averaging/ Grouping
             'web_scraped': {'type': 'string', 'allowed': averaging_methods_list},
             'scanner': {'type': 'string', 'allowed': averaging_methods_list},
@@ -395,14 +390,23 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 raise ValueError(
                     f"{scenario}: parameter 'k' for outlier detection must be a float between 1 and 4"
                 )
+            if not v.validate({'stddev_method': validating_config.outlier_detection['stddev_method']}):
+                raise ValueError(
+                    f"{scenario}: parameter 'stddev_method' for outlier detection must be either"
+                    " 'population' or 'sample'."
+                )
+            if not v.validate({'quartile_method': validating_config.outlier_detection['quartile_method']}):
+                raise ValueError(
+                    f"{scenario}: parameter 'quartile_method' for outlier detection must be either"
+                    " 'exact' or 'approx'."
+                )
+            if not v.validate({'accuracy': validating_config.outlier_detection['quartile_method']}):
+                raise ValueError(
+                    f"{scenario}: parameter 'accuracy' for outlier detection must be a positive"
+                    " numeric literal."
+                )
         else:
             raise ValueError(f"{scenario}: parameter 'active' in outlier_detection is not a boolean")
-
-        for fence_dictionary in [validating_config.outlier_detection['fences']]:
-            for fence_list in fence_dictionary.values():
-                for list_value in fence_list:
-                    if not v.validate({'fence_value': list_value}):
-                        raise ValueError(f"{scenario}: value {list_value} in fences in outlier detection must be a float")
 
 
         # Averaging
