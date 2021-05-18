@@ -135,13 +135,11 @@ def map_column_names(df: SparkDF, mapper: Mapping[str, str]) -> SparkDF:
 
     If the column name is not in the mapper the name doesn't change.
     """
-    # def _(df):
     cols = [
         F.col(col_name).alias(mapper.get(col_name, col_name))
         for col_name in df.columns
     ]
     return df.select(*cols)
-    # return _
 
 
 def _list_convert(x: Any) -> List[Any]:
