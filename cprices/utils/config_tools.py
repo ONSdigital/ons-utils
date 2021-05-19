@@ -250,8 +250,13 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
         ]
 
         multilateral_methods_list = [
-            'geks',
+            'ewgeks',
             'rygeks',
+            'geks_movement_splice',
+            'geks_window_splice',
+            'geks_half_window_splice',
+            'geks_december_link_splice',
+            'geks_mean_splice',
         ]
 
         v = Validator()
@@ -261,7 +266,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'end_date': {'type': 'string', 'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)'},
             'drop_retailers': {'type': 'boolean'},
             'add_promo': {'type': 'integer', 'min': 0, 'max': 2},
-            'product_id_code_column': {'type': 'string', 'allowed': ['ean_code', 'retail_line_code']},
+            'product_id_code_column': {'type': 'string', 'allowed': ['gtin', 'retail_line_code']},
             'week_selection': {'type': 'list', 'allowed': [1, 2, 3, 4], 'nullable': True},
             # Classification
             'web_scraped_active': {'type': 'boolean'},
@@ -287,7 +292,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'index_methods': {'type': 'list', 'allowed': index_methods_list},
             'multilateral_methods': {'type': 'list', 'allowed': multilateral_methods_list, 'nullable': True},
             'base_period': {'type': 'integer', 'min': 1, 'max': 12},
-            'window': {'type': 'integer', 'min': 0},
+            'window': {'type': 'integer', 'min': 3},
         }
 
 
@@ -320,7 +325,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
         if not v.validate({'product_id_code_column': to_validate}):
             raise ValueError(
                 f"{scenario}: parameter 'product_id_code_column' in preprocessing must be one of:"
-                f" {{'ean_code', 'retail_line_code'}}. Instead got '{to_validate}'."
+                f" {{'gtin', 'retail_line_code'}}. Instead got '{to_validate}'."
             )
 
         to_validate = validating_config.preprocessing['week_selection']
@@ -471,7 +476,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             )
 
         if not v.validate({'window': validating_config.indices['window']}):
-            raise ValueError(f"{scenario}: parameter 'window' in indices must be a positive integer")
+            raise ValueError(f"{scenario}: parameter 'window' in indices must be a positive integer > 2.")
 
         if not v.validate({'base_period': validating_config.indices['base_period']}):
             raise ValueError(
