@@ -87,12 +87,12 @@ def load_input_data(
                     if re.match(r'(hierarchy_level_)\d(_code)', col)
                 ]
 
-                # Append the list of hierarchy columns to the predefined cols
+                # Combine the list of hierarchy columns to the predefined cols
                 # for reading
-                scanner_data_columns += hierarchy_columns
+                read_columns = scanner_data_columns + hierarchy_columns
 
                 staged_data[data_source][supplier] = spark.sql(
-                    f"SELECT {','.join(scanner_data_columns)} FROM {path}"
+                    f"SELECT {','.join(read_columns)} FROM {path}"
                 )
 
         elif data_source == 'conventional':
