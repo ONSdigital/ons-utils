@@ -4,6 +4,7 @@ import copy
 from datetime import datetime
 import logging
 import os
+import re
 from typing import Dict, List, Mapping
 
 # import pyspark libraries
@@ -74,8 +75,24 @@ def load_input_data(
             for supplier in input_data[data_source]:
                 path = scanner_input_tables.get(supplier)
 
+                # As scanner retailers have a variable number of hierarchy
+                # level columns we get the names from the table and use this
+                # for loading the data.
+                columns = spark.sql(
+                    f"SELECT * FROM {path}"
+                ).columns
+
+                hierarchy_columns = [
+                    col for col in columns
+                    if re.match(r'(hierarchy_level_)\d(_code)', col)
+                ]
+
+                # Combine the list of hierarchy columns to the predefined cols
+                # for reading
+                read_columns = scanner_data_columns + hierarchy_columns
+
                 staged_data[data_source][supplier] = spark.sql(
-                    f"SELECT {','.join(scanner_data_columns)} FROM {path}"
+                    f"SELECT {','.join(read_columns)} FROM {path}"
                 )
 
         elif data_source == 'conventional':
