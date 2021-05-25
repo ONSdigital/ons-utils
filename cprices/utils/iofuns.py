@@ -15,6 +15,7 @@ from datetime import datetime
 from functools import reduce
 import logging
 import os
+import re
 from typing import Mapping, Tuple, Optional, Sequence
 
 # Import PySpark libraries.
@@ -93,7 +94,7 @@ def load_scanner_data(
     spark: SparkSession,
     # NOTE: change type hint when weights removed from scenario file.
     selected_scenario: Mapping[str, float],
-    columns: Sequence[str],
+    columns_to_load: Sequence[str],
     table_paths: Mapping[str, str],
 ) -> SparkDF:
     """Load scanner data as specified in scenario config.
@@ -112,7 +113,7 @@ def load_scanner_data(
         The weights are unused and will soon be implemented differently
         and removed from the scenario file. Only the retailer key is
         used by the function.
-    columns
+    columns_to_load
         Columns to load from Hive table.
     table_paths
         Mapping of retailer -> Hive table path. Table paths are in the
@@ -126,9 +127,23 @@ def load_scanner_data(
     dfs = []
 
     for retailer in selected_scenario:
+
         # Grab the table path as specified by the user scenario.
         table_path = table_paths[retailer]
-        df = read_hive_table(spark, table_path, columns)
+
+        # As scanner retailers have a variable number of hierarchy level cols
+        # we get the names from the table and use this for loading the data.
+        table_columns = spark.sql(f"SELECT * FROM {table_path}").columns
+
+        hierarchy_columns = [
+            col for col in table_columns
+            if re.match(r'(hierarchy_level_)\d(_code)', col)
+        ]
+
+        # Combine list of hierarchy columns to the predefined cols for reading
+        read_columns = columns_to_load + hierarchy_columns
+
+        df = read_hive_table(spark, table_path, read_columns)
 
         # Add columns to retain data origin after union step.
         df = (
