@@ -86,13 +86,7 @@ class ScenarioConfig:
             'max_cumsum_share': config['filtering']['max_cumsum_share']
         }
 
-        self.indices = {
-            'base_price_methods': config['indices']['base_price_methods'],
-            'base_period': config['indices']['base_period'],
-            'index_methods': config['indices']['index_methods'],
-            'multilateral_methods': config['indices']['multilateral_methods'],
-            'window': config['indices']['window_length'],
-        }
+        self.indices = config['indices']
 
 
 class DevConfig:
@@ -250,6 +244,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'paasche',
             'fisher',
             'tornqvist',
+            'geary-khamis',
         ]
 
         multilateral_methods_list = [
@@ -294,6 +289,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'multilateral_methods': {'type': 'list', 'allowed': multilateral_methods_list, 'nullable': True},
             'base_period': {'type': 'integer', 'min': 1, 'max': 12},
             'window': {'type': 'integer', 'min': 3},
+            'precision': {'type': 'float', 'min': 1e-30},
         }
 
 
@@ -469,6 +465,9 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
 
         if not v.validate({'window': validating_config.indices['window']}):
             raise ValueError(f"{scenario}: parameter 'window' in indices must be a positive integer > 2.")
+
+        if not v.validate({'precision': validating_config.indices['precision']}):
+            raise ValueError(f"{scenario}: parameter 'precision' in indices must be a positive integer > 1e-30.")
 
         if not v.validate({'base_period': validating_config.indices['base_period']}):
             raise ValueError(
