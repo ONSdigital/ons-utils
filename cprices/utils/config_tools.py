@@ -265,35 +265,105 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
         v = Validator()
         v.schema = {
             # Preprocessing
-            'start_date': {'type': 'string', 'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)'},
-            'end_date': {'type': 'string', 'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)'},
-            'drop_retailers': {'type': 'boolean'},
-            'add_promo': {'type': 'integer', 'min': 0, 'max': 2},
-            'product_id_code_column': {'type': 'string', 'allowed': ['gtin', 'retail_line_code']},
-            'week_selection': {'type': 'list', 'allowed': [1, 2, 3, 4], 'nullable': True},
+            'start_date': {
+                'type': 'string',
+                'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
+            },
+            'end_date': {
+                'type': 'string',
+                'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
+            },
+            'drop_retailers': {
+                'type': 'boolean',
+            },
+            'add_promo': {
+                'type': 'integer',
+                'min': 0, 'max': 2
+            },
+            'product_id_code_column': {
+                'type': 'string',
+                'allowed': ['gtin', 'retail_line_code'],
+            },
+            'scanner_align_daily_frequency': {
+                'type': 'string',
+                'allowed': ['weekly', 'monthly'],
+            },
+            'week_selection': {
+                'type': 'list',
+                'allowed': [1, 2, 3, 4],
+                'nullable': True,
+            },
             # Classification
-            'web_scraped_active': {'type': 'boolean'},
-            'user_defined_mapper': {'type': 'boolean'},
+            'web_scraped_active': {
+                'type': 'boolean',
+            },
+            'user_defined_mapper': {
+                'type': 'boolean',
+            },
             # Outlier detection/ Averaging/ Grouping/ Filtering/ Imputation
-            'active': {'type': 'boolean'},
+            'active': {
+                'type': 'boolean',
+            },
             # Outlier detection
-            'log_transform': {'type': 'boolean'},
-            'outlier_methods': {'type': 'string', 'allowed': outlier_methods_list},
-            'k': {'type': 'float', 'min': 1, 'max': 4},
-            'fence_value': {'type': 'float'},
+            'log_transform': {
+                'type': 'boolean',
+            },
+            'outlier_methods': {
+                'type': 'string',
+                'allowed': outlier_methods_list,
+            },
+            'k': {
+                'type': 'float',
+                'min': 1,
+                'max': 4,
+            },
+            'fence_value': {
+                'type': 'float',
+            },
             # Averaging/ Grouping
-            'web_scraped': {'type': 'string', 'allowed': averaging_methods_list},
-            'scanner': {'type': 'string', 'allowed': averaging_methods_list},
+            'web_scraped': {
+                'type': 'string',
+                'allowed': averaging_methods_list,
+            },
+            'scanner': {
+                'type': 'string',
+                'allowed': averaging_methods_list,
+            },
             # Imputation
-            'ffill_limit': {'type': 'integer', 'min': 1},
+            'ffill_limit': {
+                'type': 'integer',
+                'min': 1,
+            },
             # Imputation
-            'max_cumsum_share': {'type': 'float', 'min': 0, 'max': 1},
+            'max_cumsum_share': {
+                'type': 'float',
+                'min': 0,
+                'max': 1,
+            },
             # Indices
-            'base_price_methods': {'type': 'list', 'allowed': base_price_methods_list, 'nullable': True},
-            'index_methods': {'type': 'list', 'allowed': index_methods_list},
-            'multilateral_methods': {'type': 'list', 'allowed': multilateral_methods_list, 'nullable': True},
-            'base_period': {'type': 'integer', 'min': 1, 'max': 12},
-            'window': {'type': 'integer', 'min': 3},
+            'base_price_methods': {
+                'type': 'list',
+                'allowed': base_price_methods_list,
+                'nullable': True,
+            },
+            'index_methods': {
+                'type': 'list',
+                'allowed': index_methods_list,
+            },
+            'multilateral_methods': {
+                'type': 'list',
+                'allowed': multilateral_methods_list,
+                'nullable': True,
+            },
+            'base_period': {
+                'type': 'integer',
+                'min': 1,
+                'max': 12,
+            },
+            'window': {
+                'type': 'integer',
+                'min': 3,
+            },
         }
 
 
@@ -336,6 +406,12 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 f" of integers [1, 2, 3, 4]. Instead got '{to_validate}'."
             )
 
+        to_validate = validating_config.preprocessing['scanner_align_daily_frequency']
+        if not v.validate({'scanner_align_daily_frequency': to_validate}):
+            raise ValueError(
+                f"{scenario}: parameter 'scanner_align_daily_frequency' in preprocessing must be one of:"
+                f" {{'weekly', 'monthly'}}. Instead got '{to_validate}'."
+            )
 
 
         # Classification
