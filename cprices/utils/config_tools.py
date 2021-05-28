@@ -289,7 +289,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'multilateral_methods': {'type': 'list', 'allowed': multilateral_methods_list, 'nullable': True},
             'base_period': {'type': 'integer', 'min': 1, 'max': 12},
             'window': {'type': 'integer', 'min': 3},
-            'precision': {'type': 'float', 'min': 1e-30},
+            'iterations': {'type': 'integer', 'min': 1, 'max': 100},
         }
 
 
@@ -466,8 +466,8 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
         if not v.validate({'window': validating_config.indices['window']}):
             raise ValueError(f"{scenario}: parameter 'window' in indices must be a positive integer > 2.")
 
-        if not v.validate({'precision': validating_config.indices['precision']}):
-            raise ValueError(f"{scenario}: parameter 'precision' in indices must be a positive integer > 1e-30.")
+        if not v.validate({'iterations': validating_config.indices['iterations']}):
+            raise ValueError(f"{scenario}: parameter 'iterations' in indices must be a positive integer 100 > x > 1.")
 
         if not v.validate({'base_period': validating_config.indices['base_period']}):
             raise ValueError(
