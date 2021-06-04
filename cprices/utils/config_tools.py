@@ -262,37 +262,130 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
         v = Validator()
         v.schema = {
             # Preprocessing
-            'start_date': {'type': 'string', 'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)'},
-            'end_date': {'type': 'string', 'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)'},
-            'drop_retailers': {'type': 'boolean'},
-            'add_promo': {'type': 'integer', 'min': 0, 'max': 2},
-            'product_id_code_column': {'type': 'string', 'allowed': ['gtin', 'retail_line_code']},
-            'week_selection': {'type': 'list', 'allowed': [1, 2, 3, 4], 'nullable': True},
+            'start_date': {
+                'type': 'string',
+                'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
+            },
+            'end_date': {
+                'type': 'string',
+                'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
+            },
+            # Scanner preprocessing
+            'normalise_values_using_standardised_size_units': {
+                'type': 'boolean',
+            },
+            'product_id_code_column': {
+                'type': 'string',
+                'allowed': ['gtin', 'retail_line_code'],
+            },
+            'calc_price_before_discount': {
+                'type': 'boolean',
+            },
+            'promo_col': {
+                'type': 'string',
+                'allowed': ['price_promo_discount', 'multi_promo_discount'],
+            },
+            'sales_value_col': {
+                'type': 'string',
+                'allowed': [
+                    'sales_value_inc_discounts',
+                    'sales_value_excl_markdowns',
+                    'sales_value_vat',
+                    'sales_value_vat_excl_markdowns',
+                ],
+            },
+            'align_daily_frequency': {
+                'type': 'string',
+                'allowed': ['weekly', 'monthly'],
+            },
+            'week_selection': {
+                'type': 'list',
+                'allowed': [1, 2, 3, 4],
+                'nullable': True,
+            },
             # Classification
-            'web_scraped_active': {'type': 'boolean'},
-            'user_defined_mapper': {'type': 'boolean'},
+            'web_scraped_active': {
+                'type': 'boolean',
+            },
+            'user_defined_mapper': {
+                'type': 'boolean',
+            },
             # Outlier detection/ Averaging/ Grouping/ Filtering/ Imputation
-            'active': {'type': 'boolean'},
+            'active': {
+                'type': 'boolean',
+            },
             # Outlier detection
-            'log_transform': {'type': 'boolean'},
-            'outlier_methods': {'type': 'string', 'allowed': outlier_methods_list},
-            'k': {'type': 'float', 'min': 1, 'max': 4},
-            'stddev_method': {'type': 'string', 'allowed': ['population', 'sample']},
-            'quartile_method': {'type': 'string', 'allowed': ['exact', 'approx']},
-            'accuracy': {'type': 'float', 'min': 1},
+            'log_transform': {
+                'type': 'boolean',
+            },
+            'outlier_methods': {
+                'type': 'string',
+                'allowed': outlier_methods_list,
+            },
+            'k': {
+                'type': 'float',
+                'min': 1,
+                'max': 4,
+            },
+            'fence_value': {
+                'type': 'float',
+            },
+            'stddev_method': {
+                'type': 'string',
+                'allowed': ['population', 'sample'],
+            },
+            'quartile_method': {
+                'type': 'string',
+                'allowed': ['exact', 'approx'],
+            },
+            'accuracy': {
+                'type': 'float',
+                'min': 1,
+            },
             # Averaging/ Grouping
-            'web_scraped': {'type': 'string', 'allowed': averaging_methods_list},
-            'scanner': {'type': 'string', 'allowed': averaging_methods_list},
+            'web_scraped': {
+                'type': 'string',
+                'allowed': averaging_methods_list,
+            },
+            'scanner': {
+                'type': 'string',
+                'allowed': averaging_methods_list,
+            },
             # Imputation
-            'ffill_limit': {'type': 'integer', 'min': 1},
+            'ffill_limit': {
+                'type': 'integer',
+                'min': 1,
+            },
             # Imputation
-            'max_cumsum_share': {'type': 'float', 'min': 0, 'max': 1},
+            'max_cumsum_share': {
+                'type': 'float',
+                'min': 0,
+                'max': 1,
+            },
             # Indices
-            'base_price_methods': {'type': 'list', 'allowed': base_price_methods_list, 'nullable': True},
-            'index_methods': {'type': 'list', 'allowed': index_methods_list},
-            'multilateral_methods': {'type': 'list', 'allowed': multilateral_methods_list, 'nullable': True},
-            'base_period': {'type': 'integer', 'min': 1, 'max': 12},
-            'window': {'type': 'integer', 'min': 3},
+            'base_price_methods': {
+                'type': 'list',
+                'allowed': base_price_methods_list,
+                'nullable': True,
+            },
+            'index_methods': {
+                'type': 'list',
+                'allowed': index_methods_list,
+            },
+            'multilateral_methods': {
+                'type': 'list',
+                'allowed': multilateral_methods_list,
+                'nullable': True,
+            },
+            'base_period': {
+                'type': 'integer',
+                'min': 1,
+                'max': 12,
+            },
+            'window': {
+                'type': 'integer',
+                'min': 3,
+            },
         }
 
 
@@ -309,16 +402,12 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 " a string in the format YYYY-MM-01"
             )
 
-        if not v.validate({'drop_retailers': validating_config.preprocessing['drop_retailers']}):
+        # Scanner preprocessing
+        to_validate = validating_config.preprocessing['normalise_values_using_standardised_size_units']
+        if not v.validate({'normalise_values_using_standardised_size_units': to_validate}):
             raise ValueError(
-                f"{scenario}: parameter 'drop_retailers' in preprocessing must be a boolean"
-            )
-
-        if not v.validate({'add_promo': validating_config.preprocessing['add_promo']}):
-            raise ValueError(
-                f"{scenario}: parameter 'add_promo' in preprocessing must be one of:"
-                " 0 (Disabled), 1 (Add price promotion to expenditure),"
-                " 2 (Add multibuy promotion to expenditure)."
+                f"{scenario}: parameter 'normalise_values_using_standardised_size_units' in preprocessing must a boolean."
+                f" Instead got '{to_validate}'."
             )
 
         to_validate = validating_config.preprocessing['product_id_code_column']
@@ -328,13 +417,40 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 f" {{'gtin', 'retail_line_code'}}. Instead got '{to_validate}'."
             )
 
+        to_validate = validating_config.preprocessing['calc_price_before_discount']
+        if not v.validate({'calc_price_before_discount': to_validate}):
+            raise ValueError(
+                f"{scenario}: parameter 'calc_price_before_discount' in preprocessing must a boolean."
+                f" Instead got '{to_validate}'."
+            )
+
+        to_validate = validating_config.preprocessing['promo_col']
+        if not v.validate({'promo_col': to_validate}):
+            raise ValueError(
+                f"{scenario}: parameter 'promo_col' in preprocessing must be one of:"
+                f" {{'price_promo_discount', 'multi_promo_discount'}}. Instead got '{to_validate}'."
+            )
+
+        to_validate = validating_config.preprocessing['sales_value_col']
+        if not v.validate({'sales_value_col': to_validate}):
+            raise ValueError(
+                f"{scenario}: parameter 'sales_value_col' in preprocessing must be one of:"
+                f" {{'sales_value_inc_discounts', 'sales_value_excl_markdowns', 'sales_value_vat', 'sales_value_vat_excl_markdowns'}}. Instead got '{to_validate}'."
+            )
+
+        to_validate = validating_config.preprocessing['align_daily_frequency']
+        if not v.validate({'align_daily_frequency': to_validate}):
+            raise ValueError(
+                f"{scenario}: parameter 'align_daily_frequency' in preprocessing must be one of:"
+                f" {{'weekly', 'monthly'}}. Instead got '{to_validate}'."
+            )
+
         to_validate = validating_config.preprocessing['week_selection']
         if not v.validate({'week_selection': to_validate}):
             raise ValueError(
                 f"{scenario}: parameter 'week_selection' in preprocessing should be a combination"
                 f" of integers [1, 2, 3, 4]. Instead got '{to_validate}'."
             )
-
 
 
         # Classification
