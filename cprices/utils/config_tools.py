@@ -274,7 +274,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'use_unit_prices': {
                 'type': 'boolean',
             },
-            'product_id_code_column': {
+            'product_id_code_col': {
                 'type': 'string',
                 'allowed': ['gtin', 'retail_line_code'],
             },
@@ -410,10 +410,10 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 f" Instead got '{to_validate}'."
             )
 
-        to_validate = validating_config.preprocessing['product_id_code_column']
-        if not v.validate({'product_id_code_column': to_validate}):
+        to_validate = validating_config.preprocessing['product_id_code_col']
+        if not v.validate({'product_id_code_col': to_validate}):
             raise ValueError(
-                f"{scenario}: parameter 'product_id_code_column' in preprocessing must be one of:"
+                f"{scenario}: parameter 'product_id_code_col' in preprocessing must be one of:"
                 f" {{'gtin', 'retail_line_code'}}. Instead got '{to_validate}'."
             )
 
