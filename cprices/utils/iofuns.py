@@ -6,8 +6,9 @@
 * Outputs are saved in a sub-directory of the processed data directory
   in HDFS, named after the run_id which is a combination of current
   datetime and name of the user running the pipeline.
-    - Analysis outputs are saved as CSVs.
-    - All other outputs are saved as parquets.
+
+  - Analysis outputs are saved as CSVs.
+  - All other outputs are saved as parquets.
 
 """
 # Import Python libraries.
