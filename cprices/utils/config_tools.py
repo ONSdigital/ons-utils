@@ -271,10 +271,10 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
             },
             # Scanner preprocessing
-            'normalise_values_using_standardised_size_units': {
+            'use_unit_prices': {
                 'type': 'boolean',
             },
-            'product_id_code_column': {
+            'product_id_code_col': {
                 'type': 'string',
                 'allowed': ['gtin', 'retail_line_code'],
             },
@@ -403,17 +403,17 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             )
 
         # Scanner preprocessing
-        to_validate = validating_config.preprocessing['normalise_values_using_standardised_size_units']
-        if not v.validate({'normalise_values_using_standardised_size_units': to_validate}):
+        to_validate = validating_config.preprocessing['use_unit_prices']
+        if not v.validate({'use_unit_prices': to_validate}):
             raise ValueError(
-                f"{scenario}: parameter 'normalise_values_using_standardised_size_units' in preprocessing must a boolean."
+                f"{scenario}: parameter 'use_unit_prices' in preprocessing must a boolean."
                 f" Instead got '{to_validate}'."
             )
 
-        to_validate = validating_config.preprocessing['product_id_code_column']
-        if not v.validate({'product_id_code_column': to_validate}):
+        to_validate = validating_config.preprocessing['product_id_code_col']
+        if not v.validate({'product_id_code_col': to_validate}):
             raise ValueError(
-                f"{scenario}: parameter 'product_id_code_column' in preprocessing must be one of:"
+                f"{scenario}: parameter 'product_id_code_col' in preprocessing must be one of:"
                 f" {{'gtin', 'retail_line_code'}}. Instead got '{to_validate}'."
             )
 
