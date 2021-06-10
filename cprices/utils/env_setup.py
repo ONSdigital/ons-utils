@@ -86,25 +86,6 @@ def reset_pyspark_python_env(pipeline_environ_pyspark_python):
     os.environ['PYSPARK_PYTHON'] = pipeline_environ_pyspark_python
 
 
-class Checkpoints:
-    """Context manager to set checkpoint directory and clear after use."""
-
-    def __init__(self, spark, checkpoint_dir):
-        """Initiate the class."""
-        self.spark = spark
-        self.checkpoint_dir = checkpoint_dir
-
-    def __enter__(self):
-        """Set the checkpoint directory."""
-        self.spark.sparkContext.setCheckpointDir(self.checkpoint_dir)
-        return self
-
-    def __exit__(self, exc_type, exc_value, exc_tb):
-        """Clear the checkpoint directory."""
-        cmd = ['hadoop',  'fs', '-rm', '-r', '-skipTrash', self.checkpoint_dir]
-        subprocess.run(cmd)
-
-
 @contextmanager
 def checkpoints(spark, checkpoint_dir):
     """Context manager to set checkpoint directory and clear after use."""
