@@ -3,6 +3,7 @@
 * Webscraped and scanner data is read in from Hive tables.
 * Conventional data is read in from a parquet file in the staged data
   directory in HDFS.
+* Webscraped retailer weights are read in from HDFS.
 * Outputs are saved in a sub-directory of the processed data directory
   in HDFS, named after the run_id which is a combination of current
   datetime and name of the user running the pipeline.
@@ -20,6 +21,8 @@ import re
 from typing import Mapping, Optional, Sequence
 
 # Import PySpark libraries.
+import pandas as pd
+import pydoop.hdfs as hdfs
 from pyspark.sql import (
     DataFrame as SparkDF,
     functions as F,
@@ -190,6 +193,12 @@ def load_conventional_data(
     )
 
     return spark.read.parquet(path).select(columns)
+
+
+def load_webscraped_retailer_weights(weights_dir, filename):
+    """Load the webscraped retailer weights."""
+    with hdfs.open(os.path.join(weights_dir, filename)) as f:
+        return pd.read_csv(f)
 
 
 def save_output_hdfs(dfs: Mapping[str, SparkDF], processed_dir: str) -> str:
