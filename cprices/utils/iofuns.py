@@ -6,16 +6,20 @@
 * Outputs are saved in a sub-directory of the processed data directory
   in HDFS, named after the run_id which is a combination of current
   datetime and name of the user running the pipeline.
-    - Analysis outputs are saved as CSVs.
-    - All other outputs are saved as parquets.
+
+  - Analysis outputs are saved as CSVs.
+  - All other outputs are saved as parquets.
 
 """
+# Import Python libraries.
 from datetime import datetime
 from functools import reduce
 import logging
 import os
+import re
 from typing import Mapping, Optional, Sequence
 
+# Import PySpark libraries.
 from pyspark.sql import (
     DataFrame as SparkDF,
     functions as F,
@@ -55,9 +59,8 @@ def load_web_scraped_data(
     SparkDF
         Selected webscraped data with differentiating supplier and item
         columns.
-
     """
-    supplier_item_dfs = []
+    dfs = []
 
     for supplier, items in selected_scenario.items():
         for item in items:
@@ -66,19 +69,22 @@ def load_web_scraped_data(
             df = read_hive_table(spark, table_path, columns)
 
             # Add columns to retain data origin after union step.
-            df = df.withColumn('supplier', F.lit(supplier))
-            df = df.withColumn('item', F.lit(item))
+            df = (
+                df
+                .withColumn('supplier', F.lit(supplier))
+                .withColumn('item', F.lit(item))
+                .withColumn('data_source', F.lit('web_scraped'))
+            )
 
-            supplier_item_dfs.append(df)
+            dfs.append(df)
 
-    # DataFrames should have the same schema so union all in the list.
-    return reduce(SparkDF.union, supplier_item_dfs)
+    return reduce(SparkDF.union, dfs)
 
 
 def load_scanner_data(
     spark: SparkSession,
     selected_scenario: Sequence[str],
-    columns: Sequence[str],
+    columns_to_load: Sequence[str],
     table_paths: Mapping[str, str],
 ) -> SparkDF:
     """Load scanner data as specified in scenario config.
@@ -102,22 +108,40 @@ def load_scanner_data(
     -------
     SparkDF
         Selected scanner data with differentiating retailer column.
-
     """
-    retailer_dfs = []
+    dfs = []
 
     for retailer in selected_scenario:
+
         # Grab the table path as specified by the user scenario.
         table_path = table_paths[retailer]
-        df = read_hive_table(spark, table_path, columns)
+
+        # As scanner retailers have a variable number of hierarchy level cols
+        # we get the names from the table and use this for loading the data.
+        table_columns = spark.sql(f"SELECT * FROM {table_path}").columns
+
+        hierarchy_columns = [
+            col for col in table_columns
+            if re.match(r'(hierarchy_level_)\d(_code)', col)
+        ]
+
+        # Combine list of hierarchy columns to the predefined cols for reading
+        read_columns = columns_to_load + hierarchy_columns
+
+        df = read_hive_table(spark, table_path, read_columns)
 
         # Add columns to retain data origin after union step.
-        df = df.withColumn('retailer', F.lit(retailer))
+        df = (
+            df
+            .withColumn('retailer', F.lit(retailer))
+            .withColumn('data_source', F.lit('scanner'))
+        )
 
-        retailer_dfs.append(df)
+        dfs.append(df)
 
     # DataFrames should have the same schema so union all in the list.
-    return reduce(SparkDF.union, retailer_dfs)
+
+    return reduce(SparkDF.union, dfs)
 
 
 def read_hive_table(
