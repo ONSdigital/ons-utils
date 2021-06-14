@@ -270,16 +270,29 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 'type': 'string',
                 'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
             },
-            'drop_retailers': {
+            # Scanner preprocessing
+            'use_unit_prices': {
                 'type': 'boolean',
             },
-            'add_promo': {
-                'type': 'integer',
-                'min': 0, 'max': 2
-            },
-            'product_id_code_column': {
+            'product_id_code_col': {
                 'type': 'string',
                 'allowed': ['gtin', 'retail_line_code'],
+            },
+            'calc_price_before_discount': {
+                'type': 'boolean',
+            },
+            'promo_col': {
+                'type': 'string',
+                'allowed': ['price_promo_discount', 'multi_promo_discount'],
+            },
+            'sales_value_col': {
+                'type': 'string',
+                'allowed': [
+                    'sales_value_inc_discounts',
+                    'sales_value_excl_markdowns',
+                    'sales_value_vat',
+                    'sales_value_vat_excl_markdowns',
+                ],
             },
             'align_daily_frequency': {
                 'type': 'string',
@@ -389,23 +402,47 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 " a string in the format YYYY-MM-01"
             )
 
-        if not v.validate({'drop_retailers': validating_config.preprocessing['drop_retailers']}):
+        # Scanner preprocessing
+        to_validate = validating_config.preprocessing['use_unit_prices']
+        if not v.validate({'use_unit_prices': to_validate}):
             raise ValueError(
-                f"{scenario}: parameter 'drop_retailers' in preprocessing must be a boolean"
+                f"{scenario}: parameter 'use_unit_prices' in preprocessing must a boolean."
+                f" Instead got '{to_validate}'."
             )
 
-        if not v.validate({'add_promo': validating_config.preprocessing['add_promo']}):
+        to_validate = validating_config.preprocessing['product_id_code_col']
+        if not v.validate({'product_id_code_col': to_validate}):
             raise ValueError(
-                f"{scenario}: parameter 'add_promo' in preprocessing must be one of:"
-                " 0 (Disabled), 1 (Add price promotion to expenditure),"
-                " 2 (Add multibuy promotion to expenditure)."
-            )
-
-        to_validate = validating_config.preprocessing['product_id_code_column']
-        if not v.validate({'product_id_code_column': to_validate}):
-            raise ValueError(
-                f"{scenario}: parameter 'product_id_code_column' in preprocessing must be one of:"
+                f"{scenario}: parameter 'product_id_code_col' in preprocessing must be one of:"
                 f" {{'gtin', 'retail_line_code'}}. Instead got '{to_validate}'."
+            )
+
+        to_validate = validating_config.preprocessing['calc_price_before_discount']
+        if not v.validate({'calc_price_before_discount': to_validate}):
+            raise ValueError(
+                f"{scenario}: parameter 'calc_price_before_discount' in preprocessing must a boolean."
+                f" Instead got '{to_validate}'."
+            )
+
+        to_validate = validating_config.preprocessing['promo_col']
+        if not v.validate({'promo_col': to_validate}):
+            raise ValueError(
+                f"{scenario}: parameter 'promo_col' in preprocessing must be one of:"
+                f" {{'price_promo_discount', 'multi_promo_discount'}}. Instead got '{to_validate}'."
+            )
+
+        to_validate = validating_config.preprocessing['sales_value_col']
+        if not v.validate({'sales_value_col': to_validate}):
+            raise ValueError(
+                f"{scenario}: parameter 'sales_value_col' in preprocessing must be one of:"
+                f" {{'sales_value_inc_discounts', 'sales_value_excl_markdowns', 'sales_value_vat', 'sales_value_vat_excl_markdowns'}}. Instead got '{to_validate}'."
+            )
+
+        to_validate = validating_config.preprocessing['align_daily_frequency']
+        if not v.validate({'align_daily_frequency': to_validate}):
+            raise ValueError(
+                f"{scenario}: parameter 'align_daily_frequency' in preprocessing must be one of:"
+                f" {{'weekly', 'monthly'}}. Instead got '{to_validate}'."
             )
 
         to_validate = validating_config.preprocessing['week_selection']
@@ -413,13 +450,6 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             raise ValueError(
                 f"{scenario}: parameter 'week_selection' in preprocessing should be a combination"
                 f" of integers [1, 2, 3, 4]. Instead got '{to_validate}'."
-            )
-
-        to_validate = validating_config.preprocessing['scanner_align_daily_frequency']
-        if not v.validate({'scanner_align_daily_frequency': to_validate}):
-            raise ValueError(
-                f"{scenario}: parameter 'scanner_align_daily_frequency' in preprocessing must be one of:"
-                f" {{'weekly', 'monthly'}}. Instead got '{to_validate}'."
             )
 
 
