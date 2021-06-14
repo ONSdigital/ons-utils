@@ -87,9 +87,9 @@ def reset_pyspark_python_env(pipeline_environ_pyspark_python):
 
 
 @contextmanager
-def checkpoints(spark, checkpoint_dir):
+def checkpoints(spark, checkpoint_dir: str) -> None:
     """Context manager to set checkpoint directory and clear after use."""
-    checkpoint_dir = get_unused_checkpoint_dir(checkpoint_dir)
+    checkpoint_dir = _get_unused_checkpoint_dir(checkpoint_dir)
     spark.sparkContext.setCheckpointDir(checkpoint_dir)
     try:
         yield None
@@ -98,13 +98,14 @@ def checkpoints(spark, checkpoint_dir):
         subprocess.run(cmd)
 
 
-def get_unused_checkpoint_dir(checkpoint_dir):
+def _get_unused_checkpoint_dir(checkpoint_dir: str) -> str:
     """Get a checkpoint_dir path that doesn't already exist.
 
     Keeps adding 1 to the checkpoint_dir path until it finds one that
     doesn't exist. This is to stop a checkpoint_dir being removed when
     parallel runs of the same system are taking place, as the context
-    manager removes the checkpoint_dir.
+    manager removes the checkpoint_dir. This also prevents accidentally
+    removing a directory that has other files in it.
     """
     n = 1
     new_checkpoint_dir = copy(checkpoint_dir)
