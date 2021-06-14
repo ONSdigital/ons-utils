@@ -198,7 +198,7 @@ def load_conventional_data(
 def load_webscraped_retailer_weights(weights_dir, filename):
     """Load the webscraped retailer weights."""
     with hdfs.open(os.path.join(weights_dir, filename)) as f:
-        return pd.read_csv(f)
+        return pd.read_csv(f, parse_dates=['period'], dayfirst=True)
 
 
 def save_output_hdfs(dfs: Mapping[str, SparkDF], processed_dir: str) -> str:
