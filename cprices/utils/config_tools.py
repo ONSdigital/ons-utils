@@ -31,6 +31,8 @@ class ScenarioConfig:
         for source in config['input_data'].keys():
             self.input_data[source] = config['input_data'][source]
 
+        self.retailer_weights_file = config['retailer_weights_file']
+
         self.preprocessing = config['preprocessing']
         self.preprocessing['start_date'] = str(self.preprocessing['start_date'])
         self.preprocessing['end_date'] = str(self.preprocessing['end_date'])
