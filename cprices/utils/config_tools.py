@@ -362,8 +362,11 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'iterations': {
                 'type': 'integer',
                 'min': 1,
-                'max': 100,
+                'max': 250,
             },
+            'checkpoints': {
+                'type': 'boolean'
+            }
         }
 
 
@@ -547,7 +550,10 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             raise ValueError(f"{scenario}: parameter 'window' in indices must be a positive integer > 2.")
 
         if not v.validate({'iterations': validating_config.indices['iterations']}):
-            raise ValueError(f"{scenario}: parameter 'iterations' in indices must be a positive integer 100 > x > 1.")
+            raise ValueError(f"{scenario}: parameter 'iterations' in indices must be a positive integer 250 > x > 1.")
+
+        if not v.validate({'checkpoints': validating_config.indices['checkpoints']}):
+            raise ValueError(f"{scenario}: parameter 'checkpoints' must be a bool (True or False).")
 
         if not v.validate({'base_period': validating_config.indices['base_period']}):
             raise ValueError(
