@@ -86,13 +86,7 @@ class ScenarioConfig:
             'max_cumsum_share': config['filtering']['max_cumsum_share']
         }
 
-        self.indices = {
-            'base_price_methods': config['indices']['base_price_methods'],
-            'base_period': config['indices']['base_period'],
-            'index_methods': config['indices']['index_methods'],
-            'multilateral_methods': config['indices']['multilateral_methods'],
-            'window': config['indices']['window_length'],
-        }
+        self.indices = config['indices']
 
 
 class DevConfig:
@@ -250,6 +244,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'paasche',
             'fisher',
             'tornqvist',
+            'geary-khamis',
         ]
 
         multilateral_methods_list = [
@@ -364,6 +359,14 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 'type': 'integer',
                 'min': 3,
             },
+            'iterations': {
+                'type': 'integer',
+                'min': 1,
+                'max': 250,
+            },
+            'checkpoints': {
+                'type': 'boolean'
+            }
         }
 
 
@@ -545,6 +548,12 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
 
         if not v.validate({'window': validating_config.indices['window']}):
             raise ValueError(f"{scenario}: parameter 'window' in indices must be a positive integer > 2.")
+
+        if not v.validate({'iterations': validating_config.indices['iterations']}):
+            raise ValueError(f"{scenario}: parameter 'iterations' in indices must be a positive integer 250 > x > 1.")
+
+        if not v.validate({'checkpoints': validating_config.indices['checkpoints']}):
+            raise ValueError(f"{scenario}: parameter 'checkpoints' must be a bool (True or False).")
 
         if not v.validate({'base_period': validating_config.indices['base_period']}):
             raise ValueError(
