@@ -195,6 +195,22 @@ def whole_frame_window() -> WindowSpec:
     )
 
 
+def to_list(df: SparkDF) -> List[Union[Any, List[Any]]]:
+    """Convert Spark DF to a list.
+
+    Returns
+    -------
+    list or list of lists
+        If the input DataFrame has a single column then a list of column
+        values will be returned. If the DataFrame has multiple columns
+        then a list of row data as lists will be returned.
+    """
+    if len(df.columns) == 1:
+        return df.toPandas().squeeze().tolist()
+    else:
+        return df.toPandas().values.tolist()
+
+
 def _list_convert(x: Any) -> List[Any]:
     """Return obj as a single item list if not already a list or tuple."""
     return [x] if not (isinstance(x, list) or isinstance(x, tuple)) else x
