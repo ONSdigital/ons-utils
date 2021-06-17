@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Mapping, Any
 import yaml
 
+from cprices import validation
 
 SRC_DIR = Path(__file__).parent
 ROOT_DIR = SRC_DIR.parent
@@ -49,6 +50,10 @@ class ScenarioConfig(Config):
         """Init the scenario config."""
         super().__init__(scenario)
         self.update(self.load_config())
+
+    def validate(self):
+        """Validate the scenario config against the schema."""
+        validation.validate_config(self)
 
 
 class DevConfig(Config):
