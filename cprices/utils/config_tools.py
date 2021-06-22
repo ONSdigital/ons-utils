@@ -277,7 +277,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             },
             'product_id_code_column': {
                 'type': 'string',
-                'allowed': ['gtin', 'retail_line_code'],
+                'allowed': ['gtin', 'productid_ons'],
             },
             'scanner_align_daily_frequency': {
                 'type': 'string',
@@ -399,7 +399,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
         if not v.validate({'product_id_code_column': to_validate}):
             raise ValueError(
                 f"{scenario}: parameter 'product_id_code_column' in preprocessing must be one of:"
-                f" {{'gtin', 'retail_line_code'}}. Instead got '{to_validate}'."
+                f" {{'gtin', 'productid_ons'}}. Instead got '{to_validate}'."
             )
 
         to_validate = validating_config.preprocessing['week_selection']
