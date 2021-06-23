@@ -153,7 +153,7 @@ def concat(
                 "only pyspark.sql.DataFrame objs are valid"
             )
 
-    # Convert names an keys elements to a list if not already, so they
+    # Convert names and keys elements to a list if not already, so they
     # can be iterated over in the next step.
     names = _list_convert(names)
     keys = [_list_convert(key) for key in keys]
