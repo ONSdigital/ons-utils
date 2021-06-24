@@ -16,13 +16,13 @@
 from datetime import datetime
 from functools import reduce
 import logging
+from pathlib import Path
 import os
 import re
 from typing import Mapping, Optional, Sequence
 
 # Import PySpark libraries.
 import pandas as pd
-import pydoop.hdfs as hdfs
 from pyspark.sql import (
     DataFrame as SparkDF,
     functions as F,
@@ -143,7 +143,6 @@ def load_scanner_data(
         dfs.append(df)
 
     # DataFrames should have the same schema so union all in the list.
-
     return reduce(SparkDF.union, dfs)
 
 
@@ -195,10 +194,18 @@ def load_conventional_data(
     return spark.read.parquet(path).select(columns)
 
 
-def load_webscraped_retailer_weights(weights_dir, filename):
+def load_webscraped_retailer_weights(
+    spark: SparkSession,
+    weights_dir: str,
+    filename: str,
+) -> pd.DataFrame:
     """Load the webscraped retailer weights."""
-    with hdfs.open(os.path.join(weights_dir, filename)) as f:
-        return pd.read_csv(f, parse_dates=['period'], dayfirst=True)
+    filepath = Path(weights_dir).joinpath(filename).as_posix()
+    return (
+        spark.read.csv(filepath, header=True)
+        .withColumn('period', F.to_date('period', 'dd/MM/yyy'))
+        .toPandas()
+    )
 
 
 def save_output_hdfs(dfs: Mapping[str, SparkDF], processed_dir: str) -> str:
