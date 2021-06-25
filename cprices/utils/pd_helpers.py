@@ -1,4 +1,5 @@
 """"""
+from typing import Callable
 import pandas as pd
 from flatten_dict import flatten
 
@@ -11,10 +12,10 @@ def nested_dict_to_df(
     """Flattens a nested dict and converts to a DataFrame with MultiIndex."""
     flat_d = flatten(d)
     df = pd.DataFrame.from_dict(flat_d, orient='index', columns=columns)
-    
+
     # Level of nesting may vary, this standardises the length
     idx_filled = fill_tuple_nones(df.index)
-    
+
     new_idx = pd.MultiIndex.from_tuples(idx_filled, names=level_names)
     return df.set_index(new_idx)
 
@@ -25,7 +26,7 @@ def fill_tuple_nones(tuples):
     """
     max_tuple_length = max([len(x) for x in tuples])
     extra_nones_needed = lambda x, max_len: (None,) * (max_len - len(x))
-    
+
     return [x + extra_nones_needed(x, max_tuple_length) for x in tuples]
 
 
@@ -72,7 +73,7 @@ class Stacker():
         stacked_df = df.stack(self.index_cols)
         return stacked_df.reset_index()[self.all_cols]
 
-      
+
 def convert_level_to_datetime(df, level, axis=0):
     """Converts the given level of a MultiIndex to DateTime."""
     # Get a new list of levels with those defined by level converted
@@ -82,7 +83,7 @@ def convert_level_to_datetime(df, level, axis=0):
         else df.axes[axis].levels[i]
         for i, name in enumerate(df.axes[axis].names)
     ]
-    
+
     # Create a new MultiIndex from the levels and set as axis
     new_idx = df.axes[axis].set_levels(new_levels)
     return df.set_axis(new_idx, axis=axis)
@@ -100,24 +101,24 @@ class MultiIndexSlicer:
         self.levels = levels
         self.df = df
         self.axis = axis
-        
+
     def get_slicer(self, *args):
         """Returns a MultiIndex slice for the given args."""
-        
+
         if len(args) != len(self.levels):
             return ValueError(
                 f"len args must be same as len self.levels: {len(self.levels)}"
             )
-        
+
         args = iter(args)
-        
+
         return tuple([
           next(args) if name in self.levels
           else slice(None)
           for name in self.df.axes[self.axis].names
         ])
-        
-      
+
+
 def get_index_level_values(df, levels, axis=0):
     """Returns each combination of level values for given levels."""
     return list(
@@ -125,3 +126,23 @@ def get_index_level_values(df, levels, axis=0):
         .drop_duplicates()
         .itertuples(index=False, name=None)
     )
+
+
+def shifted_within_year_apply(
+    df: pd.DataFrame,
+    method: Callable[[pd.DataFrame], pd.DataFrame],
+    axis: int = 0,
+) -> pd.DataFrame:
+    """Apply the given method within year for Feb-Jan+1 timespan."""
+    return (
+        df
+        .shift(-1, axis=axis)
+        .groupby(lambda x: x.year, axis=axis)
+        .apply(method)
+        .shift(1, axis=axis)
+    )
+
+
+def shifted_within_year_ffill(df: pd.DataFrame, axis: int = 0) -> pd.DataFrame:
+    """Forward fill within year for Feb-Jan+1 timespan."""
+    return shifted_within_year_apply(df, lambda x: x.ffill(), axis)

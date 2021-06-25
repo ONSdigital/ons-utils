@@ -3,6 +3,7 @@
 * Webscraped and scanner data is read in from Hive tables.
 * Conventional data is read in from a parquet file in the staged data
   directory in HDFS.
+* Webscraped retailer weights are read in from HDFS.
 * Outputs are saved in a sub-directory of the processed data directory
   in HDFS, named after the run_id which is a combination of current
   datetime and name of the user running the pipeline.
@@ -14,7 +15,7 @@
 # Import Python libraries.
 import logging
 from pathlib import Path
-from typing import Mapping,  Optional, Sequence
+from typing import Mapping, Optional, Sequence
 
 # Import PySpark libraries.
 from epds_utils.hdfs import copy_local_to_hdfs
