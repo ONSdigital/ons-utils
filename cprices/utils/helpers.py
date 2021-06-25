@@ -2,7 +2,13 @@
 # Import Python libraries.
 from functools import reduce
 import logging
-from typing import Dict, Mapping, Iterator, Any, List
+from typing import (
+    Dict,
+    Mapping,
+    Iterator,
+    Any,
+    List,
+)
 
 # Import third party libraries.
 from humanfriendly import format_timespan
