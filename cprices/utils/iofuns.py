@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Mapping, Optional, Sequence
 
 # Import PySpark libraries.
-from epds_utils.hdfs import copy_local_to_hdfs
 from pyspark.sql import (
     DataFrame as SparkDF,
     SparkSession,
@@ -84,8 +83,3 @@ def save_output_hdfs(dfs: Mapping[str, SparkDF], output_dir: Path) -> str:
         else:
             path = output_dir.joinpath(name)
             dfs[name].write.parquet(path)
-
-
-def copy_logs_to_hdfs(local_path: str, hdfs_path: str) -> None:
-    """Copy the logs to HDFS."""
-    copy_local_to_hdfs(local_path, hdfs_path)
