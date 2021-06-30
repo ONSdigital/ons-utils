@@ -16,6 +16,7 @@ from datetime import datetime
 from functools import reduce
 import logging
 import os
+import pandas as pd
 import re
 from typing import Mapping, Tuple, Optional, Sequence
 
@@ -261,3 +262,21 @@ def save_output_hdfs(dfs: Mapping[str, SparkDF], processed_dir: str) -> str:
             dfs[name].write.parquet(path)
 
     return run_id
+
+
+def get_config_params(spark: SparkSession, config: dict) -> SparkDF:
+    """Create table with configuration parameters for the scenario.
+
+    The table contains two columns. The first column shows the stage of the
+    pipeline, and the second column shows a dictionary containing all the
+    config parameters for the corresponding stage. This can be used as a
+    reference for the user to check the configuration of this run.
+    """
+    configuration = (
+        pd.DataFrame
+        .from_dict(config.__dict__, orient='index')
+        .reset_index()
+        .astype(str)
+    )
+
+    return spark.createDataFrame(configuration)
