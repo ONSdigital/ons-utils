@@ -243,6 +243,11 @@ class TestConcat:
         return [french_cheese, greek_cheese, british_cheese]
 
     @pytest.fixture
+    def cheese_list_diff_cols(self, british_cheese, italian_cheese):
+        """The three cheese input dataframes with same columns as list."""
+        return [british_cheese, italian_cheese]
+
+    @pytest.fixture
     def cheese_dict(self, french_cheese, greek_cheese, british_cheese):
         """The three cheese input dataframes with same columns as a dict."""
         return {
@@ -267,7 +272,7 @@ class TestConcat:
 
     @parametrize_cases(
         Case(
-            "with_no_additional_columns_when_only_frames_passed",
+            "list_input-with_no_additional_columns_when_only_frames_passed",
             input_data=pytest.lazy_fixture('cheese_list'),
             keys=None,
             names=None,
@@ -283,14 +288,14 @@ class TestConcat:
             ])
         ),
         Case(
-            "with_additional_column_when_keys_and_names_passed",
+            "list_input-with_additional_column_when_keys_and_names_passed",
             input_data=pytest.lazy_fixture('cheese_list'),
             keys=['french', 'greek', 'british'],
             names='country',
             expected=pytest.lazy_fixture('solo_keys_expected')
         ),
         Case(
-            "with_two_additional_columns_with_tuple_keys",
+            "list_input-with_two_additional_columns_with_tuple_keys",
             input_data=pytest.lazy_fixture('cheese_list'),
             keys=[('french', 'no'), ('greek', 'yes'), ('british', 'yes')],
             names=['country', 'tasted'],
@@ -303,6 +308,20 @@ class TestConcat:
                 ('greek', 'yes', 'halloumi', 1, 1, 1, 1),
                 ('british', 'yes', 'cheddar', 3, 4, 4, 2),
                 ('british', 'yes', 'caerphilly', 3, 3, 2, 2),
+            ])
+        ),
+        Case(
+            "list_input-can_concatenate_two_dfs_with_different_columns",
+            marks=pytest.mark.xfail(reason="requires pyspark v3.1.0 and code change"),
+            input_data=pytest.lazy_fixture('cheese_list_diff_cols'),
+            keys=['british', 'italian'],
+            names=['country'],
+            expected=create_dataframe([
+                ('country', 'tasted', 'name', 'crumbliness', 'maturity', 'tang', 'creaminess', 'saltiness'),
+                ('british', 'yes', 'cheddar', 3, 4, 4, 2, None),
+                ('british', 'yes', 'caerphilly', 3, 3, 2, 2, None),
+                ('italian', 'buffalo mozzarella', None, None, None, None, 4, 3),
+                ('italian', 'ricotta', None, None, None, None, 5, 1),
             ])
         ),
     )

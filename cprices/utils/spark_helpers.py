@@ -153,9 +153,13 @@ def concat(
                 "only pyspark.sql.DataFrame objs are valid"
             )
 
+    # Update with commented line when Spark 3.1.0 available.
+    # union = functools.partial(SparkDF.unionByName, allowMissingColumns=True)
+    union = SparkDF.unionByName
+
     # If no keys or names are given then simply union the DataFrames.
     if not names and not keys:
-        return functools.reduce(SparkDF.unionByName, frames)
+        return functools.reduce(union, frames)
 
     # Convert names and keys elements to a list if not already, so they
     # can be iterated over in the next step.
@@ -179,7 +183,7 @@ def concat(
             frame = frame.select(F.lit(part).alias(name), '*')
         frames_to_concat.append(frame)
 
-    return functools.reduce(SparkDF.unionByName, frames_to_concat)
+    return functools.reduce(union, frames_to_concat)
 
 
 def is_list_or_tuple(x):
