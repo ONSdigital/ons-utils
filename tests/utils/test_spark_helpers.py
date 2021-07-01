@@ -364,3 +364,68 @@ class TestConcat:
             ('british', 'caerphilly', 3, 3, 2, 2),
         ]))
         assert_df_equality(actual, expected, ignore_nullable=True)
+
+    @parametrize_cases(
+        Case("when_frames_is_sequence", frames=[]),
+        Case("when_frames_is_dict", frames=dict()),
+    )
+    def test_raises_value_error_with_empty_frames_input(self, frames):
+        """Test raises value error with empty frames input."""
+        with pytest.raises(ValueError):
+            concat(frames)
+
+    def test_raises_value_error_when_keys_not_same_len_as_frames(self, cheese_list):
+        """Tests ValueError raised correctly."""
+        with pytest.raises(ValueError):
+            # cheese_list is len(3)
+            concat(cheese_list, names='country', keys=['french', 'british'])
+
+    def test_raises_value_error_when_mapping_passed_but_no_names_param(self, cheese_dict):
+        """Tests ValueError raised correctly."""
+        with pytest.raises(ValueError):
+            concat(cheese_dict)
+
+    def test_raises_value_error_when_keys_are_not_of_equal_length(self, cheese_list):
+        """Tests ValueError raised correctly."""
+        with pytest.raises(ValueError):
+            concat(
+                cheese_list,
+                names=['country', 'tasted'],
+                # Middle key is only 1 item, rather than 2 needed.
+                keys=[('french', 'no'), 'greek', ('british', 'yes')]
+            )
+
+    def test_raises_value_error_when_key_length_is_different_to_names_length(self, cheese_list):
+        """Tests ValueError raised correctly."""
+        with pytest.raises(ValueError):
+            # Names len is 1 buy key len is 2.
+            concat(
+                cheese_list,
+                names=['country'],
+                keys=[('french', 'no'), ('greek', 'yes'), ('british', 'yes')]
+            )
+        with pytest.raises(ValueError):
+            # Names len is 2 buy key len is 1.
+            concat(
+                cheese_list,
+                names=['country', 'tasted'],
+                keys=['french', 'greek', 'british'],
+            )
+
+    @parametrize_cases(
+        Case("spark_dataframe", frames=pytest.lazy_fixture('french_cheese')),
+        Case("str", frames='my_dataframe'),
+    )
+    def test_raises_type_error_if_incorrect_type_passed_to_frames(self, frames):
+        """Test TypeError raised correctly."""
+        with pytest.raises(TypeError):
+            concat(frames)
+
+    def test_raises_type_error_if_objs_in_frames_are_not_all_spark_dataframes(
+        self, british_cheese
+    ):
+        """Test TypeError raised correctly."""
+        with pytest.raises(TypeError):
+            concat([pd.DataFrame(), pd.DataFrame()])
+            concat([british_cheese, pd.DataFrame()])
+            concat(['my_df', 7, True])

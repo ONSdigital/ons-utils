@@ -148,7 +148,7 @@ def concat(
 
     for frame in frames:
         if not isinstance(frame, SparkDF):
-            TypeError(
+            raise TypeError(
                 f"cannot concatenate object of type '{type(frame)}'; "
                 "only pyspark.sql.DataFrame objs are valid"
             )
