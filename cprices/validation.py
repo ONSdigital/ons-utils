@@ -46,13 +46,13 @@ def validate_config(config: ScenarioConfig) -> None:
     to ensure that the config parameters are valid, i.e. they have the right
     data type and values within the permitted range.
     """
-    validate_preprocessing(ScenarioConfig)
-    validate_classification(ScenarioConfig)
-    validate_outlier_detection(ScenarioConfig)
-    validate_averaging_and_grouping(ScenarioConfig)
-    validate_imputation(ScenarioConfig)
-    validate_filtering(ScenarioConfig)
-    validate_indices(ScenarioConfig)
+    validate_preprocessing(config)
+    validate_classification(config)
+    validate_outlier_detection(config)
+    validate_averaging_and_grouping(config)
+    validate_imputation(config)
+    validate_filtering(config)
+    validate_indices(config)
 
 
 def validate_preprocessing(config: ScenarioConfig) -> None:
