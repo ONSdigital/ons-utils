@@ -175,8 +175,8 @@ def concat(
     # Loop through each frame, and add each part in the keys to a new
     # column defined by name.
     for parts, frame in zip(keys, frames):
-        for name, part in zip(names, parts):
-            frame = frame.withColumn(name, F.lit(part))
+        for name, part in reversed(tuple(zip(names, parts))):
+            frame = frame.select(F.lit(part).alias(name), '*')
         frames_to_concat.append(frame)
 
     return functools.reduce(SparkDF.unionByName, frames_to_concat)

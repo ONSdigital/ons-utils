@@ -11,6 +11,7 @@ import pytest
 
 from cprices.utils.spark_helpers import *
 from cprices.utils.spark_helpers import _convert_to_spark_col
+from tests.conftest import create_dataframe
 
 
 @to_spark_col
@@ -32,7 +33,7 @@ def dummy_func_with_both_excluded(s1: str, s2: str):
 
 
 class TestToSparkCol:
-    """Test the decorator func to_spark_col and it's helper _convert_to_spark_col."""
+    """Test the decorator func to_spark_col and its helper _convert_to_spark_col."""
 
     @pytest.mark.parametrize(
         's',
@@ -177,7 +178,7 @@ class TestMapCol:
         assert_df_equality(actual, expected)
 
     def test_maps_python_dict_with_list(self, to_spark):
-        """Simple test for map_col working with a Python native dict."""
+        """Test that map_col can create an array column if the dict maps to a list."""
         df = to_spark(pd.DataFrame(['tiger', 'lion'], columns=['animal']))
         mapping = {'tiger': ['orange', 'stripy'], 'lion': ['golden', 'king']}
 
@@ -189,5 +190,125 @@ class TestMapCol:
                 'attribute': [['orange', 'stripy'], ['golden', 'king']]
             })
         )
+
+        assert_df_equality(actual, expected, ignore_nullable=True)
+
+
+class TestConcat:
+    """Tests for the concat function."""
+
+    @pytest.fixture()
+    def french_cheese(self, to_spark):
+        """Input Spark dataframe of French cheeses."""
+        return to_spark(create_dataframe([
+            ('name', 'crumbliness', 'maturity', 'tang', 'creaminess'),
+            ('brie', 0, 2, 1, 4),
+            ('camembert', 0, 2, 2, 4),
+            ('roquefort', 3, 4, 5, 2),
+        ]))
+
+    @pytest.fixture
+    def greek_cheese(self, to_spark):
+        """Input Spark dataframe of Greek cheeses."""
+        return to_spark(create_dataframe([
+            ('name', 'crumbliness', 'maturity', 'tang', 'creaminess'),
+            ('feta', 5, 1, 2, 1),
+            ('halloumi', 1, 1, 1, 1),
+        ]))
+
+    @pytest.fixture
+    def british_cheese(self, to_spark):
+        """Input Spark dataframe of British cheeses."""
+        return to_spark(create_dataframe([
+            ('name', 'crumbliness', 'maturity', 'tang', 'creaminess'),
+            ('cheddar', 3, 4, 4, 2),
+            ('caerphilly', 3, 3, 2, 2),
+        ]))
+
+    @pytest.fixture
+    def italian_cheese(self, to_spark):
+        """Input Spark dataframe of Italian cheeses.
+
+        Has different columns to the other input dataframes in this test class.
+        """
+        return to_spark(create_dataframe([
+            ('name', 'creaminess', 'saltiness'),
+            ('buffalo mozzarella', 4, 3),
+            ('ricotta', 5, 1),
+        ]))
+
+    @pytest.fixture
+    def cheese_list(self, french_cheese, greek_cheese, british_cheese):
+        """The three cheese input dataframes with same columns as list."""
+        return [french_cheese, greek_cheese, british_cheese]
+
+    @pytest.fixture
+    def cheese_dict(self, french_cheese, greek_cheese, british_cheese):
+        """The three cheese input dataframes with same columns as a dict."""
+        return {
+            'french': french_cheese,
+            'greek': greek_cheese,
+            'british': british_cheese,
+        }
+
+    def test_unions_dataframes_with_no_additional_columns_when_only_frames_passed(
+        self, to_spark, cheese_list
+    ):
+        """Tests that the dataframes are unioned with no additional information."""
+        actual = concat(cheese_list)
+        expected = to_spark(create_dataframe([
+            ('name', 'crumbliness', 'maturity', 'tang', 'creaminess'),
+            ('brie', 0, 2, 1, 4),
+            ('camembert', 0, 2, 2, 4),
+            ('roquefort', 3, 4, 5, 2),
+            ('feta', 5, 1, 2, 1),
+            ('halloumi', 1, 1, 1, 1),
+            ('cheddar', 3, 4, 4, 2),
+            ('caerphilly', 3, 3, 2, 2),
+        ]))
+
+        assert_df_equality(actual, expected)
+
+    def test_unions_dataframes_with_additional_column_when_frames_passed_with_keys_and_names(
+        self, to_spark, cheese_list
+    ):
+        """Tests that the dataframes are unioned with a country column."""
+        actual = concat(
+            cheese_list,
+            keys=['french', 'greek', 'british'],
+            names='country'
+        )
+        expected = to_spark(create_dataframe([
+            ('country', 'name', 'crumbliness', 'maturity', 'tang', 'creaminess'),
+            ('french', 'brie', 0, 2, 1, 4),
+            ('french', 'camembert', 0, 2, 2, 4),
+            ('french', 'roquefort', 3, 4, 5, 2),
+            ('greek', 'feta', 5, 1, 2, 1),
+            ('greek', 'halloumi', 1, 1, 1, 1),
+            ('british', 'cheddar', 3, 4, 4, 2),
+            ('british', 'caerphilly', 3, 3, 2, 2),
+        ]))
+
+        assert_df_equality(actual, expected, ignore_nullable=True)
+
+    def test_unions_dataframes_with_two_additional_columns_with_tuple_keys(
+        self, to_spark, cheese_list
+    ):
+        """Tests that the dataframes are unioned with a country and tasted column."""
+        actual = concat(
+            cheese_list,
+            keys=[('french', 'no'), ('greek', 'yes'), ('british', 'yes')],
+            names=['country', 'tasted']
+        )
+        expected = to_spark(create_dataframe([
+            ('country', 'tasted', 'name', 'crumbliness', 'maturity', 'tang', 'creaminess'),
+            ('french', 'no',  'brie', 0, 2, 1, 4),
+            ('french', 'no',  'camembert', 0, 2, 2, 4),
+            ('french', 'no',  'roquefort', 3, 4, 5, 2),
+            ('greek', 'yes', 'feta', 5, 1, 2, 1),
+            ('greek', 'yes', 'halloumi', 1, 1, 1, 1),
+            ('british', 'yes', 'cheddar', 3, 4, 4, 2),
+            ('british', 'yes', 'caerphilly', 3, 3, 2, 2),
+        ]))
 
         assert_df_equality(actual, expected, ignore_nullable=True)
