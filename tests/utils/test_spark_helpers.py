@@ -272,7 +272,7 @@ class TestConcat:
 
     @parametrize_cases(
         Case(
-            "list_input-with_no_additional_columns_when_only_frames_passed",
+            "with_no_additional_columns_when_only_frames_passed",
             input_data=pytest.lazy_fixture('cheese_list'),
             keys=None,
             names=None,
@@ -288,14 +288,14 @@ class TestConcat:
             ])
         ),
         Case(
-            "list_input-with_additional_column_when_keys_and_names_passed",
+            "with_additional_column_when_keys_and_names_passed",
             input_data=pytest.lazy_fixture('cheese_list'),
             keys=['french', 'greek', 'british'],
             names='country',
             expected=pytest.lazy_fixture('solo_keys_expected')
         ),
         Case(
-            "list_input-with_two_additional_columns_with_tuple_keys",
+            "with_two_additional_columns_with_tuple_keys",
             input_data=pytest.lazy_fixture('cheese_list'),
             keys=[('french', 'no'), ('greek', 'yes'), ('british', 'yes')],
             names=['country', 'tasted'],
@@ -311,7 +311,7 @@ class TestConcat:
             ])
         ),
         Case(
-            "list_input-can_concatenate_two_dfs_with_different_columns",
+            "can_concatenate_two_dfs_with_different_columns",
             marks=pytest.mark.xfail(reason="requires pyspark v3.1.0 and code change"),
             input_data=pytest.lazy_fixture('cheese_list_diff_cols'),
             keys=['british', 'italian'],
@@ -325,7 +325,7 @@ class TestConcat:
             ])
         ),
     )
-    def test_union_dataframes_cases(
+    def test_union_dataframes_sequence_input_cases(
         self, to_spark,
         input_data, keys, names, expected,
     ):
@@ -333,3 +333,34 @@ class TestConcat:
         actual = concat(input_data, names, keys)
 
         assert_df_equality(actual, to_spark(expected), ignore_nullable=True)
+
+    def test_unions_all_dataframes_in_mapping_input_when_keys_is_None(
+        self, to_spark, cheese_dict, solo_keys_expected
+    ):
+        """Test that the dataframes in a dict or unioned with names
+        as new column name and the values given by dict keys.
+        """
+        actual = concat(cheese_dict, names='country')
+        assert_df_equality(actual, to_spark(solo_keys_expected), ignore_nullable=True)
+
+    def test_unions_selection_of_dataframes_in_mapping_input_when_keys_is_passed(
+        self, to_spark, cheese_dict,
+    ):
+        """Test that only a selection of dataframes in the dict or
+        unioned with names as new column name and the values given by
+        dict keys.
+        """
+        actual = concat(
+            cheese_dict,
+            names='country',
+            keys=['french', 'british'],
+        )
+        expected = to_spark(create_dataframe([
+            ('country', 'name', 'crumbliness', 'maturity', 'tang', 'creaminess'),
+            ('french', 'brie', 0, 2, 1, 4),
+            ('french', 'camembert', 0, 2, 2, 4),
+            ('french', 'roquefort', 3, 4, 5, 2),
+            ('british', 'cheddar', 3, 4, 4, 2),
+            ('british', 'caerphilly', 3, 3, 2, 2),
+        ]))
+        assert_df_equality(actual, expected, ignore_nullable=True)
