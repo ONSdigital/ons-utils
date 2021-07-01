@@ -11,7 +11,7 @@ import pytest
 
 from cprices.utils.spark_helpers import *
 from cprices.utils.spark_helpers import _convert_to_spark_col
-from tests.conftest import create_dataframe
+from tests.conftest import create_dataframe, Case, parametrize_cases
 
 
 @to_spark_col
@@ -251,34 +251,10 @@ class TestConcat:
             'british': british_cheese,
         }
 
-    def test_unions_dataframes_with_no_additional_columns_when_only_frames_passed(
-        self, to_spark, cheese_list
-    ):
-        """Tests that the dataframes are unioned with no additional information."""
-        actual = concat(cheese_list)
-        expected = to_spark(create_dataframe([
-            ('name', 'crumbliness', 'maturity', 'tang', 'creaminess'),
-            ('brie', 0, 2, 1, 4),
-            ('camembert', 0, 2, 2, 4),
-            ('roquefort', 3, 4, 5, 2),
-            ('feta', 5, 1, 2, 1),
-            ('halloumi', 1, 1, 1, 1),
-            ('cheddar', 3, 4, 4, 2),
-            ('caerphilly', 3, 3, 2, 2),
-        ]))
-
-        assert_df_equality(actual, expected)
-
-    def test_unions_dataframes_with_additional_column_when_frames_passed_with_keys_and_names(
-        self, to_spark, cheese_list
-    ):
-        """Tests that the dataframes are unioned with a country column."""
-        actual = concat(
-            cheese_list,
-            keys=['french', 'greek', 'british'],
-            names='country'
-        )
-        expected = to_spark(create_dataframe([
+    @pytest.fixture
+    def solo_keys_expected(self):
+        """Return the expected output with the country keys."""
+        return create_dataframe([
             ('country', 'name', 'crumbliness', 'maturity', 'tang', 'creaminess'),
             ('french', 'brie', 0, 2, 1, 4),
             ('french', 'camembert', 0, 2, 2, 4),
@@ -287,28 +263,54 @@ class TestConcat:
             ('greek', 'halloumi', 1, 1, 1, 1),
             ('british', 'cheddar', 3, 4, 4, 2),
             ('british', 'caerphilly', 3, 3, 2, 2),
-        ]))
+        ])
 
-        assert_df_equality(actual, expected, ignore_nullable=True)
-
-    def test_unions_dataframes_with_two_additional_columns_with_tuple_keys(
-        self, to_spark, cheese_list
-    ):
-        """Tests that the dataframes are unioned with a country and tasted column."""
-        actual = concat(
-            cheese_list,
+    @parametrize_cases(
+        Case(
+            "with_no_additional_columns_when_only_frames_passed",
+            input_data=pytest.lazy_fixture('cheese_list'),
+            keys=None,
+            names=None,
+            expected=create_dataframe([
+                ('name', 'crumbliness', 'maturity', 'tang', 'creaminess'),
+                ('brie', 0, 2, 1, 4),
+                ('camembert', 0, 2, 2, 4),
+                ('roquefort', 3, 4, 5, 2),
+                ('feta', 5, 1, 2, 1),
+                ('halloumi', 1, 1, 1, 1),
+                ('cheddar', 3, 4, 4, 2),
+                ('caerphilly', 3, 3, 2, 2),
+            ])
+        ),
+        Case(
+            "with_additional_column_when_keys_and_names_passed",
+            input_data=pytest.lazy_fixture('cheese_list'),
+            keys=['french', 'greek', 'british'],
+            names='country',
+            expected=pytest.lazy_fixture('solo_keys_expected')
+        ),
+        Case(
+            "with_two_additional_columns_with_tuple_keys",
+            input_data=pytest.lazy_fixture('cheese_list'),
             keys=[('french', 'no'), ('greek', 'yes'), ('british', 'yes')],
-            names=['country', 'tasted']
-        )
-        expected = to_spark(create_dataframe([
-            ('country', 'tasted', 'name', 'crumbliness', 'maturity', 'tang', 'creaminess'),
-            ('french', 'no',  'brie', 0, 2, 1, 4),
-            ('french', 'no',  'camembert', 0, 2, 2, 4),
-            ('french', 'no',  'roquefort', 3, 4, 5, 2),
-            ('greek', 'yes', 'feta', 5, 1, 2, 1),
-            ('greek', 'yes', 'halloumi', 1, 1, 1, 1),
-            ('british', 'yes', 'cheddar', 3, 4, 4, 2),
-            ('british', 'yes', 'caerphilly', 3, 3, 2, 2),
-        ]))
+            names=['country', 'tasted'],
+            expected=create_dataframe([
+                ('country', 'tasted', 'name', 'crumbliness', 'maturity', 'tang', 'creaminess'),
+                ('french', 'no',  'brie', 0, 2, 1, 4),
+                ('french', 'no',  'camembert', 0, 2, 2, 4),
+                ('french', 'no',  'roquefort', 3, 4, 5, 2),
+                ('greek', 'yes', 'feta', 5, 1, 2, 1),
+                ('greek', 'yes', 'halloumi', 1, 1, 1, 1),
+                ('british', 'yes', 'cheddar', 3, 4, 4, 2),
+                ('british', 'yes', 'caerphilly', 3, 3, 2, 2),
+            ])
+        ),
+    )
+    def test_union_dataframes_cases(
+        self, to_spark,
+        input_data, keys, names, expected,
+    ):
+        """Test all the positive cases for unioning dataframes with concat."""
+        actual = concat(input_data, names, keys)
 
-        assert_df_equality(actual, expected, ignore_nullable=True)
+        assert_df_equality(actual, to_spark(expected), ignore_nullable=True)
