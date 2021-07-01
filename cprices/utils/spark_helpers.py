@@ -234,3 +234,8 @@ def map_column_names(df: SparkDF, mapper: Mapping[str, str]) -> SparkDF:
         for col_name in df.columns
     ]
     return df.select(*cols)
+
+
+def get_hive_table_columns(spark, table_path) -> List[str]:
+    """Return the column names for the given Hive table."""
+    return to_list(spark.sql(f'SHOW columns in {table_path}'))
