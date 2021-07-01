@@ -82,7 +82,7 @@ def map_col(col_name: str, mapping: Mapping[Any, Any]) -> SparkCol:
 
 def concat(
     frames: Union[Iterable[SparkDF], Mapping[Key, SparkDF]],
-    names: Union[str, Sequence[str]],
+    names: Optional[Union[str, Sequence[str]]] = None,
     keys: Optional[Key] = None,
 ) -> SparkDF:
     """
@@ -94,7 +94,7 @@ def concat(
         If a mapping is passed, then the sorted keys will be used as the
         `keys` argument, unless it is passed, in which case the values
         will be selected.
-    names : str or list of str
+    names : str or list of str, optional
         The name or names to give each new key column. Must match the
         size of each key.
     keys : a sequence of str or str sequences, optional
@@ -126,18 +126,18 @@ def concat(
         raise ValueError("No objects to concatenate")
 
     if isinstance(frames, abc.Sequence):
-        if keys is None:
+        if keys and (len(frames) != len(keys)):
             raise ValueError(
-                "keys must be passed if frames is a list or tuple"
+                "keys must be same length as frames"
+                " when frames is a list or tuple"
             )
-        else:
-            if len(frames) != len(keys):
-                raise ValueError(
-                    "keys must be same length as frames"
-                    " when frames is a list or tuple"
-                )
 
     if isinstance(frames, abc.Mapping):
+        if names is None:
+            raise ValueError(
+                "when the first argument is a mapping,"
+                " the names argument must be given"
+            )
         if keys is None:
             keys = list(frames.keys())
         # If keys are passed with a mapping, then the mapping is subset
@@ -153,6 +153,10 @@ def concat(
                 "only pyspark.sql.DataFrame objs are valid"
             )
 
+    # If no keys or names are given then simply union the DataFrames.
+    if not names and not keys:
+        return functools.reduce(SparkDF.unionByName, frames)
+
     # Convert names and keys elements to a list if not already, so they
     # can be iterated over in the next step.
     names = _list_convert(names)
@@ -161,6 +165,10 @@ def concat(
     if not all([len(key) == len(names) for key in keys]):
         raise ValueError(
             "the length of each key must equal the length of names"
+        )
+    if not all([len(key) == len(keys[0]) for key in keys]):
+        raise ValueError(
+            "all keys must be of equal length"
         )
 
     frames_to_concat = []
@@ -214,3 +222,15 @@ def to_list(df: SparkDF) -> List[Union[Any, List[Any]]]:
 def _list_convert(x: Any) -> List[Any]:
     """Return obj as a single item list if not already a list or tuple."""
     return [x] if not (isinstance(x, list) or isinstance(x, tuple)) else x
+
+
+def map_column_names(df: SparkDF, mapper: Mapping[str, str]) -> SparkDF:
+    """Map column names to the given values in the mapper.
+
+    If the column name is not in the mapper the name doesn't change.
+    """
+    cols = [
+        F.col(col_name).alias(mapper.get(col_name, col_name))
+        for col_name in df.columns
+    ]
+    return df.select(*cols)
