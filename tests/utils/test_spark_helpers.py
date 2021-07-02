@@ -194,6 +194,28 @@ class TestMapCol:
         assert_df_equality(actual, expected, ignore_nullable=True)
 
 
+@pytest.mark.spark
+@pytest.mark.unit
+def test_map_column_names(to_spark):
+    """Test column names are mapped to given values."""
+    input_df = to_spark(create_dataframe([
+        ('col_A', 'col_B', 'col_Y', 'col_D', 'col_Z'),
+        ('aaa',   'bbb',   'ccc',   'ddd',   'eee'),
+    ]))
+
+    actual = map_column_names(
+        input_df,
+        {'col_Y': 'col_C', 'col_Z': 'col_E'},
+    )
+
+    expected = to_spark(create_dataframe([
+        ('col_A', 'col_B', 'col_C', 'col_D', 'col_E'),
+        ('aaa',   'bbb',   'ccc',   'ddd',   'eee'),
+    ]))
+
+    assert_df_equality(actual, expected)
+
+
 class TestConcat:
     """Tests for the concat function."""
 
