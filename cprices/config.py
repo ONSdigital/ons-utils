@@ -1,6 +1,7 @@
 """Configuration file loader and validation functions."""
 from datetime import datetime
 from logging.config import dictConfig
+import os
 from pathlib import Path
 from typing import Mapping, Any
 import yaml
@@ -9,7 +10,6 @@ from cprices import validation
 
 SRC_DIR = Path(__file__).parent
 ROOT_DIR = SRC_DIR.parent
-CONFIG_DIR = ROOT_DIR.joinpath('config')
 
 
 class Config:
@@ -18,10 +18,38 @@ class Config:
     def __init__(self, filename: str):
         """Initialise the Config class."""
         self.name = filename
+        self.config_dir = self.get_config_dir()
 
-    def get_config_path(self):
+    def get_config_dir(self) -> Path:
+        """Get the config directory from possible locations.
+
+        Looks first to see if the environment variable CPRICES_CONFIG
+        is set. If not cycles through current working directory, home
+        directory, and cprices directories until it finds a folder
+        called config which it returns.
+
+        Returns
+        -------
+        Path
+            The config directory.
+        """
+        config_dir_path_env = os.getenv("CPRICES_CONFIG")
+        if config_dir_path_env:
+            return config_dir_path_env
+
+        for loc in (
+            # This location is where the config is stored currently.
+            Path.home().joinpath('cprices', 'cprices'),
+            Path.home().joinpath('cprices'),
+            Path.home(),
+            Path.cwd(),
+        ):
+            if loc.joinpath('config').exists():
+                return loc.joinpath('config')
+
+    def get_config_path(self) -> Path:
         """Return the path to the config file."""
-        return CONFIG_DIR.joinpath(self.name + '.yaml')
+        return self.config_dir.joinpath(self.name + '.yaml')
 
     def load_config(self):
         """Load the config file."""
