@@ -2,7 +2,6 @@
 from typing import Mapping, Union
 from cerberus import Validator
 
-from cprices.config import ScenarioConfig
 from epds_utils import hdfs
 
 
@@ -18,7 +17,7 @@ class ScenarioSectionError(Exception):
         super().__init__(self.message)
 
 
-def validate_config_sections(config: ScenarioConfig) -> None:
+def validate_config_sections(config) -> None:
     """Validate that all required sections are in the config.name file."""
     required_sections = [
         'input_data',
@@ -39,7 +38,7 @@ def validate_config_sections(config: ScenarioConfig) -> None:
             raise ScenarioSectionError(config.name, key)
 
 
-def validate_config(config: ScenarioConfig) -> None:
+def validate_config(config) -> None:
     """Validate config.name config parameters.
 
     This function runs at the very beginning and includes assert statements
@@ -55,7 +54,7 @@ def validate_config(config: ScenarioConfig) -> None:
     validate_indices(config)
 
 
-def validate_preprocessing(config: ScenarioConfig) -> None:
+def validate_preprocessing(config) -> None:
     """Validate the preprocessing settings in the config."""
     expenditure_cols = {
         'sales_value_inc_discounts',
@@ -171,7 +170,7 @@ def validate_preprocessing(config: ScenarioConfig) -> None:
         )
 
 
-def validate_classification(config: ScenarioConfig) -> None:
+def validate_classification(config) -> None:
     """Validate the classification settings in the config."""
     v = Validator()
     v.schema = {'web_scraped_active': {'type': 'boolean'}}
@@ -235,7 +234,7 @@ def validate_mapper_settings(
                 )
 
 
-def validate_outlier_detection(config: ScenarioConfig):
+def validate_outlier_detection(config):
     """Validate the outlier detection settings in the config."""
     outlier_methods = {'tukey', 'kimber', 'ksigma'}
 
@@ -327,7 +326,7 @@ def validate_outlier_detection(config: ScenarioConfig):
             )
 
 
-def validate_averaging_and_grouping(config: ScenarioConfig):
+def validate_averaging_and_grouping(config):
     """Validate the averaging and grouping settings in the config."""
     averaging_methods = {
         'unweighted_arithmetic',
@@ -379,7 +378,7 @@ def validate_averaging_and_grouping(config: ScenarioConfig):
                 )
 
 
-def validate_imputation(config: ScenarioConfig):
+def validate_imputation(config):
     """Validate the imputation settings in the config."""
     v = Validator()
     v.schema = {
@@ -407,7 +406,7 @@ def validate_imputation(config: ScenarioConfig):
             )
 
 
-def validate_filtering(config: ScenarioConfig):
+def validate_filtering(config):
     """Validate the filtering settings in the config."""
     v = Validator()
     v.schema = {
@@ -436,7 +435,7 @@ def validate_filtering(config: ScenarioConfig):
             )
 
 
-def validate_indices(config: ScenarioConfig):
+def validate_indices(config):
     """Validate the indices settings in the config."""
     base_price_methods = {
         'fixed_base',
