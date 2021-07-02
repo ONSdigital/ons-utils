@@ -8,9 +8,6 @@ import yaml
 
 from cprices import validation
 
-SRC_DIR = Path(__file__).parent
-ROOT_DIR = SRC_DIR.parent
-
 
 class Config:
     """Base class for config files."""
@@ -112,7 +109,11 @@ class LoggingConfig:
 
     def get_logs_dir(self) -> Path:
         """Return the logs directory."""
-        return ROOT_DIR.joinpath('run_logs')
+        loc = Path.home().joinpath('cprices', 'cprices')
+        if loc.exists():
+            return loc.joinpath('run_logs')
+
+        return Path.home().joinpath('cprices_run_logs')
 
     def create_logs_dir(self) -> None:
         """Create the log directory if not already created."""
