@@ -1,8 +1,7 @@
 """Tests for the helpers module."""
+import pytest
 from pyspark.sql import types as T
 from epds_utils.testing.pyspark_test_case import PySparkTest
-
-import unittest
 
 from cprices.utils import helpers
 
@@ -64,12 +63,7 @@ class TestUtils(PySparkTest):
             self.assertDFEqual(df2, v, rounding_scale=3)
 
 
-if __name__ == "__main__":
-
-    suite = unittest.TestSuite()
-    # unittest.main(exit=False)
-
-    suite.addTest(TestUtils("test_find"))
-
-    runner = unittest.TextTestRunner()
-    runner.run(suite)
+@pytest.mark.skip(reason="test shell")
+def test_invert_nested_keys():
+    """Test for this."""
+    pass

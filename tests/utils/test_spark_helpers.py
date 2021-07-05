@@ -451,3 +451,27 @@ class TestConcat:
             concat([pd.DataFrame(), pd.DataFrame()])
             concat([british_cheese, pd.DataFrame()])
             concat(['my_df', 7, True])
+
+
+@pytest.mark.skip(reason="test shell")
+def test_to_list():
+    """Test for this."""
+    pass
+
+
+@pytest.mark.skip(reason="test shell")
+def test_list_convert():
+    """Test for this."""
+    pass
+
+
+@pytest.mark.skip(reason="test shell")
+def test_is_list_or_tuple():
+    """Test for this."""
+    pass
+
+
+@pytest.mark.skip(reason="test shell")
+def test_get_hive_table_columns():
+    """Test for this."""
+    pass

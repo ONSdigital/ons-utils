@@ -1,4 +1,4 @@
-""""""
+"""A set of helper functions in pandas."""
 from typing import Callable
 import pandas as pd
 from flatten_dict import flatten
