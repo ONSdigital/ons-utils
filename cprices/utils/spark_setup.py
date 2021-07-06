@@ -26,21 +26,47 @@ def start_spark_session(session_size: str = 'default') -> SparkSession:
     # specified.
     set_pyspark_python_env(miscmods_version=3.05)
 
-    executor_memory = '8g' if session_size == 'large' else '2g'
-    executor_cores = 3 if session_size == 'large' else 1
-    return (
+    spark = (
         SparkSession.builder.appName('cprices')
-        .config('spark.executor.memory', executor_memory)
-        .config('spark.yarn.executor.memoryOverhead', '1g')
-        .config('spark.executor.cores', executor_cores)
-        .config('spark.dynamicAllocation.maxExecutors', 3)
         .config('spark.dynamicAllocation.enabled', 'true')
         .config('spark.shuffle.service.enabled', 'true')
-        # This stops progress bars appearing in the console whilst running
         .config('spark.ui.showConsoleProgress', 'false')
         .enableHiveSupport()
         .getOrCreate()
     )
+    # Configure Spark based on which cluster it's on.
+    spark_config(spark, session_size)
+    return spark
+
+
+def spark_config(spark: SparkSession, session_size: str = 'default') -> None:
+    """Set the Spark config based on CDSW node."""
+    # Get the node ID from the environment variable.
+    node_name = os.getenv('CDSW_NODE_NAME')
+    node_id = re.search(r'([a-z])\d{2}', node_name).group(1)
+
+    # 'd' for DevTest, 'u' for UAT, 'p' for Prod.
+    if node_id == 'd':
+        # For DevTest.
+        executor_memory = '8g' if session_size == 'large' else '2g'
+        executor_cores = 3 if session_size == 'large' else 1
+        max_executors = 3
+        memory_overhead = '1g'
+    elif node_id == 'p':
+        # For Prod.
+        executor_memory = '20g'
+        executor_cores = 5
+        max_executors = 12
+        memory_overhead = '2g'
+
+        spark.conf.set('spark.driver.maxResultSize', '6g')
+        spark.conf.set('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+        spark.conf.set('spark.wrokerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
+
+    spark.conf.set('spark.executor.memory', executor_memory)
+    spark.conf.set('spark.executor.cores', executor_cores)
+    spark.conf.set('spark.dynamicAllocation.maxExecutors', max_executors)
+    spark.conf.set('spark.yarn.executor.memoryOverhead', memory_overhead)
 
 
 def set_pyspark_python_env(miscmods_version: float) -> None:
