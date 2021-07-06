@@ -12,3 +12,9 @@ def test_read_hive_table():
 def test_read_output():
     """Test for this."""
     pass
+
+
+@pytest.mark.skip(reason="test shell")
+def test_get_recent_run_ids():
+    """Test for this."""
+    pass
