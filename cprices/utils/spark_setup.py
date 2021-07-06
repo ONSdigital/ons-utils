@@ -1,10 +1,14 @@
 """Contains spark setup function: start_spark_session."""
+from contextlib import contextmanager
+from copy import copy
 import logging
 import os
 from pathlib import Path
 import re
+import subprocess
 from typing import Union
 
+from epds_utils.hdfs import hdfs_utils
 from pyspark.sql import SparkSession
 
 LOGGER = logging.getLogger('')
@@ -119,3 +123,43 @@ def find_miscmods_version(s: str) -> Union[float, None]:
         return float(version_no.group())
     else:
         return None
+
+
+@contextmanager
+def checkpoints(spark, checkpoint_dir: str = None) -> None:
+    """Context manager to set checkpoint directory and clear after use."""
+    # Set checkpoint dir using Hadoop user name by default.
+    if not checkpoint_dir:
+        username = os.getenv("HADOOP_USER_NAME")
+        checkpoint_dir = Path('/', 'user', username, 'checkpoints')
+
+    # Make sure that checkpoint dir doesn't already exist. Otherwise it
+    # should add a number suffix.
+    checkpoint_dir = _get_unused_checkpoint_dir(checkpoint_dir)
+
+    spark.sparkContext.setCheckpointDir(checkpoint_dir.as_posix())
+
+    # The following code defines the context manager.
+    try:
+        yield None
+    finally:
+        cmd = ['hadoop',  'fs', '-rm', '-r', '-skipTrash', checkpoint_dir]
+        subprocess.run(cmd)
+
+
+def _get_unused_checkpoint_dir(checkpoint_dir: Path) -> Path:
+    """Get a checkpoint_dir path that doesn't already exist.
+
+    Keeps adding 1 to the checkpoint_dir path until it finds one that
+    doesn't exist. This is to stop a checkpoint_dir being removed when
+    parallel runs of the same system are taking place, as the context
+    manager removes the checkpoint_dir. This also prevents accidentally
+    removing a directory that has other files in it.
+    """
+    n = 1
+    new_checkpoint_dir = copy(checkpoint_dir)
+    while hdfs_utils.isdir(new_checkpoint_dir):
+        new_checkpoint_dir = checkpoint_dir.joinpath(str(n))
+        n += 1
+
+    return new_checkpoint_dir
