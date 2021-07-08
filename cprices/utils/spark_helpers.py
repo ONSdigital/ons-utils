@@ -84,3 +84,8 @@ def whole_frame_window() -> WindowSpec:
         Window.unboundedPreceding,
         Window.unboundedFollowing,
     )
+
+
+def transform(self, f, *args, **kwargs):
+    """Chain Pyspark function."""
+    return f(self, *args, **kwargs)
