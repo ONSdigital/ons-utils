@@ -21,8 +21,8 @@ def validate_config_sections(config) -> None:
     """Validate that all required sections are in the config.name file."""
     required_sections = [
         'input_data',
-        'preprocessing',
-        'classification',
+        # 'preprocessing',
+        # 'item_mappers',
         'outlier_detection',
         'averaging',
         'grouping',
@@ -45,7 +45,8 @@ def validate_config(config) -> None:
     to ensure that the config parameters are valid, i.e. they have the right
     data type and values within the permitted range.
     """
-    validate_preprocessing(config)
+    if config.preprocessing:
+        validate_preprocessing(config)
     validate_classification(config)
     validate_outlier_detection(config)
     validate_averaging_and_grouping(config)

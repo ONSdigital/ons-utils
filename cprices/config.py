@@ -1,12 +1,16 @@
 """Configuration file loader and validation functions."""
+from copy import copy
 from datetime import datetime
 from logging.config import dictConfig
 import os
 from pathlib import Path
-from typing import Mapping, Any
+from typing import Mapping, Any, Sequence
 import yaml
 
+from flatten_dict import flatten
+
 from cprices import validation
+from cprices.utils.helpers import get_key_value_pairs
 
 
 class Config:
@@ -79,6 +83,43 @@ class ScenarioConfig(Config):
     def validate(self):
         """Validate the scenario config against the schema."""
         validation.validate_config(self)
+
+    def flatten_nested_dicts(self, attrs: Sequence[str]) -> None:
+        """Flatten the nested dict config for web_scraped."""
+        self.update({k: flatten(vars(self)[k]) for k in attrs})
+
+    def get_key_value_pairs(self, attrs: Sequence[str]) -> None:
+        """Get the key value pairs from a dictionary as list of tuples."""
+        self.update({k: get_key_value_pairs(vars(self)[k]) for k in attrs})
+
+    def pick_source(self, source: str) -> Config:
+        """Select the config parameters for the given source.
+
+        Parameters
+        ----------
+        source : {'web_scraped', 'scanner'}, str
+            The data source to pick the config for.
+
+        Returns
+        -------
+        Config
+            An altered version of the main scenario config for the data
+            source.
+        """
+        new_config = copy(self)
+
+        for key, value in vars(new_config).items():
+            if isinstance(value, dict):
+                if value.get(source, None):
+                    setattr(new_config, key, value.get(source))
+
+        if source == 'web_scraped':
+            # Flattens nested to (supplier, item) tuple.
+            new_config.flatten_nested_dicts(['item_mappers'])
+            # Converts dict to (suppler, item) tuple pairs.
+            new_config.get_key_value_pairs(['input_data'])
+
+        return new_config
 
 
 class DevConfig(Config):
