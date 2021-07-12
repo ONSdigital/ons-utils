@@ -74,11 +74,6 @@ class ScenarioConfig:
             'web_scraped': config['grouping']['web_scraped'],
         }
 
-        self.imputation = {
-            'active': config['imputation']['active'],
-            'ffill_limit': config['imputation']['ffill_limit']
-        }
-
         self.filtering = {
             'active': config['filtering']['active'],
             'max_cumsum_share': config['filtering']['max_cumsum_share']
@@ -203,7 +198,6 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'outlier_detection',
             'averaging',
             'grouping',
-            'imputation',
             'filtering',
             'indices'
         ]
@@ -305,7 +299,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'user_defined_mapper': {
                 'type': 'boolean',
             },
-            # Outlier detection/ Averaging/ Grouping/ Filtering/ Imputation
+            # Outlier detection/ Averaging/ Grouping/ Filtering
             'active': {
                 'type': 'boolean',
             },
@@ -345,17 +339,6 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'scanner': {
                 'type': 'string',
                 'allowed': averaging_methods_list,
-            },
-            # Imputation
-            'ffill_limit': {
-                'type': 'integer',
-                'min': 1,
-            },
-            # Imputation
-            'max_cumsum_share': {
-                'type': 'float',
-                'min': 0,
-                'max': 1,
             },
             # Indices
             'base_price_methods': {
@@ -553,17 +536,6 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                         )
         else:
             raise ValueError(f"{scenario}: parameter 'active' in grouping is not a boolean")
-
-
-        # Imputation
-        if v.validate({'active': validating_config.imputation['active']}):
-            if validating_config.imputation['active']:
-                if not v.validate({'ffill_limit': validating_config.imputation['ffill_limit']}):
-                    raise ValueError(
-                        f"{scenario}: ffill_limit for imputation must be an integer greater than 0"
-                    )
-        else:
-            raise ValueError(f"{scenario}: parameter 'active' in imputation is not a boolean")
 
 
         # Filtering
