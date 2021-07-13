@@ -105,15 +105,17 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
         or not default_miscmods_version
         or (default_miscmods_version < miscmods_version)
     ):
-        miscmods_path = Path(
-            'opt', 'ons', 'virtualenv', f'miscMods_v{miscmods_version}',
-            'bin', 'python3.6',
+        miscmods_path = (
+            Path(
+                'opt', 'ons', 'virtualenv', f'miscMods_v{miscmods_version}',
+                'bin', 'python3.6',
+            ).as_posix()
         )
 
         LOGGER.info(
             f'Setting PYSPARK_PYTHON environment variable to {miscmods_path}'
         )
-        os.environ['PYSPARK_PYTHON'] = miscmods_path.as_posix()
+        os.environ['PYSPARK_PYTHON'] = miscmods_path
 
 
 def find_miscmods_version(s: str) -> Union[float, None]:
