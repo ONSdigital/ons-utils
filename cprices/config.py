@@ -1,5 +1,5 @@
 """Configuration file loader and validation functions."""
-from copy import copy
+from copy import copy, deepcopy
 from datetime import datetime
 from logging.config import dictConfig
 import os
@@ -10,7 +10,7 @@ import yaml
 from flatten_dict import flatten
 
 from cprices import validation
-from cprices.utils.helpers import get_key_value_pairs
+from cprices.utils.helpers import get_key_value_pairs, fill_tuples
 
 
 class Config:
@@ -19,7 +19,7 @@ class Config:
     def __init__(self, filename: str):
         """Initialise the Config class."""
         self.name = filename
-        self.config_dir = self.get_config_dir()
+        self.config_path = self.get_config_path()
 
     def get_config_dir(self) -> Path:
         """Get the config directory from possible locations.
@@ -50,17 +50,29 @@ class Config:
 
     def get_config_path(self) -> Path:
         """Return the path to the config file."""
-        return self.config_dir.joinpath(self.name + '.yaml')
+        return self.get_config_dir().joinpath(self.name + '.yaml')
 
     def load_config(self):
         """Load the config file."""
-        with open(self.get_config_path(), 'r') as f:
+        with open(self.config_path, 'r') as f:
             return yaml.safe_load(f)
 
     def update(self, attrs: Mapping[str, Any]):
         """Update the attributes."""
         for key, value in attrs.items():
             setattr(self, key, value)
+
+    def flatten_nested_dicts(self, attrs: Sequence[str]) -> None:
+        """Flatten the nested dict config for web_scraped."""
+        self.update({k: flatten(vars(self)[k]) for k in attrs})
+
+    def get_key_value_pairs(self, attrs: Sequence[str]) -> None:
+        """Get the key value pairs from a dictionary as list of tuples."""
+        self.update({k: get_key_value_pairs(vars(self)[k]) for k in attrs})
+
+    def fill_tuples(self, attrs: Sequence[str], repeat: bool = True) -> None:
+        """Fill tuples so they are all the same length."""
+        self.update({k: fill_tuples(vars(self)[k], repeat) for k in attrs})
 
 
 class SelectedScenarioConfig(Config):
@@ -76,7 +88,7 @@ class ScenarioConfig(Config):
     """Class to store the configuration settings for particular scenario."""
 
     def __init__(self, scenario: str):
-        """Init the scenario config."""
+        """Init the scenario config with the name of the YAML file."""
         super().__init__(scenario)
         self.update(self.load_config())
 
@@ -84,15 +96,7 @@ class ScenarioConfig(Config):
         """Validate the scenario config against the schema."""
         validation.validate_config(self)
 
-    def flatten_nested_dicts(self, attrs: Sequence[str]) -> None:
-        """Flatten the nested dict config for web_scraped."""
-        self.update({k: flatten(vars(self)[k]) for k in attrs})
-
-    def get_key_value_pairs(self, attrs: Sequence[str]) -> None:
-        """Get the key value pairs from a dictionary as list of tuples."""
-        self.update({k: get_key_value_pairs(vars(self)[k]) for k in attrs})
-
-    def pick_source(self, source: str) -> Config:
+    def pick_source(self, source: str) -> 'ScenarioConfig':
         """Select the config parameters for the given source.
 
         Parameters
@@ -119,7 +123,25 @@ class ScenarioConfig(Config):
             # Converts dict to (suppler, item) tuple pairs.
             new_config.get_key_value_pairs(['input_data'])
 
+        if source == 'scanner':
+            new_config.combine_scanner_input_data()
+
         return new_config
+
+    def combine_scanner_input_data(self) -> 'ScenarioConfig':
+        """Combine with supplier dict and without supplier list."""
+        scan_input_data = deepcopy(self.input_data)
+
+        # First get key value pairs from the with supplier section.
+        # Since it is a dict.
+        self.input_data = scan_input_data.get('with_supplier')
+        self.get_key_value_pairs(['input_data'])
+
+        # Add the list, and fill the tuples to the same length.
+        self.input_data += scan_input_data.get('without_supplier', [])
+        self.fill_tuples(['input_data'], repeat=True)
+
+        return self
 
 
 class DevConfig(Config):

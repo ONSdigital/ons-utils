@@ -27,3 +27,51 @@ def get_key_value_pairs(d: Mapping[Any, Any]) -> List[Tuple[Any, Any]]:
         for k, v in d.items()
     }
     return list(itertools.chain.from_iterable(pairs))
+
+
+def fill_keys(
+    d: Mapping[Tuple[Any], Any],
+    repeat: bool = False
+) -> Dict[Tuple[Any], Any]:
+    """Fill tuple keys of a dict so they are all the same length.
+
+    Parameters
+    ----------
+    repeat : bool, default False
+        If True then fills upper key values with the current highest.
+        If False fills with None.
+    """
+    max_depth = max(len(k) for k in d.keys())
+    new_d = {}
+    for k, v in d.items():
+        fill_value = k[0] if repeat else None
+        while len(k) != max_depth:
+            k = (fill_value,) + k
+
+        new_d.update({k: v})
+
+    return new_d
+
+
+def fill_tuples(tuples, repeat: bool = False):
+    """Fill tuples so they are all the same length.
+
+    Parameters
+    ----------
+    repeat : bool, default False
+        If True then fills missing tuple values with the current highest.
+        If False fills with None.
+    """
+    max_len = max(len(t) for t in tuples if isinstance(t, tuple))
+    new_tups = []
+    for tup in tuples:
+        if not isinstance(tup, tuple):
+            tup = (tup,)
+
+        fill_value = tup[0] if repeat else None
+        while len(tup) < max_len:
+            tup = (fill_value,) + tup
+
+        new_tups.append(tup)
+
+    return new_tups
