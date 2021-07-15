@@ -1,17 +1,45 @@
 """Tests for the pandas helpers in the pd_helpers.py module."""
 import pytest
 
+from pandas.testing import assert_frame_equal
 
-@pytest.mark.skip(reason="test shell")
+from tests.conftest import create_dataframe
+from cprices.utils.pd_helpers import *
+
+
 def test_nested_dict_to_df():
-    """Test for this."""
-    pass
+    """Test for nested_dict_to_df."""
+    input_d = {
+        'bones': {
+            'femur': {'tendons': 24},
+            'humerus': {'tendons': 14},
+        },
+        'muscles': {
+            'gluteus_maximus': {'tendons': 18},
+        },
+        'cars': 7,
+    }
 
+    actual = nested_dict_to_df(
+        input_d,
+        columns=['number'],
+        level_names=('a', 'b', 'c'),
+    )
 
-@pytest.mark.skip(reason="test shell")
-def test_fill_tuple_nones():
-    """Test for this."""
-    pass
+    expected = create_dataframe([
+        ('a', 'b', 'c', 'number'),
+        ('bones', 'femur', 'tendons', 24),
+        ('bones', 'humerus', 'tendons', 14),
+        ('cars', None, None, 7),
+        ('muscles', 'gluteus_maximus', 'tendons', 18),
+    ])
+
+    assert_frame_equal(
+        # Sort values as dict order not preserved.
+        actual.sort_values(['a', 'b']),
+        # Set index because function returns a MultiIndex.
+        expected.set_index(['a', 'b', 'c'])
+    )
 
 
 class TestStacker:

@@ -23,6 +23,7 @@ from pyspark.sql import (
 )
 from pyspark.sql.functions import lit, create_map, col, array
 
+from .helpers import list_convert
 
 Key = Sequence[Union[str, Sequence[str]]]
 
@@ -163,8 +164,8 @@ def concat(
 
     # Convert names and keys elements to a list if not already, so they
     # can be iterated over in the next step.
-    names = _list_convert(names)
-    keys = [_list_convert(key) for key in keys]
+    names = list_convert(names)
+    keys = [list_convert(key) for key in keys]
 
     if not all([len(key) == len(names) for key in keys]):
         raise ValueError(
@@ -221,11 +222,6 @@ def to_list(df: SparkDF) -> List[Union[Any, List[Any]]]:
         return df.toPandas().squeeze().tolist()
     else:
         return df.toPandas().values.tolist()
-
-
-def _list_convert(x: Any) -> List[Any]:
-    """Return obj as a single item list if not already a list or tuple."""
-    return [x] if not (isinstance(x, list) or isinstance(x, tuple)) else x
 
 
 def map_column_names(df: SparkDF, mapper: Mapping[str, str]) -> SparkDF:
