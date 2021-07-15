@@ -102,6 +102,14 @@ class TestFillTuples:
         various_objs = ['m', 1, ['n'], ('o', 'p')]
         assert fill_tuples(various_objs) == [(None, 'm'), (None, 1), (None, 'n'), ('o', 'p')]
 
+    def test_returns_input_if_there_are_no_non_string_sequences(self):
+        various_objs = ['m', 1, 'n']
+        assert fill_tuples(various_objs) == various_objs
+
+    def test_fills_objs_that_are_all_non_string_sequences_to_length_when_given(self):
+        various_objs = ['m', 1, 'n']
+        assert fill_tuples(various_objs, length=2) == [(None, 'm'), (None, 1), (None, 'n')]
+
 
 class TestTupleConvert:
 

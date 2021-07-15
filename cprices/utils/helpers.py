@@ -1,7 +1,7 @@
 """Miscellaneous helper functions."""
 from collections import abc
 import itertools
-from typing import Mapping, Any, List, Tuple, Dict, Sequence
+from typing import Mapping, Any, List, Tuple, Dict, Sequence, Optional
 
 from flatten_dict import flatten, unflatten
 
@@ -51,6 +51,7 @@ def fill_keys(
 
 def fill_tuples(
     tuples: Sequence[Any],
+    length: Optional[int] = None,
     repeat: bool = False,
     fill_method: str = 'bfill',
 ) -> Sequence[Tuple]:
@@ -58,18 +59,26 @@ def fill_tuples(
 
     Parameters
     ----------
+    length : int, optional
+        Fill tuples to a fixed length. If None, fills to max length of
+        the non-string sequence objects given by tuples.
     repeat : bool, default False
         If True then fills missing tuple values with the current value
         at the end of the sequence given by ``at``. If False fills with None.
     fill_method : {'bfill', 'ffill'}, str
         Whether to forward fill or backfill the tuple values.
     """
-    max_len = max(len(t) for t in tuples if isinstance(t, tuple))
+    if not length:
+        if not any(is_non_string_sequence(t) for t in tuples):
+            return tuples
+
+        length = max(len(t) for t in tuples if is_non_string_sequence(t))
+
     new_tups = []
     for tup in tuples:
         tup = tuple_convert(tup)
 
-        while len(tup) < max_len:
+        while len(tup) < length:
             if fill_method == 'bfill':
                 tup = (tup[0] if repeat else None,) + tup
             else:   # 'end'
@@ -80,16 +89,18 @@ def fill_tuples(
     return new_tups
 
 
+def is_non_string_sequence(obj: Any) -> bool:
+    """Return True if obj is non-string sequence like list or tuple."""
+    return isinstance(obj, abc.Sequence) and not isinstance(obj, str)
+
+
 def tuple_convert(obj: Any) -> Tuple[Any]:
     """Convert given object to tuple.
 
     Converts non-string sequences to tuple. Won't convert sets. Wraps
     strings and non-sequences as a single item tuple.
     """
-    if isinstance(obj, abc.Sequence) and not isinstance(obj, str):
-        return tuple(obj)
-    else:
-        return (obj,)
+    return tuple(obj) if is_non_string_sequence(obj) else (obj,)
 
 
 def list_convert(obj: Any) -> List[Any]:
@@ -98,7 +109,4 @@ def list_convert(obj: Any) -> List[Any]:
     Converts non-string sequences to list. Won't convert sets. Wraps
     strings and non-sequences as a single item list.
     """
-    if isinstance(obj, abc.Sequence) and not isinstance(obj, str):
-        return list(obj)
-    else:
-        return [obj]
+    return list(obj) if is_non_string_sequence(obj) else [obj]

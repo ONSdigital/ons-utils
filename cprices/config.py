@@ -70,9 +70,17 @@ class Config:
         """Get the key value pairs from a dictionary as list of tuples."""
         self.update({k: get_key_value_pairs(vars(self)[k]) for k in attrs})
 
-    def fill_tuples(self, attrs: Sequence[str], repeat: bool = True) -> None:
+    def fill_tuples(
+        self,
+        attrs: Sequence[str],
+        repeat: bool = True,
+        length: int = None,
+    ) -> None:
         """Fill tuples so they are all the same length."""
-        self.update({k: fill_tuples(vars(self)[k], repeat) for k in attrs})
+        self.update({
+            k: fill_tuples(vars(self)[k], repeat=repeat, length=length)
+            for k in attrs
+        })
 
 
 class SelectedScenarioConfig(Config):
@@ -134,12 +142,13 @@ class ScenarioConfig(Config):
 
         # First get key value pairs from the with supplier section.
         # Since it is a dict.
-        self.input_data = scan_input_data.get('with_supplier')
-        self.get_key_value_pairs(['input_data'])
+        self.input_data = scan_input_data.get('with_supplier', [])
+        if self.input_data:
+            self.get_key_value_pairs(['input_data'])
 
         # Add the list, and fill the tuples to the same length.
         self.input_data += scan_input_data.get('without_supplier', [])
-        self.fill_tuples(['input_data'], repeat=True)
+        self.fill_tuples(['input_data'], repeat=True, length=2)
 
         return self
 
@@ -236,3 +245,8 @@ class LoggingConfig:
             'disable_existing_loggers': disable_other_loggers,
         }
         dictConfig(logging_config)
+
+
+if __name__ == "__main__":
+    sc_config = ScenarioConfig('scenario_scan')
+    print(sc_config.pick_source('scanner').input_data)
