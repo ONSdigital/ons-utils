@@ -36,7 +36,7 @@ class Config:
         """
         config_dir_path_env = os.getenv("CPRICES_CONFIG")
         if config_dir_path_env:
-            return config_dir_path_env
+            return Path(config_dir_path_env)
 
         for loc in (
             # This location is where the config is stored currently.
