@@ -84,7 +84,7 @@ def load_input_data(
 
                 hierarchy_columns = [
                     col for col in columns
-                    if re.match(r'(hierarchy_level_)\d(_code)', col)
+                    if re.match(r'(hierarchy_level_)\d(_code)$', col)
                 ]
 
                 # Combine the list of hierarchy columns to the predefined cols
