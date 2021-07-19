@@ -1,25 +1,48 @@
 """Configuration file loader and validation functions."""
+from collections import abc
 from copy import copy, deepcopy
 from datetime import datetime
 from logging.config import dictConfig
 import os
 from pathlib import Path
-from typing import Mapping, Any, Sequence
+from typing import Mapping, Any, Sequence, Optional
 import yaml
 
 from flatten_dict import flatten
 
 from cprices import validation
-from cprices.utils.helpers import get_key_value_pairs, fill_tuples
+from cprices.utils.helpers import (
+    fill_tuples,
+    fill_tuple_keys,
+    get_key_value_pairs,
+)
+
+
+class ConfigFormatError(Exception):
+    """Exception raised when given config YAML is not in mapping format."""
+
+    def __init__(self):
+        """Init the ConfigFormatError."""
+        super().__init__("attributes or config yaml must be a mapping")
 
 
 class Config:
     """Base class for config files."""
 
-    def __init__(self, filename: str):
-        """Initialise the Config class."""
+    def __init__(
+        self,
+        filename: str,
+        to_unpack: Optional[Sequence[str]] = None,
+    ):
+        """Initialise the Config class.
+
+        to_unpack : sequence of str
+            A list of keys that contain mappings to unpack. The mappings
+            at given keys will be set as new attributes directly.
+        """
         self.name = filename
         self.config_path = self.get_config_path()
+        self.set_attrs(self.load_config(), to_unpack)
 
     def get_config_dir(self) -> Path:
         """Get the config directory from possible locations.
@@ -62,6 +85,34 @@ class Config:
         for key, value in attrs.items():
             setattr(self, key, value)
 
+    def set_attrs(
+        self,
+        attrs: Mapping[str, Any],
+        to_unpack: Optional[Sequence[str]] = None,
+    ):
+        """Set attributes from given mapping using update method.
+
+        Parameters
+        ----------
+        to_unpack : sequence of str
+            A list of keys that contain mappings to unpack. Instructs
+            the method to unpack mappings at given keys by setting them
+            as new attributes directly.
+        """
+        if not isinstance(attrs, abc.Mapping):
+            raise ConfigFormatError
+
+        # Initialise to_unpack as empty list if not given.
+        for attr in to_unpack if to_unpack else []:
+            nested_mapping = attrs.pop(attr)
+            if not isinstance(nested_mapping, abc.Mapping):
+                raise TypeError(
+                    f"given attr {attr} to unpack must be a mapping"
+                )
+            self.update(nested_mapping)
+
+        self.update(attrs)
+
     def flatten_nested_dicts(self, attrs: Sequence[str]) -> None:
         """Flatten the nested dict config for web_scraped."""
         self.update({k: flatten(vars(self)[k]) for k in attrs})
@@ -82,23 +133,25 @@ class Config:
             for k in attrs
         })
 
+    def fill_tuple_keys(
+        self,
+        attrs: Sequence[str],
+        repeat: bool = True,
+        length: int = None,
+    ) -> None:
+        """Fill tuple keys so they are all the same length."""
+        self.update({
+            k: fill_tuple_keys(vars(self)[k], repeat=repeat, length=length)
+            for k in attrs
+        })
+
 
 class SelectedScenarioConfig(Config):
     """Class to store the selected scenarios."""
 
-    def __init__(self, filename: str):
-        """Init the selected scenarios config."""
-        super().__init__(filename)
-        self.selected_scenarios = self.config['selected_scenarios']
-
 
 class ScenarioConfig(Config):
     """Class to store the configuration settings for particular scenario."""
-
-    def __init__(self, scenario: str):
-        """Init the scenario config with the name of the YAML file."""
-        super().__init__(scenario)
-        self.update(self.load_config())
 
     def validate(self):
         """Validate the scenario config against the schema."""
@@ -155,14 +208,6 @@ class ScenarioConfig(Config):
 
 class DevConfig(Config):
     """Class to store the dev config settings."""
-
-    def __init__(self, filename: str):
-        """Init the developer config."""
-        super().__init__(filename)
-        config = self.load_config()
-        self.update(config.pop('directories'))
-        self.analysis_params = (config.pop('analysis_params'))
-        self.update(config)
 
 
 class LoggingConfig:
