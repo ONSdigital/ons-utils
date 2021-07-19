@@ -3,7 +3,7 @@ from typing import Callable
 import pandas as pd
 from flatten_dict import flatten
 
-from .helpers import fill_tuples
+from .helpers import fill_tuple_keys
 
 
 def nested_dict_to_df(
@@ -12,14 +12,10 @@ def nested_dict_to_df(
     level_names: list = None,
 ) -> pd.DataFrame:
     """Flattens a nested dict and converts to a DataFrame with MultiIndex."""
-    flat_d = flatten(d)
-    df = pd.DataFrame.from_dict(flat_d, orient='index', columns=columns)
-
     # Level of nesting may vary, this standardises the length.
-    idx_filled = fill_tuples(df.index, fill_method='ffill')
-
-    new_idx = pd.MultiIndex.from_tuples(idx_filled, names=level_names)
-    return df.set_index(new_idx)
+    new_d = fill_tuple_keys(flatten(d), fill_method='ffill')
+    df = pd.DataFrame.from_dict(new_d, orient='index', columns=columns)
+    return df.rename_axis(level_names) if level_names else df
 
 
 class Stacker():

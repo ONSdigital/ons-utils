@@ -2,8 +2,11 @@
 from collections import abc
 import itertools
 from typing import Mapping, Any, List, Tuple, Dict, Sequence, Optional
+import docrep
 
 from flatten_dict import flatten, unflatten
+
+docstrings = docrep.DocstringProcessor()
 
 
 def invert_nested_keys(d: Mapping[Any, Any]) -> Dict[Any, Any]:
@@ -25,30 +28,7 @@ def get_key_value_pairs(d: Mapping[Any, Any]) -> List[Tuple[Any, Any]]:
     return list(itertools.chain.from_iterable(pairs))
 
 
-def fill_keys(
-    d: Mapping[Tuple[Any], Any],
-    repeat: bool = False
-) -> Dict[Tuple[Any], Any]:
-    """Fill tuple keys of a dict so they are all the same length.
-
-    Parameters
-    ----------
-    repeat : bool, default False
-        If True then fills upper key values with the current highest.
-        If False fills with None.
-    """
-    max_depth = max(len(k) for k in d.keys())
-    new_d = {}
-    for k, v in d.items():
-        fill_value = k[0] if repeat else None
-        while len(k) != max_depth:
-            k = (fill_value,) + k
-
-        new_d.update({k: v})
-
-    return new_d
-
-
+@docstrings.get_sections(base='fill_tuples')
 def fill_tuples(
     tuples: Sequence[Any],
     length: Optional[int] = None,
@@ -87,6 +67,23 @@ def fill_tuples(
         new_tups.append(tup)
 
     return new_tups
+
+
+@docstrings.dedent
+def fill_tuple_keys(
+    d: Mapping[Tuple[Any], Any],
+    length: Optional[int] = None,
+    repeat: bool = False,
+    fill_method: str = 'bfill',
+) -> Dict[Tuple[Any], Any]:
+    """Fill tuple keys of a dict so they are all the same length.
+
+    Parameters
+    ----------
+    %(fill_tuples.parameters)s.
+    """
+    filled_keys = fill_tuples(d.keys(), length, repeat, fill_method)
+    return dict(zip(filled_keys, d.values()))
 
 
 def is_non_string_sequence(obj: Any) -> bool:
