@@ -86,27 +86,6 @@ def whole_frame_window() -> WindowSpec:
     )
 
 
-def order_col_window_desc(
-    levels: Sequence[str],
-    col_name: str,
-) -> WindowSpec:
-    """Return WindowSpec with column ordered largest to smallest value."""
-    return (
-        Window
-        .partitionBy(levels)
-        .orderBy(col_name).desc()
-    )
-
-
-def current_row_window(levels: Sequence[str]) -> WindowSpec:
-    """Return WindowSpec from start of DataFrame to current row."""
-    return (
-        Window
-        .partitionBy(levels)
-        .rowsBetween(Window.unboundedPreceding, Window.currentRow)
-    )
-
-
 def transform(self, f, *args, **kwargs):
     """Chain Pyspark function."""
     return f(self, *args, **kwargs)
