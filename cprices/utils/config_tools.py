@@ -81,7 +81,7 @@ class ScenarioConfig:
 
         self.filtering = {
             'active': config['filtering']['active'],
-            'max_cumsum_share': config['filtering']['max_cumsum_share']
+            'percentile': config['filtering']['percentile']
         }
 
         self.indices = config['indices']
@@ -351,8 +351,8 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 'type': 'integer',
                 'min': 1,
             },
-            # Imputation
-            'max_cumsum_share': {
+            # Filtering
+            'percentile': {
                 'type': 'float',
                 'min': 0,
                 'max': 1,
@@ -569,9 +569,9 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
         # Filtering
         if v.validate({'active': validating_config.filtering['active']}):
             if validating_config.filtering['active']:
-                if not v.validate({'max_cumsum_share': validating_config.filtering['max_cumsum_share']}):
+                if not v.validate({'percentile': validating_config.filtering['percentile']}):
                     raise ValueError(
-                        f"{scenario}: max_cumsum_share in filtering must be a float between 0 and 1"
+                        f"{scenario}: percentile in filtering must be a float between 0 and 1"
                     )
         else:
             raise ValueError(f"{scenario}: parameter 'active' in filtering is not a boolean")
