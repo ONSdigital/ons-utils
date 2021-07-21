@@ -11,6 +11,8 @@ from typing import Union
 from epds_utils.hdfs import hdfs_utils
 from pyspark.sql import SparkSession
 
+from cprices._typing import FilePath
+
 LOGGER = logging.getLogger('')
 
 
@@ -26,8 +28,7 @@ def start_spark_session(session_size: str = 'default') -> SparkSession:
     -------
     SparkSession
     """
-    # Overrides preset PYSPARK_PYTHON if lower miscmods version than
-    # specified.
+    # Overrides PYSPARK_PYTHON if lower miscmods version than specified.
     set_pyspark_python_env(miscmods_version=3.05)
 
     spark = (
@@ -56,8 +57,8 @@ def spark_config(spark: SparkSession, session_size: str = 'default') -> None:
         executor_cores = 3 if session_size == 'large' else 1
         max_executors = 3
         memory_overhead = '1g'
-    elif node_id == 'p':
-        # For Prod.
+    elif node_id in ['p', 'u']:
+        # For Prod and UAT.
         executor_memory = '20g'
         executor_cores = 5
         max_executors = 12
@@ -65,7 +66,7 @@ def spark_config(spark: SparkSession, session_size: str = 'default') -> None:
 
         spark.conf.set('spark.driver.maxResultSize', '6g')
         spark.conf.set('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-        spark.conf.set('spark.wrokerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
+        spark.conf.set('spark.workerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
 
     spark.conf.set('spark.executor.memory', executor_memory)
     spark.conf.set('spark.executor.cores', executor_cores)
@@ -105,46 +106,58 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
         or not default_miscmods_version
         or (default_miscmods_version < miscmods_version)
     ):
-        miscmods_path = Path(
-            'opt', 'ons', 'virtualenv', f'miscMods_v{miscmods_version}',
-            'bin', 'python3.6',
+        miscmods_path = (
+            Path(
+                'opt', 'ons', 'virtualenv', f'miscMods_v{miscmods_version}',
+                'bin', 'python3.6',
+            ).as_posix()
         )
 
         LOGGER.info(
             f'Setting PYSPARK_PYTHON environment variable to {miscmods_path}'
         )
-        os.environ['PYSPARK_PYTHON'] = miscmods_path.as_posix()
+        os.environ['PYSPARK_PYTHON'] = miscmods_path
 
 
 def find_miscmods_version(s: str) -> Union[float, None]:
     """Find the miscmods version from environment variable string."""
     version_no = re.search(r'(?<=miscMods_v)\d+\.\d+', s)
-    if version_no:
-        return float(version_no.group())
-    else:
-        return None
+    return float(version_no.group()) if version_no else None
 
 
 @contextmanager
-def checkpoints(spark, checkpoint_dir: str = None) -> None:
+def checkpoints(spark, checkpoint_dir: FilePath = None) -> None:
     """Context manager to set checkpoint directory and clear after use."""
-    # Set checkpoint dir using Hadoop user name by default.
-    if not checkpoint_dir:
-        username = os.getenv("HADOOP_USER_NAME")
-        checkpoint_dir = Path('/', 'user', username, 'checkpoints')
-
-    # Make sure that checkpoint dir doesn't already exist. Otherwise it
-    # should add a number suffix.
-    checkpoint_dir = _get_unused_checkpoint_dir(checkpoint_dir)
-
-    spark.sparkContext.setCheckpointDir(checkpoint_dir.as_posix())
-
-    # The following code defines the context manager.
+    set_checkpoint_dir(spark, checkpoint_dir)
     try:
         yield None
     finally:
-        cmd = ['hadoop',  'fs', '-rm', '-r', '-skipTrash', checkpoint_dir]
-        subprocess.run(cmd)
+        clear_dir(checkpoint_dir)
+
+
+def set_checkpoint_dir(spark, checkpoint_dir: FilePath = None) -> None:
+    """Set the checkpoint directory.
+
+    If no checkpoint dir specified, then use the Hadoop username
+    environment variable to create one. If the checkpoint dir already
+    exists, a number suffix will be added until a dir is reached that
+    doesn't exist.
+    """
+    if not checkpoint_dir:
+        username = os.getenv("HADOOP_USER_NAME")
+        checkpoint_dir = Path('/', 'user', username, 'checkpoints')
+    else:
+        checkpoint_dir = Path(checkpoint_dir)
+
+    # Add a number suffix if checkpoint dir already exists.
+    checkpoint_dir = _get_unused_checkpoint_dir(checkpoint_dir)
+    spark.sparkContext.setCheckpointDir(checkpoint_dir.as_posix())
+
+
+def clear_dir(dir_: FilePath) -> None:
+    """Recursively remove the given dir and its contents."""
+    cmd = ['hadoop',  'fs', '-rm', '-r', '-skipTrash', dir_]
+    subprocess.run(cmd)
 
 
 def _get_unused_checkpoint_dir(checkpoint_dir: Path) -> Path:
