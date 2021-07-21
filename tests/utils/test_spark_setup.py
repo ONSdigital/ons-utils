@@ -86,4 +86,4 @@ class TestSparkConf:
         assert my_spark.conf.get('spark.yarn.executor.memoryOverhead') == '2g'
         assert my_spark.conf.get('spark.driver.maxResultSize') == '6g'
         assert my_spark.conf.get('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT') == '1'
-        assert my_spark.conf.get('spark.wrokerEnv.ARROW_PREW_0_15_IPC_FORMAT') == '1'
+        assert my_spark.conf.get('spark.workerEnv.ARROW_PREW_0_15_IPC_FORMAT') == '1'
