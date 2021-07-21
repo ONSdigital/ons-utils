@@ -74,11 +74,6 @@ class ScenarioConfig:
             'web_scraped': config['grouping']['web_scraped'],
         }
 
-        self.imputation = {
-            'active': config['imputation']['active'],
-            'ffill_limit': config['imputation']['ffill_limit']
-        }
-
         self.flag_low_expenditures = {
             'active': config['flag_low_expenditures']['active'],
             'percentile': config['flag_low_expenditures']['percentile']
@@ -203,7 +198,6 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'outlier_detection',
             'averaging',
             'grouping',
-            'imputation',
             'flag_low_expenditures',
             'indices'
         ]
@@ -305,7 +299,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'user_defined_mapper': {
                 'type': 'boolean',
             },
-            # Outlier detection/ Averaging/ Grouping/ Filtering/ Imputation
+            # Outlier detection/ Averaging/ Grouping/ Filtering
             'active': {
                 'type': 'boolean',
             },
@@ -346,12 +340,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                 'type': 'string',
                 'allowed': averaging_methods_list,
             },
-            # Imputation
-            'ffill_limit': {
-                'type': 'integer',
-                'min': 1,
-            },
-            # Filtering
+            # Flag low expenditures
             'percentile': {
                 'type': 'float',
                 'min': 0,
@@ -553,17 +542,6 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
                         )
         else:
             raise ValueError(f"{scenario}: parameter 'active' in grouping is not a boolean")
-
-
-        # Imputation
-        if v.validate({'active': validating_config.imputation['active']}):
-            if validating_config.imputation['active']:
-                if not v.validate({'ffill_limit': validating_config.imputation['ffill_limit']}):
-                    raise ValueError(
-                        f"{scenario}: ffill_limit for imputation must be an integer greater than 0"
-                    )
-        else:
-            raise ValueError(f"{scenario}: parameter 'active' in imputation is not a boolean")
 
 
         # Filtering
