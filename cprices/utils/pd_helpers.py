@@ -14,8 +14,8 @@ def nested_dict_to_df(
     """Flattens a nested dict and converts to a DataFrame with MultiIndex."""
     # Level of nesting may vary, this standardises the length.
     new_d = fill_tuple_keys(flatten(d), fill_method='ffill')
-    df = pd.DataFrame.from_dict(new_d, orient='index', columns=columns)
-    return df.rename_axis(level_names) if level_names else df
+    idx = pd.MultiIndex.from_tuples(new_d.keys(), names=level_names)
+    return pd.DataFrame(new_d.values(), index=idx, columns=columns)
 
 
 class Stacker():
