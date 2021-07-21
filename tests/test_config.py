@@ -200,6 +200,7 @@ class TestConfig:
                 - st paul's cathedral
         """)
         conf.get_key_value_pairs(['paris'])
+        # Use all_in_output as order of a dict is ambiguous.
         assert all_in_output(
             output=conf.paris,
             values=[
@@ -301,6 +302,7 @@ class TestScenarioConfig:
     def test_pick_source_web_scraped(self, scenario_conf, all_in_output):
         """Test picks and transforms input data and item_mappers for web_scraped."""
         scan_conf = scenario_conf.pick_source('web_scraped')
+        # Use all_in_output as order of a dict is ambiguous.
         assert all_in_output(
             output=scan_conf.input_data,
             values=[
@@ -342,7 +344,7 @@ class TestScenarioConfig:
         ]
 
     def test_combine_scanner_input_data_works_when_only_with_supplier(
-        self, test_config
+        self, test_config, all_in_output
     ):
         """Test returns tuple pairs for supplier and retailer, when only
         with_supplier specified.
@@ -357,10 +359,14 @@ class TestScenarioConfig:
         """)
         conf = ScenarioConfig('my_config')
         conf = conf.combine_scanner_input_data()
-        assert conf.input_data == [
-            ('supplier_2', 'retailer_2'),
-            ('supplier_3', 'retailer_3'),
-        ]
+        # Use all_in_output as order of a dict is ambiguous.
+        assert all_in_output(
+            output=conf.input_data,
+            values=[
+                ('supplier_2', 'retailer_2'),
+                ('supplier_3', 'retailer_3'),
+            ],
+        )
 
     def test_combine_scanner_input_data_works_when_only_without_supplier(
         self, test_config
