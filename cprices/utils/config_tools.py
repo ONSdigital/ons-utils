@@ -79,9 +79,9 @@ class ScenarioConfig:
             'ffill_limit': config['imputation']['ffill_limit']
         }
 
-        self.filtering = {
-            'active': config['filtering']['active'],
-            'percentile': config['filtering']['percentile']
+        self.flag_low_expenditures = {
+            'active': config['flag_low_expenditures']['active'],
+            'percentile': config['flag_low_expenditures']['percentile']
         }
 
         self.indices = config['indices']
@@ -204,7 +204,7 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
             'averaging',
             'grouping',
             'imputation',
-            'filtering',
+            'flag_low_expenditures',
             'indices'
         ]
 
@@ -567,14 +567,14 @@ def check_params(root_dir: str, selected_scenarios: list) -> None:
 
 
         # Filtering
-        if v.validate({'active': validating_config.filtering['active']}):
-            if validating_config.filtering['active']:
-                if not v.validate({'percentile': validating_config.filtering['percentile']}):
+        if v.validate({'active': validating_config.flag_low_expenditures['active']}):
+            if validating_config.flag_low_expenditures['active']:
+                if not v.validate({'percentile': validating_config.flag_low_expenditures['percentile']}):
                     raise ValueError(
-                        f"{scenario}: percentile in filtering must be a float between 0 and 1"
+                        f"{scenario}: percentile in flag_low_expenditures must be a float between 0 and 1"
                     )
         else:
-            raise ValueError(f"{scenario}: parameter 'active' in filtering is not a boolean")
+            raise ValueError(f"{scenario}: parameter 'active' in flag_low_expenditures is not a boolean")
 
 
         # Indices
