@@ -26,8 +26,7 @@ def start_spark_session(session_size: str = 'default') -> SparkSession:
     -------
     SparkSession
     """
-    # Overrides preset PYSPARK_PYTHON if lower miscmods version than
-    # specified.
+    # Overrides PYSPARK_PYTHON if lower miscmods version than specified.
     set_pyspark_python_env(miscmods_version=3.05)
 
     spark = (
@@ -56,8 +55,8 @@ def spark_config(spark: SparkSession, session_size: str = 'default') -> None:
         executor_cores = 3 if session_size == 'large' else 1
         max_executors = 3
         memory_overhead = '1g'
-    elif node_id == 'p':
-        # For Prod.
+    elif node_id in ['p', 'u']:
+        # For Prod and UAT.
         executor_memory = '20g'
         executor_cores = 5
         max_executors = 12
@@ -65,7 +64,7 @@ def spark_config(spark: SparkSession, session_size: str = 'default') -> None:
 
         spark.conf.set('spark.driver.maxResultSize', '6g')
         spark.conf.set('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-        spark.conf.set('spark.wrokerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
+        spark.conf.set('spark.workerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
 
     spark.conf.set('spark.executor.memory', executor_memory)
     spark.conf.set('spark.executor.cores', executor_cores)
@@ -121,10 +120,7 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
 def find_miscmods_version(s: str) -> Union[float, None]:
     """Find the miscmods version from environment variable string."""
     version_no = re.search(r'(?<=miscMods_v)\d+\.\d+', s)
-    if version_no:
-        return float(version_no.group())
-    else:
-        return None
+    return float(version_no.group()) if version_no else None
 
 
 @contextmanager
