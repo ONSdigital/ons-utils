@@ -171,6 +171,9 @@ class ScenarioConfig(Config):
             An altered version of the main scenario config for the data
             source.
         """
+        if source not in {'web_scraped', 'scanner'}:
+            raise ValueError("source must be 'web_scraped' or 'scanner'")
+
         new_config = copy(self)
 
         for key, value in vars(new_config).items():
