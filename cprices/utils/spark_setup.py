@@ -11,6 +11,8 @@ from typing import Union
 from epds_utils.hdfs import hdfs_utils
 from pyspark.sql import SparkSession
 
+from cprices._typing import FilePath
+
 LOGGER = logging.getLogger('')
 
 
@@ -124,25 +126,38 @@ def find_miscmods_version(s: str) -> Union[float, None]:
 
 
 @contextmanager
-def checkpoints(spark, checkpoint_dir: str = None) -> None:
+def checkpoints(spark, checkpoint_dir: FilePath = None) -> None:
     """Context manager to set checkpoint directory and clear after use."""
-    # Set checkpoint dir using Hadoop user name by default.
-    if not checkpoint_dir:
-        username = os.getenv("HADOOP_USER_NAME")
-        checkpoint_dir = Path('/', 'user', username, 'checkpoints')
-
-    # Make sure that checkpoint dir doesn't already exist. Otherwise it
-    # should add a number suffix.
-    checkpoint_dir = _get_unused_checkpoint_dir(checkpoint_dir)
-
-    spark.sparkContext.setCheckpointDir(checkpoint_dir.as_posix())
-
-    # The following code defines the context manager.
+    set_checkpoint_dir(spark, checkpoint_dir)
     try:
         yield None
     finally:
-        cmd = ['hadoop',  'fs', '-rm', '-r', '-skipTrash', checkpoint_dir]
-        subprocess.run(cmd)
+        clear_dir(checkpoint_dir)
+
+
+def set_checkpoint_dir(spark, checkpoint_dir: FilePath = None) -> None:
+    """Set the checkpoint directory.
+
+    If no checkpoint dir specified, then use the Hadoop username
+    environment variable to create one. If the checkpoint dir already
+    exists, a number suffix will be added until a dir is reached that
+    doesn't exist.
+    """
+    if not checkpoint_dir:
+        username = os.getenv("HADOOP_USER_NAME")
+        checkpoint_dir = Path('/', 'user', username, 'checkpoints')
+    else:
+        checkpoint_dir = Path(checkpoint_dir)
+
+    # Add a number suffix if checkpoint dir already exists.
+    checkpoint_dir = _get_unused_checkpoint_dir(checkpoint_dir)
+    spark.sparkContext.setCheckpointDir(checkpoint_dir.as_posix())
+
+
+def clear_dir(dir_: FilePath) -> None:
+    """Recursively remove the given dir and its contents."""
+    cmd = ['hadoop',  'fs', '-rm', '-r', '-skipTrash', dir_]
+    subprocess.run(cmd)
 
 
 def _get_unused_checkpoint_dir(checkpoint_dir: Path) -> Path:
