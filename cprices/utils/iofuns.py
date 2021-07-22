@@ -15,7 +15,7 @@
 from datetime import datetime
 import logging
 import os
-from typing import Any, Mapping
+from typing import Any, List, Mapping
 
 # Import PySpark libraries.
 from pyspark.sql import (
@@ -81,10 +81,30 @@ def save_output_hdfs(dfs: Mapping[str, SparkDF], processed_dir: str) -> str:
     return run_id
 
 
-def remove_nuts(dev_config: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Update config to remove ."""
-    dev_config['groupby_cols'].remove('nuts1_name')
-    dev_config['preprocess_cols']['scanner'].remove('nuts1_name')
-    dev_config['preprocess_cols']['web_scraped'].remove('nuts1_name')
+def remove_str_from_list(
+    list: List[str],
+    str_to_remove: str,
+) -> List[str]:
+    """Remove item from list if starts with user defined str parameter."""
+    return [item for item in list if not item.startswith(str_to_remove)]
+
+
+def remove_nuts(
+    dev_config: Mapping[str, Any],
+    str_to_remove: str,
+) -> Mapping[str, Any]:
+    """Remove geographical data from dev_config."""
+    dev_config['groupby_cols'] = remove_str_from_list(
+        dev_config['groupby_cols'],
+        str_to_remove,
+    )
+    dev_config['preprocess_cols']['scanner'] = remove_str_from_list(
+        dev_config['preprocess_cols']['scanner'],
+        str_to_remove,
+    )
+    dev_config['preprocess_cols']['web_scraped'] = remove_str_from_list(
+        dev_config['preprocess_cols']['web_scraped'],
+        str_to_remove,
+    )
 
     return dev_config
