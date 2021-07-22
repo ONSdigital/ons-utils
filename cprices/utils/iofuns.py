@@ -15,7 +15,7 @@
 from datetime import datetime
 import logging
 import os
-from typing import Mapping
+from typing import Any, Mapping
 
 # Import PySpark libraries.
 from pyspark.sql import (
@@ -79,3 +79,12 @@ def save_output_hdfs(dfs: Mapping[str, SparkDF], processed_dir: str) -> str:
             dfs[name].write.parquet(path)
 
     return run_id
+
+
+def remove_nuts(dev_config: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Update config to remove ."""
+    dev_config['groupby_cols'].remove('nuts1_name')
+    dev_config['preprocess_cols']['scanner'].remove('nuts1_name')
+    dev_config['preprocess_cols']['web_scraped'].remove('nuts1_name')
+
+    return dev_config
