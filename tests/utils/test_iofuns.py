@@ -1,35 +1,50 @@
 """Tests for the io.py module."""
+from tests.conftest import (
+    Case,
+    parametrize_cases,
+)
+
 from cprices.utils.iofuns import *
 
 
-def test_remove_str_from_list():
-    """Test the string is removed as expected."""
-    input_data = ['col_1', 'nuts1_name', 'nuts2_name', 'nuts3_name']
-    expected = ['col_1']
-
-    actual = remove_str_from_list(input_data, 'nuts')
-
-    assert actual == expected
-
-
-def test_remove_nuts():
-    """Test that nuts regions are removed as expected from dev_config."""
-    dev_config = {
-        'groupby_cols': ['col_123', 'col_321', 'nuts1_name'],
-        'preprocess_cols': {
-            'scanner': ['col_1', 'col_2', 'nuts1_name'],
-            'web_scraped': ['col_3', 'nuts2_name', 'nuts3_name']
+@parametrize_cases(
+    Case(
+        label="remove_nuts",
+        dev_config={
+            'groupby_cols': ['col_1', 'col_2', 'nuts1_name'],
+            'preprocess_cols': {
+                'scanner': ['col_3', 'nuts1_name', 'nuts2_name'],
+                'web_scraped': ['col_4', 'nuts1_name', 'nuts2_name', 'nuts3_name']
+            }
         },
-    }
-
-    expected = {
-        'groupby_cols': ['col_123', 'col_321'],
-        'preprocess_cols': {
-            'scanner': ['col_1', 'col_2'],
-            'web_scraped': ['col_3']
+        expected={
+            'groupby_cols': ['col_1', 'col_2'],
+            'preprocess_cols': {
+                'scanner': ['col_3'],
+                'web_scraped': ['col_4']
+            }
         },
-    }
-
-    actual = remove_nuts(dev_config, 'nuts')
-
-    assert actual == expected
+        col_to_remove='nuts',
+    ),
+    Case(
+        label="remove_store_type",
+        dev_config={
+            'groupby_cols': ['col_1', 'col_2', 'store_type'],
+            'preprocess_cols': {
+                'scanner': ['col_3', 'store_type'],
+                'web_scraped': ['col_4', 'store_type']
+            }
+        },
+        expected={
+            'groupby_cols': ['col_1', 'col_2'],
+            'preprocess_cols': {
+                'scanner': ['col_3'],
+                'web_scraped': ['col_4']
+            }
+        },
+        col_to_remove='store',
+    ),
+)
+def test_cols_removed(dev_config, expected, col_to_remove):
+    """Test nuts col and store type col removed as expected."""
+    assert alter_config(dev_config, col_to_remove) == expected

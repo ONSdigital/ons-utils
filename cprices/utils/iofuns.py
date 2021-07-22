@@ -81,30 +81,24 @@ def save_output_hdfs(dfs: Mapping[str, SparkDF], processed_dir: str) -> str:
     return run_id
 
 
-def remove_str_from_list(
-    list: List[str],
-    str_to_remove: str,
-) -> List[str]:
-    """Remove item from list if starts with user defined str parameter."""
-    return [item for item in list if not item.startswith(str_to_remove)]
-
-
-def remove_nuts(
-    dev_config: Mapping[str, Any],
-    str_to_remove: str,
+def alter_config(
+    conf: Mapping[str, Any],
+    col_name: str,
 ) -> Mapping[str, Any]:
-    """Remove geographical data from dev_config."""
-    dev_config['groupby_cols'] = remove_str_from_list(
-        dev_config['groupby_cols'],
-        str_to_remove,
+    """Delete an entry from loaded config file using user defined string."""
+    conf['preprocess_cols']['scanner'] = _remove_col(
+        conf['preprocess_cols']['scanner'],
+        col_name,
     )
-    dev_config['preprocess_cols']['scanner'] = remove_str_from_list(
-        dev_config['preprocess_cols']['scanner'],
-        str_to_remove,
+    conf['preprocess_cols']['web_scraped'] = _remove_col(
+        conf['preprocess_cols']['web_scraped'],
+        col_name,
     )
-    dev_config['preprocess_cols']['web_scraped'] = remove_str_from_list(
-        dev_config['preprocess_cols']['web_scraped'],
-        str_to_remove,
-    )
+    conf['groupby_cols'] = _remove_col(conf['groupby_cols'], col_name)
 
-    return dev_config
+    return conf
+
+
+def _remove_col(list_of_cols: List[str], to_remove: str) -> List[str]:
+    """Remove item from list if starts with user defined str parameter."""
+    return [item for item in list_of_cols if not item.startswith(to_remove)]
