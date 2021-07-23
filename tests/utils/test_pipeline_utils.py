@@ -1,10 +1,42 @@
-"""Tests for the io.py module."""
+"""Tests for pipeline utils."""
+import pytest
+
 from tests.conftest import (
     Case,
     parametrize_cases,
 )
 
-from cprices.utils.iofuns import *
+from cprices.utils.pipeline_utils import *
+
+
+@pytest.mark.skip(reason="test shell")
+def test_timer_args():
+    """Test for this."""
+    pass
+
+
+@pytest.mark.skip(reason="test shell")
+def test_combine_scenario_df_outputs():
+    """Test for this."""
+    pass
+
+
+@pytest.mark.skip(reason="test shell")
+def test_create_run_id():
+    """Test for this."""
+    pass
+
+
+@pytest.mark.skip(reason="test shell")
+def test_get_run_times_as_df():
+    """Test for this."""
+    pass
+
+
+@pytest.mark.skip(reason="test shell")
+def test_plot_run_times():
+    """Test for this."""
+    pass
 
 
 @parametrize_cases(
@@ -45,6 +77,6 @@ from cprices.utils.iofuns import *
         col_to_remove='store',
     ),
 )
-def test_remove_scenario(dev_config, expected, col_to_remove):
+def test_remove_config_param(dev_config, expected, col_to_remove):
     """Test nuts col and store type col removed as expected."""
-    assert remove_scenario(dev_config, col_to_remove) == expected
+    assert remove_config_param(dev_config, col_to_remove) == expected
