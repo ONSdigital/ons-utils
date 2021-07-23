@@ -1,147 +1,109 @@
 """Miscellaneous helper functions."""
-# Import Python libraries.
-from functools import reduce
-import logging
-from typing import Dict, Mapping, Iterator, Any, List
+from collections import abc
+import itertools
+from typing import Mapping, Any, List, Tuple, Dict, Sequence, Optional
+import docrep
 
-# Import third party libraries.
-from humanfriendly import format_timespan
-import pandas as pd
+from flatten_dict import flatten, unflatten
 
-# Import PySpark libraries.
-from pyspark.sql import (
-    DataFrame as SparkDF,
-    functions as F,
-    SparkSession,
-)
-
-LOGGER = logging.getLogger()
+docstrings = docrep.DocstringProcessor()
 
 
-def timer_args(name):
-    """Initialise timer args as workaround for 'text' arg."""
-    return {
-        'name': name,
-        'text': lambda secs: name + f": {format_timespan(secs)}",
-        'logger': LOGGER.info,
+def invert_nested_keys(d: Mapping[Any, Any]) -> Dict[Any, Any]:
+    """Invert the order of the keys in a nested dict."""
+    return unflatten({k[::-1]: v for k, v in flatten(d).items()})
+
+
+def get_key_value_pairs(d: Mapping[Any, Any]) -> List[Tuple[Any, Any]]:
+    """Get the key value pairs from a dictionary as a list of tuples.
+
+    If the value is a non-string sequence, then a tuple pair is created
+    for each object in the sequence.
+    """
+    # Get the pairs for each key
+    pairs = {
+        itertools.product(list_convert(k), list_convert(v))
+        for k, v in d.items()
     }
+    return list(itertools.chain.from_iterable(pairs))
 
 
-def find(key: str, dictionary: Mapping[str, Any]) -> Iterator[Any]:
-    """
-    Return all values in a nested dictionary that match key.
-
-    Parameters
-    ----------
-    key : string
-        The key to look for inside the dictionary.
-
-    dictionary : python dictionary
-        The dictionary to look for the user-specified key.
-
-    Returns
-    -------
-    Python generator object - cane be turned into a list.
-    """
-    for k, v in dictionary.items():
-        if k == key:
-            yield v
-        elif isinstance(v, dict):
-            for result in find(key, v):
-                yield result
-        elif isinstance(v, list):
-            for d in v:
-                for result in find(key, d):
-                    yield result
-
-
-def union_dfs_from_all_scenarios(
-    spark: SparkSession,
-    dfs: Mapping[str, Mapping[str, SparkDF]]
-) -> Dict[str, SparkDF]:
-    """Combine dictionary of spark dataframes into one spark dataframe.
-
-    Unions the corresponding dataframes from all scenarios so in the output
-    dictionary, each stage has one dataframe. Before doing that, a scenario
-    column is added to each dataframe to distinguish between scenarios.
-
-    Any pandas dataframes are converted to spark also.
+@docstrings.get_sections(base='fill_tuples')
+def fill_tuples(
+    tuples: Sequence[Any],
+    length: Optional[int] = None,
+    repeat: bool = False,
+    fill_method: str = 'bfill',
+) -> Sequence[Tuple]:
+    """Fill tuples so they are all the same length.
 
     Parameters
     ----------
-    spark: spark session
-
-    dfs : nested dictionary of spark dataframes
-        Every key in the dfs dictionary holds the dataframes for the stages of
-        the scenario run.
-
-    Returns
-    -------
-    dfs : dictionary of spark dataframes
-        Each key holds the unioned dataframe across all scenarios for a
-        particular stage.
+    length : int, optional
+        Fill tuples to a fixed length. If None, fills to max length of
+        the non-string sequence objects given by tuples.
+    repeat : bool, default False
+        If True then fills missing tuple values with the current value
+        at the end of the sequence given by ``at``. If False fills with None.
+    fill_method : {'bfill', 'ffill'}, str
+        Whether to forward fill or backfill the tuple values.
     """
-    # ADD SCENARIO COLUMN TO ALL DATAFRAMES
-    for scenario in dfs:
-        # scenarios have names: scenario_x
-        scenario_name = ''.join(scenario.split('_')[1:])
+    if not length:
+        if not any(is_non_string_sequence(t) for t in tuples):
+            return tuples
 
-        for df_key, df in dfs[scenario].items():
-            # if the dataframe is in pandas we need it in spark for unioning
-            if isinstance(df, pd.DataFrame):
-                df = pd_to_pyspark_df(spark, df)
+        length = max(len(t) for t in tuples if is_non_string_sequence(t))
 
-            dfs[scenario][df_key] = (
-                df
-                .withColumn(
-                    'scenario',
-                    F.lit(scenario_name)
-                )
-            )
+    new_tups = []
+    for tup in tuples:
+        tup = tuple_convert(tup)
 
-    # UNION DATAFRAMES (IF THERE ARE MORE THAN 1 SCENARIOS)
-    if len(dfs) > 1:
-        # Collate unique dataframe names within scenarios
-        names = set(
-            val for dfs_vals in dfs.values()
-            for val in dfs_vals.keys()
-        )
+        while len(tup) < length:
+            if fill_method == 'bfill':
+                tup = (tup[0] if repeat else None,) + tup
+            else:   # 'end'
+                tup += (tup[-1] if repeat else None,)
 
-        dfs_unioned = {}
-        for name in names:
-            dfs_to_union = list(find(name, dfs))
-            dfs_unioned[name] = reduce(SparkDF.unionByName, dfs_to_union)
-            dfs_unioned[name].cache().count()
+        new_tups.append(tup)
 
-        dfs = dfs_unioned
-
-    else:
-        dfs = dfs[scenario]
-
-    return dfs
+    return new_tups
 
 
-def pd_to_pyspark_df(
-    spark,
-    df: pd.DataFrame,
-    num_partitions: int = 1,
-) -> SparkDF:
-    """Convert pandas dataframe to spark with specified partitions."""
-    return spark.createDataFrame(df).coalesce(num_partitions)
+@docstrings.dedent
+def fill_tuple_keys(
+    d: Mapping[Tuple[Any], Any],
+    length: Optional[int] = None,
+    repeat: bool = False,
+    fill_method: str = 'bfill',
+) -> Dict[Tuple[Any], Any]:
+    """Fill tuple keys of a dict so they are all the same length.
 
-
-def map_column_names(df: SparkDF, mapper: Mapping[str, str]) -> SparkDF:
-    """Map column names to the given values in the mapper.
-
-    If the column name is not in the mapper the name doesn't change.
+    Parameters
+    ----------
+    %(fill_tuples.parameters)s.
     """
-    cols = [
-        F.col(col_name).alias(mapper.get(col_name, col_name))
-        for col_name in df.columns
-    ]
-    return df.select(*cols)
+    filled_keys = fill_tuples(d.keys(), length, repeat, fill_method)
+    return dict(zip(filled_keys, d.values()))
 
 
-def _list_convert(x: Any) -> List[Any]:
-    """Return obj as a single item list if not already a list or tuple."""
-    return [x] if not (isinstance(x, list) or isinstance(x, tuple)) else x
+def is_non_string_sequence(obj: Any) -> bool:
+    """Return True if obj is non-string sequence like list or tuple."""
+    return isinstance(obj, abc.Sequence) and not isinstance(obj, str)
+
+
+def tuple_convert(obj: Any) -> Tuple[Any]:
+    """Convert given object to tuple.
+
+    Converts non-string sequences to tuple. Won't convert sets. Wraps
+    strings and non-sequences as a single item tuple.
+    """
+    return tuple(obj) if is_non_string_sequence(obj) else (obj,)
+
+
+def list_convert(obj: Any) -> List[Any]:
+    """Convert given object to tuple.
+
+    Converts non-string sequences to list. Won't convert sets. Wraps
+    strings and non-sequences as a single item list.
+    """
+    return list(obj) if is_non_string_sequence(obj) else [obj]
