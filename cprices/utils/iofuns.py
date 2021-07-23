@@ -81,7 +81,7 @@ def save_output_hdfs(dfs: Mapping[str, SparkDF], processed_dir: str) -> str:
     return run_id
 
 
-def alter_config(
+def remove_scenario(
     conf: Mapping[str, Any],
     col_name: str,
 ) -> Mapping[str, Any]:

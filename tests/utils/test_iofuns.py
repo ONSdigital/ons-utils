@@ -45,6 +45,6 @@ from cprices.utils.iofuns import *
         col_to_remove='store',
     ),
 )
-def test_cols_removed(dev_config, expected, col_to_remove):
+def test_remove_scenario(dev_config, expected, col_to_remove):
     """Test nuts col and store type col removed as expected."""
-    assert alter_config(dev_config, col_to_remove) == expected
+    assert remove_scenario(dev_config, col_to_remove) == expected
