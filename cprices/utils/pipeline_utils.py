@@ -14,7 +14,7 @@ Provides:
 import datetime
 import logging
 import os
-from typing import Any, List, Mapping, Dict
+from typing import Any, Dict, Mapping, Sequence, Union
 
 from humanfriendly import format_timespan
 import matplotlib.pyplot as plt
@@ -117,24 +117,18 @@ def get_config_params(spark: SparkSession, config: Config) -> SparkDF:
     return spark.createDataFrame(configuration)
 
 
-def remove_config_param(
-    conf: Mapping[str, Any],
-    col_name: str,
+def remove_dev_config_col(
+    dev_config: Mapping[str, Any],
+    to_remove: Union[str, Sequence[str]],
 ) -> Mapping[str, Any]:
-    """Delete an entry from loaded config file using user defined string."""
-    conf['preprocess_cols']['scanner'] = _remove_col(
-        conf['preprocess_cols']['scanner'],
-        col_name,
-    )
-    conf['preprocess_cols']['web_scraped'] = _remove_col(
-        conf['preprocess_cols']['web_scraped'],
-        col_name,
-    )
-    conf['groupby_cols'] = _remove_col(conf['groupby_cols'], col_name)
+    """Delete an entry from dev config file using string or list."""
+    col_to_drop = [
+        col for col in dev_config['groupby_cols'] if col.startswith(to_remove)
+    ]
 
-    return conf
+    for col in col_to_drop:
+        dev_config['groupby_cols'].remove(col)
+        dev_config['web_scraped_preprocess_cols'].remove(col)
+        dev_config['scanner_preprocess_cols'].remove(col)
 
-
-def _remove_col(list_of_cols: List[str], to_remove: str) -> List[str]:
-    """Remove item from list if starts with user defined str parameter."""
-    return [item for item in list_of_cols if not item.startswith(to_remove)]
+    return dev_config

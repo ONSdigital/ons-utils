@@ -43,18 +43,14 @@ def test_plot_run_times():
     Case(
         label="remove_nuts",
         dev_config={
-            'groupby_cols': ['col_1', 'col_2', 'nuts1_name'],
-            'preprocess_cols': {
-                'scanner': ['col_3', 'nuts1_name', 'nuts2_name'],
-                'web_scraped': ['col_4', 'nuts1_name', 'nuts2_name', 'nuts3_name']
-            }
+            'groupby_cols': ['col_1', 'col_2', 'nuts1_name', 'nuts2_name', 'nuts3_name'],
+            'scanner_preprocess_cols': ['col_3', 'nuts1_name', 'nuts2_name', 'nuts3_name'],
+            'web_scraped_preprocess_cols': ['col_4', 'nuts1_name', 'nuts2_name', 'nuts3_name']
         },
         expected={
             'groupby_cols': ['col_1', 'col_2'],
-            'preprocess_cols': {
-                'scanner': ['col_3'],
-                'web_scraped': ['col_4']
-            }
+            'scanner_preprocess_cols': ['col_3'],
+            'web_scraped_preprocess_cols': ['col_4']
         },
         col_to_remove='nuts',
     ),
@@ -62,21 +58,17 @@ def test_plot_run_times():
         label="remove_store_type",
         dev_config={
             'groupby_cols': ['col_1', 'col_2', 'store_type'],
-            'preprocess_cols': {
-                'scanner': ['col_3', 'store_type'],
-                'web_scraped': ['col_4', 'store_type']
-            }
+            'scanner_preprocess_cols': ['col_3', 'store_type'],
+            'web_scraped_preprocess_cols': ['col_4', 'store_type']
         },
         expected={
             'groupby_cols': ['col_1', 'col_2'],
-            'preprocess_cols': {
-                'scanner': ['col_3'],
-                'web_scraped': ['col_4']
-            }
+            'scanner_preprocess_cols': ['col_3'],
+            'web_scraped_preprocess_cols': ['col_4']
         },
         col_to_remove='store',
     ),
 )
-def test_remove_config_param(dev_config, expected, col_to_remove):
+def test_remove_dev_config_col(dev_config, expected, col_to_remove):
     """Test nuts col and store type col removed as expected."""
-    assert remove_config_param(dev_config, col_to_remove) == expected
+    assert remove_dev_config_col(dev_config, col_to_remove) == expected
