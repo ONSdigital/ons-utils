@@ -14,7 +14,7 @@ Provides:
 import datetime
 import logging
 import os
-from typing import Mapping, Dict
+from typing import Any, Dict, Mapping, Sequence, Union
 
 from humanfriendly import format_timespan
 import matplotlib.pyplot as plt
@@ -115,3 +115,20 @@ def get_config_params(spark: SparkSession, config: Config) -> SparkDF:
     )
 
     return spark.createDataFrame(configuration)
+
+
+def remove_dev_config_col(
+    dev_config: Mapping[str, Any],
+    to_remove: Union[str, Sequence[str]],
+) -> Mapping[str, Any]:
+    """Delete an entry from dev config file using string or list."""
+    col_to_drop = [
+        col for col in dev_config['groupby_cols'] if col.startswith(to_remove)
+    ]
+
+    for col in col_to_drop:
+        dev_config['groupby_cols'].remove(col)
+        dev_config['web_scraped_preprocess_cols'].remove(col)
+        dev_config['scanner_preprocess_cols'].remove(col)
+
+    return dev_config
