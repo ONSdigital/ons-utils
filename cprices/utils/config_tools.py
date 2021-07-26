@@ -48,6 +48,9 @@ class ScenarioConfig:
             else:
                 self.input_data[input_data] = config['input_data'][input_data]
 
+        self.use_geography = config['use_geography']
+        self.use_store_type = config['use_store_type']
+
         self.preprocessing = config['preprocessing']
         self.preprocessing['start_date'] = str(self.preprocessing['start_date'])
         self.preprocessing['end_date'] = str(self.preprocessing['end_date'])
@@ -105,14 +108,25 @@ class DevConfig:
         self.conventional_data_columns = config['conventional_data_columns']
         self.scanner_input_tables = config['scanner_input_tables']
         self.scanner_data_columns = config['scanner_data_columns']
+        self.scanner_preprocess_cols = config['scanner_preprocess_cols']
         self.webscraped_input_tables = config['webscraped_input_tables']
         self.webscraped_data_columns = config['webscraped_data_columns']
+        self.webscraped_preprocess_cols = config['webscraped_preprocess_cols']
         self.multi_item_datasets = config['multi_item_datasets']
         self.multi_item_sep_char = config['multi_item_sep_char']
         self.logging_config = config['logging_config']
         self.analysis_params = {}
         for analysis_param in config['analysis_params'].keys():
             self.analysis_params[analysis_param] = config['analysis_params'][analysis_param]
+
+
+def remove_dev_config_col(dev_config, col_name):
+    """Remove specified column from dev config vars."""
+    dev_config.webscraped_preprocess_cols.remove(col_name)
+    dev_config.scanner_preprocess_cols.remove(col_name)
+    dev_config.groupby_cols.remove(col_name)
+
+    return dev_config
 
 
 def logging_config(
