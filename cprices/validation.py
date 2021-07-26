@@ -27,7 +27,7 @@ def validate_config_sections(config) -> None:
         'averaging',
         'grouping',
         'imputation',
-        'filtering',
+        'flag_low_expenditures',
         'indices'
     ]
 
@@ -51,7 +51,7 @@ def validate_config(config) -> None:
     validate_outlier_detection(config)
     validate_averaging_and_grouping(config)
     validate_imputation(config)
-    validate_filtering(config)
+    validate_flag_low_expenditures(config)
     validate_indices(config)
 
 
@@ -407,30 +407,30 @@ def validate_imputation(config):
             )
 
 
-def validate_filtering(config):
-    """Validate the filtering settings in the config."""
+def validate_flag_low_expenditures(config):
+    """Validate the flag_low_expenditures settings in the config."""
     v = Validator()
     v.schema = {
-        'max_cumsum_share': {
+        'threshold': {
             'type': 'float',
             'min': 0,
             'max': 1,
         },
     }
 
-    active = config.filtering['active']
+    active = config.flag_low_expenditures['active']
     if not v.validate({'active': active}):
         raise ValueError(
-            f"{config.name}: parameter 'active' in filtering"
+            f"{config.name}: parameter 'active' in flag_low_expenditures"
             " must be a boolean."
             f" Instead got '{active}'."
         )
 
     if active:
-        to_validate = config.filtering['max_cumsum_share']
-        if not v.validate({'max_cumsum_share': to_validate}):
+        to_validate = config.flag_low_expenditures['threshold']
+        if not v.validate({'threshold': to_validate}):
             raise ValueError(
-                f"{config.name}: max_cumsum_share in filtering"
+                f"{config.name}: threshold in flag_low_expenditures"
                 " must be a float between 0 and 1."
                 f" Instead got '{to_validate}'."
             )
