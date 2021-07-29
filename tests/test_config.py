@@ -415,3 +415,51 @@ class TestLoggingConfig:
     def test_set_logging_config(self):
         """Test for this."""
         pass
+
+
+class TestDevConfig:
+    """Group of tests for DevConfig."""
+
+    @pytest.fixture
+    def dev_config(self, test_config):
+        """Return DevConfig file with columns to be removed."""
+        test_config(yaml_input="""
+        groupby_cols:
+            - col_1
+            - col_2
+            - nuts1_name
+            - nuts2_name
+            - nuts3_name
+            - store_type
+        web_scraped_preprocess_cols:
+            - col_3
+            - nuts1_name
+            - nuts2_name
+            - nuts3_name
+            - store_type
+        scanner_preprocess_cols:
+            - col_4
+            - col_5
+            - nuts1_name
+            - nuts2_name
+            - nuts3_name
+            - store_type
+        """)
+
+        return DevConfig("my_config")
+
+    def test_remove_geography_from_grouping(self, dev_config):
+        """Test nuts columns are removed from config."""
+        dev_config.remove_geography_from_grouping()
+
+        assert dev_config.groupby_cols == ['col_1', 'col_2', 'store_type']
+        assert dev_config.web_scraped_preprocess_cols == ['col_3', 'store_type']
+        assert dev_config.scanner_preprocess_cols == ['col_4', 'col_5', 'store_type']
+
+    def test_remove_store_type_from_grouping(self, dev_config):
+        """Test store type columns are removed from config."""
+        dev_config.remove_store_type_from_grouping()
+
+        assert dev_config.groupby_cols == ['col_1', 'col_2', 'nuts1_name', 'nuts2_name', 'nuts3_name']
+        assert dev_config.web_scraped_preprocess_cols == ['col_3', 'nuts1_name', 'nuts2_name', 'nuts3_name']
+        assert dev_config.scanner_preprocess_cols == ['col_4', 'col_5', 'nuts1_name', 'nuts2_name', 'nuts3_name']

@@ -212,6 +212,22 @@ class ScenarioConfig(Config):
 class DevConfig(Config):
     """Class to store the dev config settings."""
 
+    def remove_grouping(self, col):
+        """Remove user defined column from DevConfig."""
+        self.groupby_cols.remove(col)
+        self.web_scraped_preprocess_cols.remove(col)
+        self.scanner_preprocess_cols.remove(col)
+
+    def remove_store_type_from_grouping(self):
+        """Define string to remove store type."""
+        self.remove_grouping('store_type')
+
+    def remove_geography_from_grouping(self):
+        """Ensure all nuts levels are removed from config."""
+        for col in copy(self.groupby_cols):
+            if col.startswith('nuts'):
+                self.remove_grouping(col)
+
 
 class LoggingConfig:
     """Class to set logging config."""
