@@ -11,7 +11,7 @@ Provides:
 * :func:`get_config_params` - Converts the config parameters into a
   Spark Dataframe.
 """
-import datetime
+from datetime import datetime
 import logging
 import os
 from typing import Dict, Mapping
