@@ -45,6 +45,7 @@ def validate_config(config) -> None:
     to ensure that the config parameters are valid, i.e. they have the right
     data type and values within the permitted range.
     """
+    validate_config_input(config)
     if config.preprocessing:
         validate_preprocessing(config)
     validate_classification(config)
@@ -55,18 +56,10 @@ def validate_config(config) -> None:
     validate_indices(config)
 
 
-def validate_preprocessing(config) -> None:
-    """Validate the preprocessing settings in the config."""
-    expenditure_cols = {
-        'sales_value_inc_discounts',
-        'sales_value_excl_markdowns',
-        'sales_value_vat',
-        'sales_value_vat_excl_markdowns',
-    }
-
+def validate_config_input(config) -> None:
+    """Validate the generic input settings in the config."""
     v = Validator()
     v.schema = {
-        # Preprocessing
         'start_date': {
             'type': 'string',
             'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
@@ -75,7 +68,46 @@ def validate_preprocessing(config) -> None:
             'type': 'string',
             'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
         },
-        # Scanner preprocessing
+        'use_geography': {'type': 'boolean'},
+        'use_store_type': {'type': 'boolean'},
+    }
+
+    if not v.validate({'start_date': config.start_date}):
+        raise ValueError(
+            f"{config.name}: parameter 'start_date'"
+            "must be a string in the format YYYY-MM-01."
+        )
+
+    if not v.validate({'end_date': config.end_date}):
+        raise ValueError(
+            f"{config.name}: parameter 'end_date'"
+            " must be a string in the format YYYY-MM-01."
+        )
+
+    if not v.validate({'use_geography': config.use_geography}):
+        raise ValueError(
+            f"{config.name}: parameter 'use_geography' must a boolean."
+            f" Instead got '{config.use_geography}'."
+        )
+
+    if not v.validate({'use_store_type': config.use_store_type}):
+        raise ValueError(
+            f"{config.name}: parameter 'use_store_type' must a boolean."
+            f" Instead got '{config.use_store_type}'."
+        )
+
+
+def validate_preprocessing(config) -> None:
+    """Validate the preprocessing settings in the config."""
+    expenditure_cols = {
+        'sales_value_inc_discounts',
+        'sales_value_exc_discounts',
+        'sales_value_vat',
+        'sales_value_vat_exc_discounts',
+    }
+
+    v = Validator()
+    v.schema = {
         'use_unit_prices': {'type': 'boolean'},
         'product_id_code_col': {
             'type': 'string',
@@ -101,19 +133,6 @@ def validate_preprocessing(config) -> None:
         },
     }
 
-    if not v.validate({'start_date': config.preprocessing['start_date']}):
-        raise ValueError(
-            f"{config.name}: parameter 'start_date' in preprocessing"
-            "must be a string in the format YYYY-MM-01."
-        )
-
-    if not v.validate({'end_date': config.preprocessing['end_date']}):
-        raise ValueError(
-            f"{config.name}: parameter 'end_date' in preprocessing"
-            " must be a string in the format YYYY-MM-01."
-        )
-
-    # Scanner preprocessing
     to_validate = config.preprocessing['use_unit_prices']
     if not v.validate({'use_unit_prices': to_validate}):
         raise ValueError(
