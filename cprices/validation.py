@@ -25,7 +25,6 @@ def validate_config_sections(config) -> None:
         'outlier_detection',
         'averaging',
         'grouping',
-        'imputation',
         'flag_low_expenditures',
         'indices'
     ]
@@ -50,7 +49,6 @@ def validate_config(config) -> None:
     validate_classification(config)
     validate_outlier_detection(config)
     validate_averaging_and_grouping(config)
-    validate_imputation(config)
     validate_flag_low_expenditures(config)
     validate_indices(config)
 
@@ -358,34 +356,6 @@ def validate_averaging_and_grouping(config):
                     " be one of {averaging_methods}."
                     f" Instead got '{to_validate}'."
                 )
-
-
-def validate_imputation(config):
-    """Validate the imputation settings in the config."""
-    v = Validator()
-    v.schema = {
-        'ffill_limit': {
-            'type': 'integer',
-            'min': 1,
-        },
-    }
-
-    active = config.imputation['active']
-    if not v.validate({'active': active}):
-        raise ValueError(
-            f"{config.name}: parameter 'active' in imputation"
-            " must be a boolean."
-            f" Instead got '{active}'."
-        )
-
-    if active:
-        to_validate = config.imputation['ffill_limit']
-        if not v.validate({'ffill_limit': to_validate}):
-            raise ValueError(
-                f"{config.name}: ffill_limit for imputation must"
-                " be an integer greater than 0."
-                f" Instead got '{to_validate}'."
-            )
 
 
 def validate_flag_low_expenditures(config):
