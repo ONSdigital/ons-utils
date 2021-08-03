@@ -25,7 +25,7 @@ def validate_config_sections(config) -> None:
         'outlier_detection',
         'averaging',
         'grouping',
-        'flag_low_expenditures',
+        # 'flag_low_expenditures',
         'indices'
     ]
 
@@ -49,7 +49,8 @@ def validate_config(config) -> None:
     validate_classification(config)
     validate_outlier_detection(config)
     validate_averaging_and_grouping(config)
-    validate_flag_low_expenditures(config)
+    if config.flag_low_expenditures:
+        validate_flag_low_expenditures(config)
     validate_indices(config)
 
 
