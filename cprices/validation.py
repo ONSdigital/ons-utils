@@ -43,15 +43,21 @@ def validate_config(config) -> None:
     to ensure that the config parameters are valid, i.e. they have the right
     data type and values within the permitted range.
     """
-    validate_config_input(config)
-    if config.preprocessing:
+    if 'web' in config.name:
+        validate_config_input(config)
+        validate_classification(config)
+        validate_outlier_detection(config)
+        validate_averaging_and_grouping(config)
+        validate_indices(config)
+        validate_config_input(config)
+    else:
+        validate_config_input(config)
         validate_preprocessing(config)
-    validate_classification(config)
-    validate_outlier_detection(config)
-    validate_averaging_and_grouping(config)
-    if config.flag_low_expenditures:
+        validate_classification(config)
+        validate_outlier_detection(config)
+        validate_averaging_and_grouping(config)
         validate_flag_low_expenditures(config)
-    validate_indices(config)
+        validate_indices(config)
 
 
 def validate_config_input(config) -> None:
