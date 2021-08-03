@@ -362,6 +362,7 @@ def validate_flag_low_expenditures(config):
     """Validate the flag_low_expenditures settings in the config."""
     v = Validator()
     v.schema = {
+        'active': {'type': 'boolean'},
         'threshold': {
             'type': 'float',
             'min': 0,
