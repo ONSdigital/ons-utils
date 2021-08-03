@@ -405,6 +405,7 @@ def validate_indices(config):
         'paasche',
         'fisher',
         'tornqvist',
+        'geary-khamis',
     }
 
     multilateral_methods = {
