@@ -1,5 +1,4 @@
 """Validation rules for config files."""
-from typing import Mapping, Union
 from cerberus import Validator
 
 from epds_utils import hdfs
@@ -192,66 +191,29 @@ def validate_preprocessing(config) -> None:
 
 def validate_classification(config) -> None:
     """Validate the classification settings in the config."""
-    v = Validator()
-    v.schema = {'web_scraped_active': {'type': 'boolean'}}
-
-    # Classification
-    to_validate = config.classification['web_scraped_active']
-    if not v.validate({'web_scraped_active': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'web_scraped_active' in classification"
-            " must be a boolean."
-            f" Instead got '{to_validate}'."
-        )
-
-    mapper_settings = config.classification['mapper_settings']
-    for data_source, d1 in mapper_settings.items():
-        for supplier, d2 in d1.items():
+    mappers = config.item_mappers
+    for data_source, d1 in mappers.items():
+        for level, d2 in d1.items():
             if data_source == 'scanner':
-                settings = d2
-                mapper_source = f'{data_source}, {supplier}'
-                validate_mapper_settings(settings, config.name, mapper_source)
+                validate_mapper_paths(d2, data_source, level)
 
-            # Webscraped needs to loop through items too.
             if data_source == 'web_scraped':
-                for item, settings in d2.items():
-                    mapper_source = f'{data_source}, {supplier}, {item}'
-                    validate_mapper_settings(settings, config.name, mapper_source)
+                for item, path in d2.items():
+                    scenario = f'{level}, {item}'
+                    validate_mapper_paths(path, data_source, scenario)
 
 
-def validate_mapper_settings(
-    mapper_settings: Mapping[str, Union[str, bool]],
-    scenario_name: str,
-    mapper_source: str,
+def validate_mapper_paths(
+    path: str,
+    data_source: str,
+    level: str,
 ) -> None:
-    """Validate the mapper settings in the classification section."""
-    v = Validator()
-    v.schema = {'user_defined_mapper': {'type': 'boolean'}}
-
-    mapper_switch = mapper_settings['user_defined_mapper']
-    mapper_path = mapper_settings['mapper_path']
-
-    if not v.validate({'user_defined_mapper': mapper_switch}):
-        raise ValueError(
-            f"{scenario_name}: parameter 'user_defined_mapper' in classification"
-            " mapper settings, for {mapper_source} must be a boolean."
-            f" Instead got '{mapper_switch}'."
+    """Validate the item mappers exist in hdfs."""
+    if not hdfs.test(path):
+        raise Exception(
+            f"{data_source}: {level} user defined mapper"
+            f" {path} does not exist."
         )
-
-    if mapper_switch:
-        # Raise exception if the path isn't supplied or doesn't exist.
-        if not mapper_path:
-            raise Exception(
-                f"{scenario_name}:\n The {mapper_source} config setting"
-                " 'user_defined_mapper' is set to True but no path is provided."
-                " Please provide a path or set 'user_defined_mapper' to False."
-            )
-        else:
-            if not hdfs.test(mapper_path):
-                raise Exception(
-                    f"{scenario_name}: {mapper_source} user defined mapper"
-                    f" {mapper_path} does not exist."
-                )
 
 
 def validate_outlier_detection(config):
