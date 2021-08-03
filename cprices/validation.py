@@ -75,7 +75,7 @@ def validate_config_input(config) -> None:
     if not v.validate({'start_date': config.start_date}):
         raise ValueError(
             f"{config.name}: parameter 'start_date'"
-            "must be a string in the format YYYY-MM-01."
+            " must be a string in the format YYYY-MM-01."
         )
 
     if not v.validate({'end_date': config.end_date}):
