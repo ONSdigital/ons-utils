@@ -36,6 +36,24 @@ def validate_config_sections(config) -> None:
             raise ScenarioSectionError(config.name, key)
 
 
+def scanner_only(config, module) -> None:
+    """Logic for validating scanner config files only."""
+    if module == 'preprocessing':
+        try:
+            config.preprocessing
+        except AttributeError:
+            pass
+        else:
+            validate_preprocessing(config)
+    if module == 'flag_low_expenditures':
+        try:
+            config.flag_low_expenditures
+        except AttributeError:
+            pass
+        else:
+            validate_flag_low_expenditures(config)
+
+
 def validate_config(config) -> None:
     """Validate config.name config parameters.
 
@@ -43,21 +61,14 @@ def validate_config(config) -> None:
     to ensure that the config parameters are valid, i.e. they have the right
     data type and values within the permitted range.
     """
-    if 'web' in config.name:
-        validate_config_input(config)
-        validate_classification(config)
-        validate_outlier_detection(config)
-        validate_averaging_and_grouping(config)
-        validate_indices(config)
-        validate_config_input(config)
-    else:
-        validate_config_input(config)
-        validate_preprocessing(config)
-        validate_classification(config)
-        validate_outlier_detection(config)
-        validate_averaging_and_grouping(config)
-        validate_flag_low_expenditures(config)
-        validate_indices(config)
+    validate_config_input(config)
+    scanner_only(config, 'preprocessing')
+    validate_classification(config)
+    validate_outlier_detection(config)
+    validate_averaging_and_grouping(config)
+    scanner_only(config, 'flag_low_expenditures')
+    validate_indices(config)
+    validate_config_input(config)
 
 
 def validate_config_input(config) -> None:
