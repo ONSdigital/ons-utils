@@ -272,7 +272,7 @@ class TestScenarioConfig:
                     - single_item_1
                 supplier_2:
                     - multi_item_timber
-        item_mappers:
+        consumption_segment_mappers:
             scanner:
                 retailer_1: /mapper/path/retailer_1.parquet
                 retailer_2: /mapper/path/retailer_2.parquet
@@ -293,7 +293,7 @@ class TestScenarioConfig:
             ('retailer_1', 'retailer_1'),
             ('retailer_2', 'retailer_2'),
         ]
-        assert scan_conf.item_mappers == {
+        assert scan_conf.consumption_segment_mappers == {
             'retailer_1': '/mapper/path/retailer_1.parquet',
             'retailer_2': '/mapper/path/retailer_2.parquet',
             'retailer_3': '/mapper/path/retailer_3.parquet',
@@ -310,7 +310,7 @@ class TestScenarioConfig:
                 ('supplier_2', 'multi_item_timber'),
             ]
         )
-        assert scan_conf.item_mappers == {
+        assert scan_conf.consumption_segment_mappers == {
             ('supplier_1', 'single_item_1'): '/mapper/path/single_item_1.parquet',
             ('supplier_2', 'multi_item_timber'): '/mapper/path/multi_item_timber.parquet',
         }

@@ -21,7 +21,7 @@ def validate_config_sections(config) -> None:
     required_sections = [
         'input_data',
         # 'preprocessing',
-        # 'item_mappers',
+        # 'consumption_segment_mappers',
         'outlier_detection',
         'averaging',
         'grouping',
@@ -207,7 +207,7 @@ def validate_preprocessing(config) -> None:
 
 def validate_classification(config) -> None:
     """Validate the classification settings in the config."""
-    mappers = config.item_mappers
+    mappers = config.consumption_segment_mappers
     for data_source, d1 in mappers.items():
         for level, d2 in d1.items():
             if data_source == 'scanner':
