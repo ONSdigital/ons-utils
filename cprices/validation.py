@@ -76,11 +76,11 @@ def validate_config_input(config) -> None:
     v = Validator()
     v.schema = {
         'start_date': {
-            'type': 'string',
+            'type': 'date',
             'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
         },
         'end_date': {
-            'type': 'string',
+            'type': 'date',
             'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
         },
         'use_geography': {'type': 'boolean'},
