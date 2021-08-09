@@ -275,7 +275,7 @@ def validate_outlier_detection(config):
 
     # If active is True, validate the rest.
     if active:
-        to_validate = config.outlier_detection['log_transform']
+        to_validate = config.outlier_detection['options']['log_transform']
         if not v.validate({'log_transform': to_validate}):
             raise ValueError(
                 f"{config.name}: parameter 'log_transform' in"
@@ -283,7 +283,7 @@ def validate_outlier_detection(config):
                 f" Instead got '{to_validate}'."
             )
 
-        to_validate = config.outlier_detection['method']
+        to_validate = config.outlier_detection['options']['method']
         if not v.validate({'outlier_methods': to_validate}):
             raise ValueError(
                 f"{config.name}: parameter 'method' for outlier detection"
@@ -291,7 +291,7 @@ def validate_outlier_detection(config):
                 f" Instead got '{to_validate}'."
             )
 
-        to_validate = config.outlier_detection['k']
+        to_validate = config.outlier_detection['options']['k']
         if not v.validate({'k': to_validate}):
             raise ValueError(
                 f"{config.name}: parameter 'k' for outlier detection"
@@ -299,7 +299,7 @@ def validate_outlier_detection(config):
                 f" Instead got '{to_validate}'."
             )
 
-        to_validate = config.outlier_detection['stddev_method']
+        to_validate = config.outlier_detection['options']['stddev_method']
         if not v.validate({'stddev_method': to_validate}):
             raise ValueError(
                 f"{config.name}: parameter 'stddev_method' for outlier"
@@ -307,7 +307,7 @@ def validate_outlier_detection(config):
                 f" Instead got '{to_validate}'."
             )
 
-        to_validate = config.outlier_detection['quartile_method']
+        to_validate = config.outlier_detection['options']['quartile_method']
         if not v.validate({'quartile_method': to_validate}):
             raise ValueError(
                 f"{config.name}: parameter 'quartile_method' for outlier"
@@ -315,7 +315,7 @@ def validate_outlier_detection(config):
                 f" Instead got '{to_validate}'."
             )
 
-        to_validate = config.outlier_detection['quartile_method']
+        to_validate = config.outlier_detection['options']['accuracy']
         if not v.validate({'accuracy': to_validate}):
             raise ValueError(
                 f"{config.name}: parameter 'accuracy' for outlier"
