@@ -1,6 +1,6 @@
 """Generic utility functions."""
 from collections import abc
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 
 def is_non_string_sequence(obj: Any) -> bool:
@@ -19,3 +19,12 @@ def list_convert(obj: Optional[Any]) -> Optional[List[Any]]:
         return obj
 
     return list(obj) if is_non_string_sequence(obj) else [obj]
+
+
+def tuple_convert(obj: Any) -> Tuple[Any]:
+    """Convert given object to tuple.
+
+    Converts non-string sequences to tuple. Won't convert sets. Wraps
+    strings and non-sequences as a single item tuple.
+    """
+    return tuple(obj) if is_non_string_sequence(obj) else (obj,)
