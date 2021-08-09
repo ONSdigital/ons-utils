@@ -1,5 +1,6 @@
 """A selection of helper functions for building in pyspark."""
 from collections import abc
+from copy import copy
 import functools
 import itertools
 from typing import (
@@ -147,12 +148,25 @@ def concat(
     else:
         frames = list(frames)
 
+    all_dtypes = set()
     for frame in frames:
         if not isinstance(frame, SparkDF):
             raise TypeError(
                 f"cannot concatenate object of type '{type(frame)}'; "
                 "only pyspark.sql.DataFrame objs are valid"
             )
+        # Get a list of all column names and types across frames.
+        all_dtypes.update(frame.dtypes)
+
+    # Allows dataframes with different columns to be concatenated.
+    # Remove when Spark 3.1.0 available.
+    filled_frames = []
+    for frame in frames:
+        for column, data_type in all_dtypes-set(frame.dtypes):
+            # If frame missing column, then add with null value.
+            frame = frame.withColumn(column, F.lit(None).cast(data_type))
+        filled_frames.append(frame)
+    frames = copy(filled_frames)
 
     # Update with commented line when Spark 3.1.0 available.
     # union = functools.partial(SparkDF.unionByName, allowMissingColumns=True)
