@@ -28,3 +28,15 @@ def tuple_convert(obj: Any) -> Tuple[Any]:
     strings and non-sequences as a single item tuple.
     """
     return tuple(obj) if is_non_string_sequence(obj) else (obj,)
+
+
+def timer_args(name, logger):
+    """Initialise timer args as workaround for 'text' arg."""
+    return {
+        'name': name,
+        'text': lambda secs: name + (
+            f": {secs/60:.0f} mins {secs:.2f} secs" if secs/60 > 1
+            else f": {secs:.2f} secs"
+        ),
+        'logger': logger,
+    }
