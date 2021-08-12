@@ -552,19 +552,19 @@ class TestDevConfig:
         Case(
             label="no_old_values",
             new_values=['new_1', 'new_2'],
-            old_values=[],
+            old_values=None,
             expected=['new_1', 'new_2'],
         ),
         Case(
             label="no_new_values",
-            new_values=[],
+            new_values=None,
             old_values=['old_1', 'old_2'],
-            expected=[],
+            expected=[None],
         ),
         Case(
             label="no_values",
-            new_values=[],
-            old_values=[],
+            new_values=None,
+            old_values=None,
             expected=[],
         ),
         Case(

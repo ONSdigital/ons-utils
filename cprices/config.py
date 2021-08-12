@@ -245,15 +245,11 @@ class DevConfig(Config):
         new_vals: Union[str, Sequence[str]],
         old_vals: Union[str, Sequence[str]],
     ) -> List[str]:
-        """
-        Return the set of unique entries in new_vals excluding old_vals.
-
-        Does not handle NoneType as inputs.
-        """
+        """Return a list of unique entries in new_vals excluding old_vals."""
         new_vals = list_convert(new_vals)
         old_vals = list_convert(old_vals)
 
-        return list(set(new_vals) - set(old_vals))
+        return [val for val in new_vals if val not in old_vals]
 
 
 class LoggingConfig:
