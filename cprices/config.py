@@ -223,7 +223,7 @@ class DevConfig(Config):
         the list of columns used in processing through the pipeline.
         """
         column_attrs = [
-            'groupby_cols',
+            'strata_cols',
             'scanner_preprocess_cols',
             'web_scraped_preprocess_cols',
         ]
