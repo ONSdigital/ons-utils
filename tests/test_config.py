@@ -429,7 +429,7 @@ class TestDevConfig:
     def dev_config(self, test_config):
         """Return DevConfig file with columns to be removed."""
         test_config(yaml_input="""
-        groupby_cols:
+        strata_cols:
             - col_1
             - col_2
         scanner_preprocess_cols:
@@ -450,7 +450,7 @@ class TestDevConfig:
         Case(
             label="add_list_of_new_values",
             new_levels=['new_1', 'new_2'],
-            groupby_cols=['col_1', 'col_2', 'new_1', 'new_2'],
+            strata_cols=['col_1', 'col_2', 'new_1', 'new_2'],
             scanner_preprocess_cols=['col_3', 'col_4', 'new_1', 'new_2'],
             web_scraped_preprocess_cols=['col_5', 'new_1', 'new_2'],
             scanner_data_cols=['col_6', 'col_7', 'new_1', 'new_2'],
@@ -459,7 +459,7 @@ class TestDevConfig:
         Case(
             label="add_single_new_value",
             new_levels='new_1',
-            groupby_cols=['col_1', 'col_2', 'new_1'],
+            strata_cols=['col_1', 'col_2', 'new_1'],
             scanner_preprocess_cols=['col_3', 'col_4', 'new_1'],
             web_scraped_preprocess_cols=['col_5', 'new_1'],
             scanner_data_cols=['col_6', 'col_7', 'new_1'],
@@ -470,7 +470,7 @@ class TestDevConfig:
         self,
         dev_config,
         new_levels,
-        groupby_cols,
+        strata_cols,
         scanner_preprocess_cols,
         web_scraped_preprocess_cols,
         scanner_data_cols,
@@ -479,7 +479,7 @@ class TestDevConfig:
         """Test add_strata method in DevConfig."""
         dev_config.add_strata(new_levels)
 
-        assert sorted(dev_config.groupby_cols) == groupby_cols
+        assert sorted(dev_config.strata_cols) == strata_cols
         assert sorted(dev_config.scanner_preprocess_cols) == scanner_preprocess_cols
         assert sorted(dev_config.web_scraped_preprocess_cols) == web_scraped_preprocess_cols
         assert sorted(dev_config.scanner_data_columns) == scanner_data_cols
@@ -489,7 +489,7 @@ class TestDevConfig:
         Case(
             label="add_list_of_new_values",
             new_levels=['new_1', 'new_2'],
-            groupby_cols=['col_1', 'col_2'],
+            strata_cols=['col_1', 'col_2'],
             scanner_preprocess_cols=['col_3', 'col_4'],
             web_scraped_preprocess_cols=['col_5'],
             scanner_data_cols=['col_6', 'col_7', 'new_1', 'new_2'],
@@ -498,7 +498,7 @@ class TestDevConfig:
         Case(
             label="add_single_new_value",
             new_levels='new_1',
-            groupby_cols=['col_1', 'col_2'],
+            strata_cols=['col_1', 'col_2'],
             scanner_preprocess_cols=['col_3', 'col_4'],
             web_scraped_preprocess_cols=['col_5'],
             scanner_data_cols=['col_6', 'col_7', 'new_1'],
@@ -509,7 +509,7 @@ class TestDevConfig:
         self,
         dev_config,
         new_levels,
-        groupby_cols,
+        strata_cols,
         scanner_preprocess_cols,
         web_scraped_preprocess_cols,
         scanner_data_cols,
@@ -518,7 +518,7 @@ class TestDevConfig:
         """Test extend_data_columns method in DevConfig."""
         dev_config.extend_data_columns(new_levels)
 
-        assert sorted(dev_config.groupby_cols) == groupby_cols
+        assert sorted(dev_config.strata_cols) == strata_cols
         assert sorted(dev_config.scanner_preprocess_cols) == scanner_preprocess_cols
         assert sorted(dev_config.web_scraped_preprocess_cols) == web_scraped_preprocess_cols
         assert sorted(dev_config.scanner_data_columns) == scanner_data_cols
