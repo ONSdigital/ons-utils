@@ -213,10 +213,10 @@ class ScenarioConfig(Config):
 class DevConfig(Config):
     """Class to store the dev config settings."""
 
-    def add_stratificatons(
+    def add_strata(
         self,
         columns: Union[str, Sequence[str]],
-    ):
+    ) -> None:
         """Add extra stratification columns to DevConfig variables."""
         new_columns = self._get_new_values_only(columns, self.groupby_cols)
         self.groupby_cols.extend(new_columns)
@@ -232,7 +232,7 @@ class DevConfig(Config):
     def extend_data_columns(
         self,
         columns: Union[str, Sequence[str]],
-    ):
+    ) -> None:
         """Add additional columns to the list of columns to be read in."""
         new_columns = self._get_new_values_only(columns, self.scanner_data_columns)
         self.scanner_data_columns.extend(new_columns)

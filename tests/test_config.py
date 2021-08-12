@@ -466,7 +466,7 @@ class TestDevConfig:
             webscraped_data_cols=['col_8', 'new_1'],
         ),
     )
-    def test_add_stratification(
+    def test_add_strata(
         self,
         dev_config,
         new_levels,
@@ -476,8 +476,8 @@ class TestDevConfig:
         scanner_data_cols,
         webscraped_data_cols
     ):
-        """Test add_stratificatons method in DevConfig."""
-        dev_config.add_stratificatons(new_levels)
+        """Test add_strata method in DevConfig."""
+        dev_config.add_strata(new_levels)
 
         assert sorted(dev_config.groupby_cols) == groupby_cols
         assert sorted(dev_config.scanner_preprocess_cols) == scanner_preprocess_cols
