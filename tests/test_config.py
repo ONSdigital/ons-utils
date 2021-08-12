@@ -524,6 +524,11 @@ class TestDevConfig:
         assert sorted(dev_config.scanner_data_columns) == scanner_data_cols
         assert sorted(dev_config.webscraped_data_columns) == webscraped_data_cols
 
+    @pytest.mark.skip(reason='not implemented')
+    def test_extend_attributes(self):
+        """Test _extend_attributes method in DevConfig."""
+        pass
+
     @parametrize_cases(
         Case(
             label="no_values_in_common",

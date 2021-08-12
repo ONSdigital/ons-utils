@@ -215,30 +215,49 @@ class DevConfig(Config):
 
     def add_strata(
         self,
-        columns: Union[str, Sequence[str]],
+        extra_strata: Union[str, Sequence[str]],
     ) -> None:
-        """Add extra stratification columns to DevConfig variables."""
-        new_columns = self._get_new_values_only(columns, self.groupby_cols)
-        self.groupby_cols.extend(new_columns)
+        """Add extra stratification columns to DevConfig variables.
 
-        new_columns = self._get_new_values_only(columns, self.scanner_preprocess_cols)
-        self.scanner_preprocess_cols.extend(new_columns)
+        This will add these strata to the list of columns read in, as well as
+        the list of columns used in processing through the pipeline.
+        """
+        column_attrs = [
+            'groupby_cols',
+            'scanner_preprocess_cols',
+            'web_scraped_preprocess_cols',
+        ]
 
-        new_columns = self._get_new_values_only(columns, self.web_scraped_preprocess_cols)
-        self.web_scraped_preprocess_cols.extend(new_columns)
+        self._extend_attributes(column_attrs, extra_strata)
 
-        self.extend_data_columns(new_columns)
+        self.extend_data_columns(extra_strata)
 
     def extend_data_columns(
         self,
-        columns: Union[str, Sequence[str]],
+        extra_strata: Union[str, Sequence[str]],
     ) -> None:
         """Add additional columns to the list of columns to be read in."""
-        new_columns = self._get_new_values_only(columns, self.scanner_data_columns)
-        self.scanner_data_columns.extend(new_columns)
+        column_attrs = [
+            'scanner_data_columns',
+            'webscraped_data_columns',
+        ]
 
-        new_columns = self._get_new_values_only(columns, self.webscraped_data_columns)
-        self.webscraped_data_columns.extend(new_columns)
+        self._extend_attributes(column_attrs, extra_strata)
+
+    def _extend_attributes(
+        self,
+        attrs: Sequence[str],
+        extend_values: Union[str, Sequence[str]],
+    ) -> None:
+        """Extend the specified attributes with unique new values."""
+        attrs = list_convert(attrs)
+        for attr in attrs:
+            current_values = getattr(self, attr)
+            # If users add strata_cols in the scenario config that are
+            # already in the dev_config column attrs above, this will
+            # prevent them being repeated.
+            new_values = self._get_new_values_only(extend_values, current_values)
+            setattr(self, attr, current_values + new_values)
 
     def _get_new_values_only(
         self,
