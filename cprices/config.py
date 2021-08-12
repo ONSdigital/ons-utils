@@ -5,7 +5,7 @@ from datetime import datetime
 from logging.config import dictConfig
 import os
 from pathlib import Path
-from typing import Mapping, Any, Sequence, Optional
+from typing import Any, List, Mapping, Optional, Sequence, Union
 import yaml
 
 from flatten_dict import flatten
@@ -15,6 +15,7 @@ from cprices.utils.helpers import (
     fill_tuples,
     fill_tuple_keys,
     get_key_value_pairs,
+    list_convert,
 )
 
 
@@ -212,21 +213,47 @@ class ScenarioConfig(Config):
 class DevConfig(Config):
     """Class to store the dev config settings."""
 
-    def remove_grouping(self, col):
-        """Remove user defined column from DevConfig."""
-        self.groupby_cols.remove(col)
-        self.web_scraped_preprocess_cols.remove(col)
-        self.scanner_preprocess_cols.remove(col)
+    def add_stratificatons(
+        self,
+        columns: Union[str, Sequence[str]],
+    ):
+        """Add extra stratification columns to DevConfig variables."""
+        new_columns = self._get_new_values_only(columns, self.groupby_cols)
+        self.groupby_cols.extend(new_columns)
 
-    def remove_store_type_from_grouping(self):
-        """Define string to remove store type."""
-        self.remove_grouping('store_type')
+        new_columns = self._get_new_values_only(columns, self.scanner_preprocess_cols)
+        self.scanner_preprocess_cols.extend(new_columns)
 
-    def remove_geography_from_grouping(self):
-        """Ensure all nuts levels are removed from config."""
-        for col in copy(self.groupby_cols):
-            if col.startswith('nuts'):
-                self.remove_grouping(col)
+        new_columns = self._get_new_values_only(columns, self.web_scraped_preprocess_cols)
+        self.web_scraped_preprocess_cols.extend(new_columns)
+
+        self.extend_data_columns(new_columns)
+
+    def extend_data_columns(
+        self,
+        columns: Union[str, Sequence[str]],
+    ):
+        """Add additional columns to the list of columns to be read in."""
+        new_columns = self._get_new_values_only(columns, self.scanner_data_columns)
+        self.scanner_data_columns.extend(new_columns)
+
+        new_columns = self._get_new_values_only(columns, self.webscraped_data_columns)
+        self.webscraped_data_columns.extend(new_columns)
+
+    def _get_new_values_only(
+        self,
+        new_vals: Union[str, Sequence[str]],
+        old_vals: Union[str, Sequence[str]],
+    ) -> List[str]:
+        """
+        Return the set of unique entries in new_vals excluding old_vals.
+
+        Does not handle NoneType as inputs.
+        """
+        new_vals = list_convert(new_vals)
+        old_vals = list_convert(old_vals)
+
+        return list(set(new_vals) - set(old_vals))
 
 
 class LoggingConfig:

@@ -5,6 +5,11 @@ import pytest
 from cprices.config import *
 from cprices import config
 
+from tests.conftest import (
+    Case,
+    parametrize_cases,
+)
+
 
 def write_config_yaml(dir, yaml_input: str = "my_attr: test") -> None:
     """Write a file called my_config.yaml with given yaml at given dir."""
@@ -427,39 +432,162 @@ class TestDevConfig:
         groupby_cols:
             - col_1
             - col_2
-            - nuts1_name
-            - nuts2_name
-            - nuts3_name
-            - store_type
-        web_scraped_preprocess_cols:
-            - col_3
-            - nuts1_name
-            - nuts2_name
-            - nuts3_name
-            - store_type
         scanner_preprocess_cols:
+            - col_3
             - col_4
+        web_scraped_preprocess_cols:
             - col_5
-            - nuts1_name
-            - nuts2_name
-            - nuts3_name
-            - store_type
+        scanner_data_columns:
+            - col_6
+            - col_7
+        webscraped_data_columns:
+            - col_8
         """)
 
         return DevConfig("my_config")
 
-    def test_remove_geography_from_grouping(self, dev_config):
-        """Test nuts columns are removed from config."""
-        dev_config.remove_geography_from_grouping()
+    @parametrize_cases(
+        Case(
+            label="add_list_of_new_values",
+            new_levels=['new_1', 'new_2'],
+            groupby_cols=['col_1', 'col_2', 'new_1', 'new_2'],
+            scanner_preprocess_cols=['col_3', 'col_4', 'new_1', 'new_2'],
+            web_scraped_preprocess_cols=['col_5', 'new_1', 'new_2'],
+            scanner_data_cols=['col_6', 'col_7', 'new_1', 'new_2'],
+            webscraped_data_cols=['col_8', 'new_1', 'new_2'],
+        ),
+        Case(
+            label="add_single_new_value",
+            new_levels='new_1',
+            groupby_cols=['col_1', 'col_2', 'new_1'],
+            scanner_preprocess_cols=['col_3', 'col_4', 'new_1'],
+            web_scraped_preprocess_cols=['col_5', 'new_1'],
+            scanner_data_cols=['col_6', 'col_7', 'new_1'],
+            webscraped_data_cols=['col_8', 'new_1'],
+        ),
+    )
+    def test_add_stratification(
+        self,
+        dev_config,
+        new_levels,
+        groupby_cols,
+        scanner_preprocess_cols,
+        web_scraped_preprocess_cols,
+        scanner_data_cols,
+        webscraped_data_cols
+    ):
+        """Test add_stratificatons method in DevConfig."""
+        dev_config.add_stratificatons(new_levels)
 
-        assert dev_config.groupby_cols == ['col_1', 'col_2', 'store_type']
-        assert dev_config.web_scraped_preprocess_cols == ['col_3', 'store_type']
-        assert dev_config.scanner_preprocess_cols == ['col_4', 'col_5', 'store_type']
+        assert sorted(dev_config.groupby_cols) == groupby_cols
+        assert sorted(dev_config.scanner_preprocess_cols) == scanner_preprocess_cols
+        assert sorted(dev_config.web_scraped_preprocess_cols) == web_scraped_preprocess_cols
+        assert sorted(dev_config.scanner_data_columns) == scanner_data_cols
+        assert sorted(dev_config.webscraped_data_columns) == webscraped_data_cols
 
-    def test_remove_store_type_from_grouping(self, dev_config):
-        """Test store type columns are removed from config."""
-        dev_config.remove_store_type_from_grouping()
+    @parametrize_cases(
+        Case(
+            label="add_list_of_new_values",
+            new_levels=['new_1', 'new_2'],
+            groupby_cols=['col_1', 'col_2'],
+            scanner_preprocess_cols=['col_3', 'col_4'],
+            web_scraped_preprocess_cols=['col_5'],
+            scanner_data_cols=['col_6', 'col_7', 'new_1', 'new_2'],
+            webscraped_data_cols=['col_8', 'new_1', 'new_2'],
+        ),
+        Case(
+            label="add_single_new_value",
+            new_levels='new_1',
+            groupby_cols=['col_1', 'col_2'],
+            scanner_preprocess_cols=['col_3', 'col_4'],
+            web_scraped_preprocess_cols=['col_5'],
+            scanner_data_cols=['col_6', 'col_7', 'new_1'],
+            webscraped_data_cols=['col_8', 'new_1'],
+        ),
+    )
+    def test_extend_data_columns(
+        self,
+        dev_config,
+        new_levels,
+        groupby_cols,
+        scanner_preprocess_cols,
+        web_scraped_preprocess_cols,
+        scanner_data_cols,
+        webscraped_data_cols
+    ):
+        """Test extend_data_columns method in DevConfig."""
+        dev_config.extend_data_columns(new_levels)
 
-        assert dev_config.groupby_cols == ['col_1', 'col_2', 'nuts1_name', 'nuts2_name', 'nuts3_name']
-        assert dev_config.web_scraped_preprocess_cols == ['col_3', 'nuts1_name', 'nuts2_name', 'nuts3_name']
-        assert dev_config.scanner_preprocess_cols == ['col_4', 'col_5', 'nuts1_name', 'nuts2_name', 'nuts3_name']
+        assert sorted(dev_config.groupby_cols) == groupby_cols
+        assert sorted(dev_config.scanner_preprocess_cols) == scanner_preprocess_cols
+        assert sorted(dev_config.web_scraped_preprocess_cols) == web_scraped_preprocess_cols
+        assert sorted(dev_config.scanner_data_columns) == scanner_data_cols
+        assert sorted(dev_config.webscraped_data_columns) == webscraped_data_cols
+
+    @parametrize_cases(
+        Case(
+            label="no_values_in_common",
+            new_values=['new_1', 'new_2'],
+            old_values=['old_1', 'old_2'],
+            expected=['new_1', 'new_2'],
+        ),
+        Case(
+            label="one_value_in_common",
+            new_values=['new_1', 'new_2', 'shared_1'],
+            old_values=['old_1', 'old_2', 'shared_1'],
+            expected=['new_1', 'new_2'],
+        ),
+        Case(
+            label="many_value_in_common",
+            new_values=['new_1', 'new_2', 'shared_1', 'shared_2'],
+            old_values=['old_1', 'old_2', 'shared_1', 'shared_2'],
+            expected=['new_1', 'new_2'],
+        ),
+        Case(
+            label="all_values_in_common",
+            new_values=['shared_1', 'shared_2'],
+            old_values=['shared_1', 'shared_2'],
+            expected=[],
+        ),
+        Case(
+            label="no_old_values",
+            new_values=['new_1', 'new_2'],
+            old_values=[],
+            expected=['new_1', 'new_2'],
+        ),
+        Case(
+            label="no_new_values",
+            new_values=[],
+            old_values=['old_1', 'old_2'],
+            expected=[],
+        ),
+        Case(
+            label="no_values",
+            new_values=[],
+            old_values=[],
+            expected=[],
+        ),
+        Case(
+            label="single_new_value",
+            new_values='new_1',
+            old_values=['old_1', 'old_2', 'shared_1'],
+            expected=['new_1'],
+        ),
+        Case(
+            label="single_old_value",
+            new_values=['new_1', 'new_2'],
+            old_values='old_1',
+            expected=['new_1', 'new_2'],
+        ),
+    )
+    def test_get_new_values_only(
+        self,
+        dev_config,
+        new_values,
+        old_values,
+        expected
+    ):
+        """Test _get_new_values_only method in DevConfig."""
+        result = dev_config._get_new_values_only(new_values, old_values)
+
+        assert sorted(result) == expected
