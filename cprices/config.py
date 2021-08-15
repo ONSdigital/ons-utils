@@ -183,7 +183,7 @@ class ScenarioConfig(Config):
 
         if source == 'web_scraped':
             # Flattens nested to (supplier, item) tuple.
-            new_config.flatten_nested_dicts(['item_mappers', 'grouping_mappers'])
+            new_config.flatten_nested_dicts(['item_mappers'])
             # Converts dict to (suppler, item) tuple pairs.
             new_config.get_key_value_pairs(['input_data'])
 
