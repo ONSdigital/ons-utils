@@ -83,8 +83,6 @@ def validate_config_input(config) -> None:
             'type': 'date',
             'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
         },
-        'use_geography': {'type': 'boolean'},
-        'use_store_type': {'type': 'boolean'},
     }
 
     if not v.validate({'start_date': config.start_date}):
@@ -97,18 +95,6 @@ def validate_config_input(config) -> None:
         raise ValueError(
             f"{config.name}: parameter 'end_date'"
             " must be a string in the format YYYY-MM-01."
-        )
-
-    if not v.validate({'use_geography': config.use_geography}):
-        raise ValueError(
-            f"{config.name}: parameter 'use_geography' must a boolean."
-            f" Instead got '{config.use_geography}'."
-        )
-
-    if not v.validate({'use_store_type': config.use_store_type}):
-        raise ValueError(
-            f"{config.name}: parameter 'use_store_type' must a boolean."
-            f" Instead got '{config.use_store_type}'."
         )
 
 
