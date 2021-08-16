@@ -5,7 +5,7 @@ from datetime import datetime
 from logging.config import dictConfig
 import os
 from pathlib import Path
-from typing import Any, List, Mapping, Optional, Sequence, Union
+from typing import Any, Mapping, Optional, Sequence, Union
 import yaml
 
 from flatten_dict import flatten
@@ -15,6 +15,7 @@ from cprices.utils.helpers import (
     fill_tuples,
     fill_tuple_keys,
     get_key_value_pairs,
+    is_non_string_sequence,
     list_convert,
 )
 
@@ -116,11 +117,11 @@ class Config:
 
     def flatten_nested_dicts(self, attrs: Sequence[str]) -> None:
         """Flatten the nested dict config for web_scraped."""
-        self.update({k: flatten(vars(self)[k]) for k in attrs})
+        self.update({k: flatten(getattr(self, k)) for k in attrs})
 
     def get_key_value_pairs(self, attrs: Sequence[str]) -> None:
         """Get the key value pairs from a dictionary as list of tuples."""
-        self.update({k: get_key_value_pairs(vars(self)[k]) for k in attrs})
+        self.update({k: get_key_value_pairs(getattr(self, k)) for k in attrs})
 
     def fill_tuples(
         self,
@@ -130,7 +131,7 @@ class Config:
     ) -> None:
         """Fill tuples so they are all the same length."""
         self.update({
-            k: fill_tuples(vars(self)[k], repeat=repeat, length=length)
+            k: fill_tuples(getattr(self, k), repeat=repeat, length=length)
             for k in attrs
         })
 
@@ -142,9 +143,22 @@ class Config:
     ) -> None:
         """Fill tuple keys so they are all the same length."""
         self.update({
-            k: fill_tuple_keys(vars(self)[k], repeat=repeat, length=length)
+            k: fill_tuple_keys(getattr(self, k), repeat=repeat, length=length)
             for k in attrs
         })
+
+    def extend_attr(self, attr: str, extend_vals: Sequence[Any]) -> None:
+        """Extend a list or tuple attr with the given values."""
+        current_vals = getattr(self, attr)
+
+        if not is_non_string_sequence(current_vals):
+            raise AttributeError(f'attribute {attr} is not an extendable type')
+        elif isinstance(current_vals, tuple):
+            extend_vals = tuple(extend_vals)
+        elif isinstance(current_vals, list):
+            extend_vals = list(extend_vals)
+
+        setattr(self, attr, getattr(self, attr) + extend_vals)
 
 
 class SelectedScenarioConfig(Config):
@@ -217,58 +231,26 @@ class DevConfig(Config):
         self,
         extra_strata: Union[str, Sequence[str]],
     ) -> None:
-        """Add extra stratification columns to DevConfig variables.
+        """Add extra strata columns to DevConfig column list attributes.
 
-        This will add these strata to the list of columns read in, as well as
-        the list of columns used in processing through the pipeline.
+        Adds to the grouping columns, the columns to read in from the
+        tables, and the columns taken through from preprocessing.
         """
         column_attrs = [
             'strata_cols',
             'scanner_preprocess_cols',
-            'web_scraped_preprocess_cols',
-        ]
-
-        self._extend_attributes(column_attrs, extra_strata)
-
-        self.extend_data_columns(extra_strata)
-
-    def extend_data_columns(
-        self,
-        extra_strata: Union[str, Sequence[str]],
-    ) -> None:
-        """Add additional columns to the list of columns to be read in."""
-        column_attrs = [
             'scanner_data_columns',
-            'webscraped_data_columns',
         ]
-
-        self._extend_attributes(column_attrs, extra_strata)
-
-    def _extend_attributes(
-        self,
-        attrs: Sequence[str],
-        extend_values: Union[str, Sequence[str]],
-    ) -> None:
-        """Extend the specified attributes with unique new values."""
-        attrs = list_convert(attrs)
-        for attr in attrs:
-            current_values = getattr(self, attr)
-            # If users add strata_cols in the scenario config that are
-            # already in the dev_config column attrs above, this will
-            # prevent them being repeated.
-            new_values = self._get_new_values_only(extend_values, current_values)
-            setattr(self, attr, current_values + new_values)
-
-    def _get_new_values_only(
-        self,
-        new_vals: Union[str, Sequence[str]],
-        old_vals: Union[str, Sequence[str]],
-    ) -> List[str]:
-        """Return a list of unique entries in new_vals excluding old_vals."""
-        new_vals = list_convert(new_vals)
-        old_vals = list_convert(old_vals)
-
-        return [val for val in new_vals if val not in old_vals]
+        for attr in column_attrs:
+            # Ensures that there are no duplicates of the user-specified
+            # strata cols in the result of the subsequent extension, by
+            # checking if they are already in the given attributes
+            # above.
+            missing_strata = [
+                c for c in list_convert(extra_strata)
+                if c not in getattr(self, attr)
+            ]
+            self.extend_attr(attr, missing_strata)
 
 
 class LoggingConfig:

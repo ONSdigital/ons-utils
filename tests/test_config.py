@@ -11,20 +11,30 @@ from tests.conftest import (
 )
 
 
-def write_config_yaml(dir, yaml_input: str = "my_attr: test") -> None:
+def write_config_yaml(
+    dir,
+    yaml_input: str = "my_attr: test",
+    name: str = 'my_config',
+) -> None:
     """Write a file called my_config.yaml with given yaml at given dir."""
-    with open(dir.join('my_config.yaml'), 'w') as f:
+    with open(dir.join(f'{name}.yaml'), 'w') as f:
         yaml.dump(yaml.safe_load(yaml_input), f)
 
 
 @pytest.fixture
 def test_config(tmpdir, monkeypatch):
     """Sets up a test config file in tmpdir/config with given yaml."""
-    def _(yaml_input: str = "my_attr: test") -> Config:
-        config_dir = tmpdir.mkdir('config')
+    def _(
+        yaml_input: str = "my_attr: test",
+        name: str = 'my_config',
+    ) -> Config:
+        config_dir = (
+            tmpdir.join('config') if tmpdir.join('config').check()
+            else tmpdir.mkdir('config')
+        )
         monkeypatch.setattr(config.Path, 'home', lambda: Path(tmpdir))
-        write_config_yaml(config_dir, yaml_input=yaml_input)
-        return Config('my_config')
+        write_config_yaml(config_dir, yaml_input, name)
+        return Config(name)
     return _
 
 
@@ -249,6 +259,54 @@ class TestConfig:
             ('chips', 'chips', 'chips', 'chips'): 2
         }
 
+    @parametrize_cases(
+        Case(
+            "extend_list_with_list",
+            attr_val=['jasmine', 'ivy'],
+            extend_vals=['bramble', 'lavender'],
+            expected=['jasmine', 'ivy', 'bramble', 'lavender'],
+        ),
+        Case(
+            "extend_list_with_tuple",
+            attr_val=['jasmine', 'ivy'],
+            extend_vals=('bramble', 'lavender'),
+            expected=['jasmine', 'ivy', 'bramble', 'lavender'],
+        ),
+        Case(
+            "extend_tuple_with_tuple",
+            attr_val=('jasmine', 'ivy'),
+            extend_vals=('bramble',),
+            expected=('jasmine', 'ivy', 'bramble'),
+        ),
+        Case(
+            "extend_tuple_with_list",
+            attr_val=('jasmine', 'ivy'),
+            extend_vals=['bramble'],
+            expected=('jasmine', 'ivy', 'bramble'),
+        ),
+    )
+    def test_extend_attr(
+        self, test_config,
+        attr_val, extend_vals, expected
+    ):
+        """Test extend_attrs works for tuple and list attrs."""
+        conf = test_config()
+        conf.update({'plants': attr_val})
+        conf.extend_attr('plants', extend_vals)
+        assert conf.plants == expected
+
+    @pytest.mark.parametrize(
+        'attr_val', [{'rosemary'}, 'rosemary', 5, {'one': 1}],
+        ids=lambda x: f"{type(x)}"
+    )
+    def test_extend_attrs_raises_when_attr_is_wrong_type(
+        self, test_config, attr_val,
+    ):
+        conf = test_config()
+        conf.update({'plants': attr_val})
+        with pytest.raises(AttributeError):
+            conf.extend_attr('plants', ['heather'])
+
 
 class TestScenarioConfig:
     """Group of tests for ScenarioConfig."""
@@ -449,150 +507,30 @@ class TestDevConfig:
     @parametrize_cases(
         Case(
             label="add_list_of_new_values",
-            new_levels=['new_1', 'new_2'],
-            strata_cols=['col_1', 'col_2', 'new_1', 'new_2'],
-            scanner_preprocess_cols=['col_3', 'col_4', 'new_1', 'new_2'],
-            web_scraped_preprocess_cols=['col_5', 'new_1', 'new_2'],
-            scanner_data_cols=['col_6', 'col_7', 'new_1', 'new_2'],
-            webscraped_data_cols=['col_8', 'new_1', 'new_2'],
+            new_strata=['new_1', 'new_2'],
+            exp_strata_cols=['col_1', 'col_2', 'new_1', 'new_2'],
+            exp_scanner_preprocess_cols=['col_3', 'col_4', 'new_1', 'new_2'],
+            exp_scanner_data_cols=['col_6', 'col_7', 'new_1', 'new_2'],
         ),
         Case(
             label="add_single_new_value",
-            new_levels='new_1',
-            strata_cols=['col_1', 'col_2', 'new_1'],
-            scanner_preprocess_cols=['col_3', 'col_4', 'new_1'],
-            web_scraped_preprocess_cols=['col_5', 'new_1'],
-            scanner_data_cols=['col_6', 'col_7', 'new_1'],
-            webscraped_data_cols=['col_8', 'new_1'],
+            new_strata='new_1',
+            exp_strata_cols=['col_1', 'col_2', 'new_1'],
+            exp_scanner_preprocess_cols=['col_3', 'col_4', 'new_1'],
+            exp_scanner_data_cols=['col_6', 'col_7', 'new_1'],
         ),
     )
     def test_add_strata(
         self,
         dev_config,
-        new_levels,
-        strata_cols,
-        scanner_preprocess_cols,
-        web_scraped_preprocess_cols,
-        scanner_data_cols,
-        webscraped_data_cols
+        new_strata,
+        exp_strata_cols,
+        exp_scanner_preprocess_cols,
+        exp_scanner_data_cols,
     ):
         """Test add_strata method in DevConfig."""
-        dev_config.add_strata(new_levels)
+        dev_config.add_strata(new_strata)
 
-        assert sorted(dev_config.strata_cols) == strata_cols
-        assert sorted(dev_config.scanner_preprocess_cols) == scanner_preprocess_cols
-        assert sorted(dev_config.web_scraped_preprocess_cols) == web_scraped_preprocess_cols
-        assert sorted(dev_config.scanner_data_columns) == scanner_data_cols
-        assert sorted(dev_config.webscraped_data_columns) == webscraped_data_cols
-
-    @parametrize_cases(
-        Case(
-            label="add_list_of_new_values",
-            new_levels=['new_1', 'new_2'],
-            strata_cols=['col_1', 'col_2'],
-            scanner_preprocess_cols=['col_3', 'col_4'],
-            web_scraped_preprocess_cols=['col_5'],
-            scanner_data_cols=['col_6', 'col_7', 'new_1', 'new_2'],
-            webscraped_data_cols=['col_8', 'new_1', 'new_2'],
-        ),
-        Case(
-            label="add_single_new_value",
-            new_levels='new_1',
-            strata_cols=['col_1', 'col_2'],
-            scanner_preprocess_cols=['col_3', 'col_4'],
-            web_scraped_preprocess_cols=['col_5'],
-            scanner_data_cols=['col_6', 'col_7', 'new_1'],
-            webscraped_data_cols=['col_8', 'new_1'],
-        ),
-    )
-    def test_extend_data_columns(
-        self,
-        dev_config,
-        new_levels,
-        strata_cols,
-        scanner_preprocess_cols,
-        web_scraped_preprocess_cols,
-        scanner_data_cols,
-        webscraped_data_cols
-    ):
-        """Test extend_data_columns method in DevConfig."""
-        dev_config.extend_data_columns(new_levels)
-
-        assert sorted(dev_config.strata_cols) == strata_cols
-        assert sorted(dev_config.scanner_preprocess_cols) == scanner_preprocess_cols
-        assert sorted(dev_config.web_scraped_preprocess_cols) == web_scraped_preprocess_cols
-        assert sorted(dev_config.scanner_data_columns) == scanner_data_cols
-        assert sorted(dev_config.webscraped_data_columns) == webscraped_data_cols
-
-    @pytest.mark.skip(reason='not implemented')
-    def test_extend_attributes(self):
-        """Test _extend_attributes method in DevConfig."""
-        pass
-
-    @parametrize_cases(
-        Case(
-            label="no_values_in_common",
-            new_values=['new_1', 'new_2'],
-            old_values=['old_1', 'old_2'],
-            expected=['new_1', 'new_2'],
-        ),
-        Case(
-            label="one_value_in_common",
-            new_values=['new_1', 'new_2', 'shared_1'],
-            old_values=['old_1', 'old_2', 'shared_1'],
-            expected=['new_1', 'new_2'],
-        ),
-        Case(
-            label="many_value_in_common",
-            new_values=['new_1', 'new_2', 'shared_1', 'shared_2'],
-            old_values=['old_1', 'old_2', 'shared_1', 'shared_2'],
-            expected=['new_1', 'new_2'],
-        ),
-        Case(
-            label="all_values_in_common",
-            new_values=['shared_1', 'shared_2'],
-            old_values=['shared_1', 'shared_2'],
-            expected=[],
-        ),
-        Case(
-            label="no_old_values",
-            new_values=['new_1', 'new_2'],
-            old_values=None,
-            expected=['new_1', 'new_2'],
-        ),
-        Case(
-            label="no_new_values",
-            new_values=None,
-            old_values=['old_1', 'old_2'],
-            expected=[None],
-        ),
-        Case(
-            label="no_values",
-            new_values=None,
-            old_values=None,
-            expected=[],
-        ),
-        Case(
-            label="single_new_value",
-            new_values='new_1',
-            old_values=['old_1', 'old_2', 'shared_1'],
-            expected=['new_1'],
-        ),
-        Case(
-            label="single_old_value",
-            new_values=['new_1', 'new_2'],
-            old_values='old_1',
-            expected=['new_1', 'new_2'],
-        ),
-    )
-    def test_get_new_values_only(
-        self,
-        dev_config,
-        new_values,
-        old_values,
-        expected
-    ):
-        """Test _get_new_values_only method in DevConfig."""
-        result = dev_config._get_new_values_only(new_values, old_values)
-
-        assert sorted(result) == expected
+        assert sorted(dev_config.strata_cols) == exp_strata_cols
+        assert sorted(dev_config.scanner_preprocess_cols) == exp_scanner_preprocess_cols
+        assert sorted(dev_config.scanner_data_columns) == exp_scanner_data_cols
