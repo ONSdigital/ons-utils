@@ -112,7 +112,7 @@ def validate_preprocessing(config) -> None:
         'use_unit_prices': {'type': 'boolean'},
         'product_id_code_col': {
             'type': 'string',
-            'allowed': ['gtin', 'retail_line_code'],
+            'allowed': ['gtin', 'productid_ons', 'sku'],
         },
         'calc_price_before_discount': {'type': 'boolean'},
         'promo_col': {
