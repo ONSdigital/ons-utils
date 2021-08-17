@@ -34,16 +34,18 @@ class Config:
     def __init__(
         self,
         filename: str,
+        subdir: Optional[str] = None,
         to_unpack: Optional[Sequence[str]] = None,
     ):
         """Initialise the Config class.
 
+        filename:
         to_unpack : sequence of str
             A list of keys that contain mappings to unpack. The mappings
             at given keys will be set as new attributes directly.
         """
         self.name = filename
-        self.config_path = self.get_config_path()
+        self.config_path = self.get_config_path(subdir)
         self.set_attrs(self.load_config(), to_unpack)
 
     def get_config_dir(self) -> Path:
@@ -73,9 +75,11 @@ class Config:
             if loc.joinpath('config').exists():
                 return loc.joinpath('config')
 
-    def get_config_path(self) -> Path:
+    def get_config_path(self, subdir: Optional[str] = None) -> Path:
         """Return the path to the config file."""
-        return self.get_config_dir().joinpath(self.name + '.yaml')
+        filename = self.name + '.yaml'
+        to_join = filename if not subdir else [filename, subdir]
+        return self.get_config_dir().joinpath(to_join)
 
     def load_config(self):
         """Load the config file."""
@@ -163,6 +167,14 @@ class Config:
 
 class SelectedScenarioConfig(Config):
     """Class to store the selected scenarios."""
+
+    def __init__(self, filename: str, *args):
+        """Init like config.
+
+        Stores scenarios attribute as key value pairs.
+        """
+        super.__init__(filename, *args)
+        self.get_key_value_pairs('scenarios')
 
 
 class ScenarioConfig(Config):
@@ -336,5 +348,6 @@ class LoggingConfig:
 
 
 if __name__ == "__main__":
-    sc_config = ScenarioConfig('scenario_scan')
-    print(sc_config.pick_source('scanner').input_data)
+    pass
+    # sc_config = ScenarioConfig('scenario_scan')
+    # print(sc_config.pick_source('scanner').input_data)

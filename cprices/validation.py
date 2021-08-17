@@ -1,4 +1,6 @@
 """Validation rules for config files."""
+from typing import Any, Dict, Callable, Sequence
+
 from cerberus import Validator
 
 from epds_utils import hdfs
@@ -16,62 +18,70 @@ class ScenarioSectionError(Exception):
         super().__init__(self.message)
 
 
-def validate_config_sections(config) -> None:
-    """Validate that all required sections are in the config.name file."""
-    required_sections = [
-        'input_data',
-        # 'preprocessing',
-        # 'consumption_segment_mappers',
-        'outlier_detection',
-        'averaging',
-        'grouping',
-        # 'flag_low_expenditures',
-        'indices'
-    ]
+def validators_lib() -> Dict[str, Callable]:
+    """Return a dict of validation functions for each section."""
+    return {
+        'preprocessing': validate_preprocessing,
+        'consumptions_segments_mappers': validate_classification,
+        'outlier_detection': validate_outlier_detection,
+        'averaging': validate_averaging,
+        'grouping': validate_grouping,
+        'flag_low_expenditures': validate_flag_low_expenditures,
+        'indices': validate_indices,
+    }
 
-    config_sections = vars(config).keys()
 
-    for key in required_sections:
-        if key not in config_sections:
+def check_config_sections_exist(config, sections) -> None:
+    """Validate that all sections are in the given config."""
+    for key in sections:
+        if key not in vars(config).keys():
             raise ScenarioSectionError(config.name, key)
 
 
-def scanner_only(config, module) -> None:
-    """Logic for validating scanner config files only."""
-    if module == 'preprocessing':
-        try:
-            config.preprocessing
-        except AttributeError:
-            pass
-        else:
-            validate_preprocessing(config)
-    if module == 'flag_low_expenditures':
-        try:
-            config.flag_low_expenditures
-        except AttributeError:
-            pass
-        else:
-            validate_flag_low_expenditures(config)
+def validate_section_values(config, sections: Sequence[str]):
+    """Validate the given sections with the appropriate validator."""
+    validators = validators_lib()
+    for section in sections:
+        validator = validators.get(section)
+        validator(config)
 
 
-def validate_config(config) -> None:
-    """Validate config.name config parameters.
-
-    This function runs at the very beginning and includes assert statements
-    to ensure that the config parameters are valid, i.e. they have the right
-    data type and values within the permitted range.
-    """
-    validate_config_input(config)
-    scanner_only(config, 'preprocessing')
-    validate_classification(config)
-    validate_outlier_detection(config)
-    validate_averaging_and_grouping(config)
-    scanner_only(config, 'flag_low_expenditures')
-    validate_indices(config)
-    validate_config_input(config)
+def validate_conventional_scenario_sections(config) -> None:
+    """Validate the sections in the conventional scenario config."""
+    required_sections = ['input_data']
+    check_config_sections_exist(config, required_sections)
 
 
-def validate_config_input(config) -> None:
+def validate_scan_scenario_config(config) -> None:
+    """Validate the config using required sections for scanner."""
+    required_sections = [
+        'input_data',
+        'preprocessing',
+        'consumption_segment_mappers',
+        'outlier_detection',
+        'averaging',
+        'flag_low_expenditures',
+        'indices'
+    ]
+    check_config_sections_exist(config, required_sections)
+    validate_section_values(config, required_sections)
+
+
+def validate_webscraped_scenario_config(config) -> None:
+    """Validate the config using required sections for web scraped."""
+    required_sections = [
+        'input_data',
+        'consumption_segment_mappers',
+        'outlier_detection',
+        'averaging',
+        'grouping'
+        'indices'
+    ]
+    check_config_sections_exist(config, required_sections)
+    validate_section_values(config, required_sections)
+
+
+def validate_non_section_values(config) -> None:
     """Validate the generic input settings in the config."""
     v = Validator()
     v.schema = {
@@ -83,6 +93,9 @@ def validate_config_input(config) -> None:
             'type': 'date',
             'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
         },
+        'extra_strata': {
+            'type': ['list', 'string'],
+        }
     }
 
     if not v.validate({'start_date': config.start_date}):
@@ -96,6 +109,13 @@ def validate_config_input(config) -> None:
             f"{config.name}: parameter 'end_date'"
             " must be a string in the format YYYY-MM-01."
         )
+
+    if config.extra_strata:
+        if not v.validate({'extra_strata': config.extra_strata}):
+            raise ValueError(
+                f"{config.name}: parameter 'extra_strata'"
+                " must be a string or list of strings."
+            )
 
 
 def validate_preprocessing(config) -> None:
@@ -310,29 +330,29 @@ def validate_outlier_detection(config):
             )
 
 
-def validate_averaging_and_grouping(config):
-    """Validate the averaging and grouping settings in the config."""
+def validate_grouping(config):
+    """ """
+    pass
+
+
+def validate_averaging(config):
+    """Validate the averaging settings in the config."""
     averaging_methods = {
         'unweighted_arithmetic',
         'unweighted_geometric',
         'weighted_arithmetic',
         'weighted_geometric'
     }
-
     v = Validator()
     v.schema = {
         'active': {'type': 'boolean'},
-        'web_scraped': {
-            'type': 'string',
-            'allowed': averaging_methods,
-        },
-        'scanner': {
+        'method': {
             'type': 'string',
             'allowed': averaging_methods,
         },
     }
 
-    active = config.grouping['active']
+    active = config.averaging['active']
     if not v.validate({'active': active}):
         raise ValueError(
             f"{config.name}: parameter 'active' in grouping"
@@ -340,26 +360,14 @@ def validate_averaging_and_grouping(config):
             f" Instead got '{active}'."
         )
 
-    # Averaging
-    for data_source in ['web_scraped', 'scanner']:
-        to_validate = config.averaging[data_source]
-        if not v.validate({data_source: to_validate}):
+    if active:
+        to_validate = config.averaging['method']
+        if not v.validate({'method': to_validate}):
             raise ValueError(
-                f"{config.name}: parameter {data_source} in averaging"
-                f" must be one of {averaging_methods}."
+                f"{config.name}: method for averaging must"
+                " be one of {averaging_methods}."
                 f" Instead got '{to_validate}'."
             )
-
-    # Grouping
-    if active:
-        for data_source in ['web_scraped', 'scanner']:
-            to_validate = config.grouping[data_source]
-            if not v.validate({data_source: to_validate}):
-                raise ValueError(
-                    f"{config.name}: {data_source} for grouping must"
-                    " be one of {averaging_methods}."
-                    f" Instead got '{to_validate}'."
-                )
 
 
 def validate_flag_low_expenditures(config):
