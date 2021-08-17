@@ -154,61 +154,114 @@ def validate_preprocessing(config) -> None:
         },
     }
 
-    to_validate = config.preprocessing['use_unit_prices']
-    if not v.validate({'use_unit_prices': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'use_unit_prices' in"
-            " preprocessing must a boolean."
-            f" Instead got '{to_validate}'."
-        )
+    single_selection_checks = {
+        'product_id_code_col',
+        'promo_col',
+        'sales_value_col',
+        'align_daily_frequency',
+    }
 
-    to_validate = config.preprocessing['product_id_code_col']
-    if not v.validate({'product_id_code_col': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'product_id_code_col' in"
-            " preprocessing must be one of: {'gtin', 'retail_line_code'}."
-            f" Instead got '{to_validate}'."
-        )
+    type_checks = {
+        'use_unit_prices',
+        'calc_price_before_discount',
+    }
 
-    to_validate = config.preprocessing['calc_price_before_discount']
-    if not v.validate({'calc_price_before_discount': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'calc_price_before_discount' in"
-            " preprocessing must be a boolean."
-            f" Instead got '{to_validate}'."
-        )
+    multiple_selection_checks = {
+        'week_selection',
+    }
 
-    to_validate = config.preprocessing['promo_col']
-    if not v.validate({'promo_col': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'promo_col' in preprocessing"
-            "must be one of: {'price_promo_discount', 'multi_promo_discount'}."
-            f" Instead got '{to_validate}'."
-        )
+    for param in v.schema:
+        to_validate = config.preprocessing[param]
+        if not v.validate({param: to_validate}):
+            err = ValidationErrors(config.name)
 
-    to_validate = config.preprocessing['sales_value_col']
-    if not v.validate({'sales_value_col': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'sales_value_col' in"
-            f" preprocessing must be one of {expenditure_cols}."
-            f" Instead got '{to_validate}'."
-        )
+            if param in single_selection_checks:
+                err.selection_single_error(
+                    param,
+                    allowed=v.schema.get(param).get('allowed'),
+                    actual=to_validate,
+                    section='preprocessing',
+                )
+            elif param in multiple_selection_checks:
+                err.selection_multiple_error(
+                    param,
+                    allowed=v.schema.get(param).get('allowed'),
+                    actual=to_validate,
+                    section='preprocessing',
+                )
+            elif param in type_checks:
+                err.bool_error(
+                    param,
+                    actual=to_validate,
+                    section='preprocessing',
+                )
 
-    to_validate = config.preprocessing['align_daily_frequency']
-    if not v.validate({'align_daily_frequency': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'align_daily_frequency' in"
-            " preprocessing must be one of: {'weekly', 'monthly'}"
-            f" Instead got '{to_validate}'."
-        )
 
-    to_validate = config.preprocessing['week_selection']
-    if not v.validate({'week_selection': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'week_selection' in preprocessing"
-            " should be a combination of integers [1, 2, 3, 4]."
-            f" Instead got '{to_validate}'."
-        )
+class ConfigValueError(ValueError):
+    pass
+
+
+class ValidationErrors:
+    """A class to print various error messages for Validation."""
+
+    def __init__(self, name: str):
+        """Init the class."""
+        self.name = name
+
+    def selection_single_error(
+        self,
+        parameter: str,
+        allowed: Any,
+        actual: Any,
+        section: str = None,
+    ) -> None:
+        """Error for a non-list type with "allowed" check."""
+        must_str = f"must be one of : {allowed}."
+        msg = self._main_msg(parameter, actual, must_str, section)
+
+        raise ConfigValueError(msg)
+
+    def selection_multiple_error(
+        self,
+        parameter: str,
+        allowed: Any,
+        actual: Any,
+        section: str = None,
+    ) -> None:
+        """Error for a list type with "allowed" check."""
+        must_str = f"must be one or more of : {allowed}."
+        msg = self._main_msg(parameter, actual, must_str, section)
+
+        raise ConfigValueError(msg)
+
+    def bool_error(
+        self,
+        parameter: str,
+        actual: Any,
+        section: str = None,
+    ) -> None:
+        """Raise an error for the boolean check."""
+        must_str = "must be a boolean value."
+        msg = self._main_msg(parameter, actual, must_str, section)
+
+        raise ConfigValueError(msg)
+
+    def _main_msg(
+        self,
+        parameter: str,
+        actual: Any,
+        must_str: str,
+        section: str = None,
+    ):
+        """Construct the main error message."""
+        msg = []
+        msg.append(f"{self.name}: parameter {parameter}")
+        if section:
+            msg.append(f"in {section}")
+        msg.append(must_str)
+        msg.append(f"Instead got {actual}.")
+
+        return " ".join(msg)
 
 
 def validate_classification(config) -> None:
