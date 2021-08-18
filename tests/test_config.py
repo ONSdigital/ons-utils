@@ -451,16 +451,12 @@ class TestDevConfig:
         strata_cols:
             - col_1
             - col_2
-        scanner_preprocess_cols:
+        preprocess_cols:
             - col_3
             - col_4
-        web_scraped_preprocess_cols:
-            - col_5
-        scanner_data_columns:
+        data_cols:
             - col_6
             - col_7
-        webscraped_data_columns:
-            - col_8
         """)
 
         return DevConfig("my_config")
@@ -470,15 +466,22 @@ class TestDevConfig:
             label="add_list_of_new_values",
             new_strata=['new_1', 'new_2'],
             exp_strata_cols=['col_1', 'col_2', 'new_1', 'new_2'],
-            exp_scanner_preprocess_cols=['col_3', 'col_4', 'new_1', 'new_2'],
-            exp_scanner_data_cols=['col_6', 'col_7', 'new_1', 'new_2'],
+            exp_preprocess_cols=['col_3', 'col_4', 'new_1', 'new_2'],
+            exp_data_cols=['col_6', 'col_7', 'new_1', 'new_2'],
         ),
         Case(
             label="add_single_new_value",
             new_strata='new_1',
             exp_strata_cols=['col_1', 'col_2', 'new_1'],
-            exp_scanner_preprocess_cols=['col_3', 'col_4', 'new_1'],
-            exp_scanner_data_cols=['col_6', 'col_7', 'new_1'],
+            exp_preprocess_cols=['col_3', 'col_4', 'new_1'],
+            exp_data_cols=['col_6', 'col_7', 'new_1'],
+        ),
+        Case(
+            label="doesnt_add_if_already_in_cols",
+            new_strata='col_1',
+            exp_strata_cols=['col_1', 'col_2'],
+            exp_preprocess_cols=['col_3', 'col_4', 'col_1'],
+            exp_data_cols=['col_6', 'col_7', 'col_1'],
         ),
     )
     def test_add_strata(
@@ -486,12 +489,12 @@ class TestDevConfig:
         dev_config,
         new_strata,
         exp_strata_cols,
-        exp_scanner_preprocess_cols,
-        exp_scanner_data_cols,
+        exp_preprocess_cols,
+        exp_data_cols,
     ):
         """Test add_strata method in DevConfig."""
         dev_config.add_strata(new_strata)
 
-        assert sorted(dev_config.strata_cols) == exp_strata_cols
-        assert sorted(dev_config.scanner_preprocess_cols) == exp_scanner_preprocess_cols
-        assert sorted(dev_config.scanner_data_columns) == exp_scanner_data_cols
+        assert dev_config.strata_cols == exp_strata_cols
+        assert dev_config.preprocess_cols == exp_preprocess_cols
+        assert dev_config.data_cols == exp_data_cols

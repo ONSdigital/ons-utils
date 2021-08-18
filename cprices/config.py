@@ -248,8 +248,8 @@ class DevConfig(Config):
         """
         column_attrs = [
             'strata_cols',
-            'scanner_preprocess_cols',
-            'scanner_data_columns',
+            'preprocess_cols',
+            'data_cols',
         ]
         for attr in column_attrs:
             # Ensures that there are no duplicates of the user-specified
@@ -343,9 +343,3 @@ class LoggingConfig:
             'disable_existing_loggers': disable_other_loggers,
         }
         dictConfig(logging_config)
-
-
-if __name__ == "__main__":
-    pass
-    # sc_config = ScenarioConfig('scenario_scan')
-    # print(sc_config.pick_source('scanner').input_data)
