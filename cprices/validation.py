@@ -1,6 +1,8 @@
 """Validation rules for config files."""
-from typing import Any, Dict, Callable, Sequence
+from dataclasses import dataclass
+from typing import Dict, Callable, Sequence, Mapping, Tuple, Union
 
+import cerberus
 from cerberus import Validator
 
 from epds_utils import hdfs
@@ -18,10 +20,10 @@ class ScenarioSectionError(Exception):
         super().__init__(self.message)
 
 
-def validators_lib() -> Dict[str, Callable]:
+def schemas_lib() -> Dict[str, Callable]:
     """Return a dict of validation functions for each section."""
     return {
-        'preprocessing': validate_preprocessing,
+        'preprocessing': preprocessing_schema,
         'consumptions_segments_mappers': validate_classification,
         'outlier_detection': validate_outlier_detection,
         'averaging': validate_averaging,
@@ -38,12 +40,20 @@ def check_config_sections_exist(config, sections) -> None:
             raise ScenarioSectionError(config.name, key)
 
 
-def validate_section_values(config, sections: Sequence[str]):
-    """Validate the given sections with the appropriate validator."""
-    validators = validators_lib()
-    for section in sections:
-        validator = validators.get(section)
-        validator(config)
+# def validate_section_values(config, sections: Sequence[str]):
+#     """Validate the given sections with the appropriate validator."""
+#     validators = validators_lib()
+#     for section in sections:
+#         validator = validators.get(section)
+#         validator(config)
+
+
+def build_schema(sections: Sequence[str]):
+    """Build the full schema from the sections."""
+    schema_lib = schemas_lib()
+    schemas = [schema_lib.get(section) for section in sections]
+
+    return {k: v for schema in schemas for k,v in schema.items()}
 
 
 def validate_conventional_scenario_sections(config) -> None:
@@ -64,7 +74,7 @@ def validate_scan_scenario_config(config) -> None:
         'indices'
     ]
     check_config_sections_exist(config, required_sections)
-    validate_section_values(config, required_sections)
+    # validate_section_values(config, required_sections)
 
 
 def validate_webscraped_scenario_config(config) -> None:
@@ -78,7 +88,7 @@ def validate_webscraped_scenario_config(config) -> None:
         'indices'
     ]
     check_config_sections_exist(config, required_sections)
-    validate_section_values(config, required_sections)
+    # validate_section_values(config, required_sections)
 
 
 def validate_non_section_values(config) -> None:
@@ -118,30 +128,27 @@ def validate_non_section_values(config) -> None:
             )
 
 
-def validate_preprocessing(config) -> None:
+def preprocessing_schema() -> Mapping:
     """Validate the preprocessing settings in the config."""
-    expenditure_cols = {
-        'sales_value_inc_discounts',
-        'sales_value_exc_discounts',
-        'sales_value_vat',
-        'sales_value_vat_exc_discounts',
-    }
-
-    v = Validator()
-    v.schema = {
+    return {
         'use_unit_prices': {'type': 'boolean'},
         'product_id_code_col': {
             'type': 'string',
-            'allowed': ['gtin', 'productid_ons', 'sku'],
+            'allowed': {'gtin', 'productid_ons', 'sku'},
         },
         'calc_price_before_discount': {'type': 'boolean'},
         'promo_col': {
             'type': 'string',
-            'allowed': ['price_promo_discount', 'multi_promo_discount'],
+            'allowed': {'price_promo_discount', 'multi_promo_discount'},
         },
         'sales_value_col': {
             'type': 'string',
-            'allowed': expenditure_cols,
+            'allowed': {
+                'sales_value_inc_discounts',
+                'sales_value_exc_discounts',
+                'sales_value_vat',
+                'sales_value_vat_exc_discounts',
+            },
         },
         'align_daily_frequency': {
             'type': 'string',
@@ -154,114 +161,93 @@ def validate_preprocessing(config) -> None:
         },
     }
 
-    single_selection_checks = {
-        'product_id_code_col',
-        'promo_col',
-        'sales_value_col',
-        'align_daily_frequency',
-    }
-
-    type_checks = {
-        'use_unit_prices',
-        'calc_price_before_discount',
-    }
-
-    multiple_selection_checks = {
-        'week_selection',
-    }
-
-    for param in v.schema:
-        to_validate = config.preprocessing[param]
-        if not v.validate({param: to_validate}):
-            err = ValidationErrors(config.name)
-
-            if param in single_selection_checks:
-                err.selection_single_error(
-                    param,
-                    allowed=v.schema.get(param).get('allowed'),
-                    actual=to_validate,
-                    section='preprocessing',
-                )
-            elif param in multiple_selection_checks:
-                err.selection_multiple_error(
-                    param,
-                    allowed=v.schema.get(param).get('allowed'),
-                    actual=to_validate,
-                    section='preprocessing',
-                )
-            elif param in type_checks:
-                err.bool_error(
-                    param,
-                    actual=to_validate,
-                    section='preprocessing',
-                )
-
-
-class ConfigValueError(ValueError):
-    pass
-
 
 class ValidationErrors:
     """A class to print various error messages for Validation."""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, config, schema):
         """Init the class."""
         self.name = name
+        self.schema = schema
+        self.config = config
+        self.Validator = self.get_validator()
+        self.messages = self.get_error_messages()
 
-    def selection_single_error(
-        self,
-        parameter: str,
-        allowed: Any,
-        actual: Any,
-        section: str = None,
-    ) -> None:
-        """Error for a non-list type with "allowed" check."""
-        must_str = f"must be one of : {allowed}."
-        msg = self._main_msg(parameter, actual, must_str, section)
+    def get_validator(self) -> cerberus.Validator:
+        """Creates a Validator and validates the config on the schema."""
+        v = Validator()
+        v.schema = self.schema
+        v.validate(self.config)
+        return v
 
-        raise ConfigValueError(msg)
+    def get_error_messages(self):
+        """Get all the error messages for the schema."""
+        v = self.Validator
 
-    def selection_multiple_error(
-        self,
-        parameter: str,
-        allowed: Any,
-        actual: Any,
-        section: str = None,
-    ) -> None:
-        """Error for a list type with "allowed" check."""
-        must_str = f"must be one or more of : {allowed}."
-        msg = self._main_msg(parameter, actual, must_str, section)
+        header = f'Validation errors for config {self.name}\n'
+        underline = '-' * len(header) + '\n'
 
-        raise ConfigValueError(msg)
+        messages = [header + underline]
 
-    def bool_error(
-        self,
-        parameter: str,
-        actual: Any,
-        section: str = None,
-    ) -> None:
-        """Raise an error for the boolean check."""
-        must_str = "must be a boolean value."
-        msg = self._main_msg(parameter, actual, must_str, section)
+        for err in v._errors:
+            msg_builder = ErrorMessageBuilder(err, v.schema)
+            messages.append(msg_builder.build_message())
 
-        raise ConfigValueError(msg)
+        return "\n".join(messages)
 
-    def _main_msg(
-        self,
-        parameter: str,
-        actual: Any,
-        must_str: str,
-        section: str = None,
-    ):
+
+@dataclass
+class ErrorMessageBuilder:
+
+    err: cerberus.errors.ValidationError
+    schema: cerberus.schema.DefinitionSchema
+
+    def build_message(self) -> str:
         """Construct the main error message."""
-        msg = []
-        msg.append(f"{self.name}: parameter {parameter}")
-        if section:
-            msg.append(f"in {section}")
-        msg.append(must_str)
-        msg.append(f"Instead got {actual}.")
+        sections = self.get_sections()
+        msg = [
+            f"parameter {self.get_parameter_name()}",
+            # Only adds sections str part if section exists.
+            *([f"in {'/'.join(sections)}"] if sections else []),
+            self.get_must_str(),
+            self.get_instead_str(),
+        ]
 
         return " ".join(msg)
+
+    def get_must_str(self) -> str:
+        """Return the must string depending on the error rule."""
+        type_ = self.get_expected_type()
+        err = self.err
+
+        if err.rule == 'allowed' & type_ == 'list':
+            return f"must be one or more of : {err.constraint}."
+        elif err.rule == 'allowed':
+            return f"must be one of : {err.constraint}."
+        elif err.rule == 'type':
+            return f"must be a value of type {err.type}."
+
+    def get_instead_str(self) -> str:
+        """Return the instead string depending on the error rule."""
+        err = self.err
+        if err.rule == 'type':
+            return f"Instead got value {err.value} of type {type(err.value)}."
+        else:
+            return f"Instead got {err.value}."
+
+    def get_parameter_name(self) -> str:
+        """Get the last entry in the document path."""
+        return self.err.document_path[-1]
+
+    def get_sections(self) -> Union[Tuple[str], Tuple[()]]:
+        """Get the sections from the document path."""
+        return self.err.document_path[:-1]
+
+    def get_expected_type(self) -> str:
+        """Return the expected type for the parameter from the schema."""
+        param = self.get_parameter_name()
+        return self.schema.get(param).get('type')
+
 
 
 def validate_classification(config) -> None:
@@ -293,34 +279,32 @@ def validate_mapper_paths(
 
 def validate_outlier_detection(config):
     """Validate the outlier detection settings in the config."""
-    outlier_methods = {'tukey', 'kimber', 'ksigma'}
-
-    v = Validator()
-    v.schema = {
-        # Outlier detection/ Averaging/ Grouping/ Filtering/ Imputation
+    return {
         'active': {'type': 'boolean'},
-        'log_transform': {'type': 'boolean'},
-        'outlier_methods': {
-            'type': 'string',
-            'allowed': outlier_methods
-        },
-        'k': {
-            'type': 'float',
-            'min': 1,
-            'max': 4,
-        },
-        'fence_value': {'type': 'float'},
-        'stddev_method': {
-            'type': 'string',
-            'allowed': ['population', 'sample'],
-        },
-        'quartile_method': {
-            'type': 'string',
-            'allowed': ['exact', 'approx'],
-        },
-        'accuracy': {
-            'type': 'float',
-            'min': 1,
+        'options': {
+            'log_transform': {'type': 'boolean'},
+            'outlier_methods': {
+                'type': 'string',
+                'allowed': {'tukey', 'kimber', 'ksigma'}
+            },
+            'k': {
+                'type': 'float',
+                'min': 1,
+                'max': 4,
+            },
+            'fence_value': {'type': 'float'},
+            'stddev_method': {
+                'type': 'string',
+                'allowed': ['population', 'sample'],
+            },
+            'quartile_method': {
+                'type': 'string',
+                'allowed': ['exact', 'approx'],
+            },
+            'accuracy': {
+                'type': 'float',
+                'min': 1,
+            },
         },
     }
 
@@ -559,3 +543,10 @@ def validate_indices(config):
             "One of either 'base_price_methods' or 'multilateral_methods'"
             " must be provided. They can't both be None."
         )
+
+
+if __name__ == "__main__":
+    from cprices.config import ScenarioConfig
+    sc_config = ScenarioConfig('scenario_scan', subdir='scanner')
+    schema = preprocessing_schema()
+    errors = ValidationErrors('scan', vars(sc_config), schema)
