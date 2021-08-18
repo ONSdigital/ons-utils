@@ -1,6 +1,5 @@
 """Configuration file loader and validation functions."""
 from collections import abc
-from copy import copy, deepcopy
 from datetime import datetime
 from logging.config import dictConfig
 import os
@@ -177,63 +176,62 @@ class SelectedScenarioConfig(Config):
         self.get_key_value_pairs('scenarios')
 
 
-class ScenarioConfig(Config):
-    """Class to store the configuration settings for particular scenario."""
+class ScanScenarioConfig(Config):
+    """Class with methods for scanner scenario configs."""
 
-    def validate(self):
-        """Validate the scenario config against the schema."""
-        validation.validate_config(self)
+    def __init__(self, *args, **kwargs):
+        """Init like config, then run .combine_input_data()."""
+        super().__init__(*args, **kwargs)
+        self.combine_input_data()
 
-    def pick_source(self, source: str) -> 'ScenarioConfig':
-        """Select the config parameters for the given source.
-
-        Parameters
-        ----------
-        source : {'web_scraped', 'scanner'}, str
-            The data source to pick the config for.
+    def validate(self) -> str:
+        """Validate the scenario config against the schema.
 
         Returns
         -------
-        Config
-            An altered version of the main scenario config for the data
-            source.
+        str
+            An error message with all validation errors. Returns an
+            empty string if no errors.
         """
-        if source not in {'web_scraped', 'scanner'}:
-            raise ValueError("source must be 'web_scraped' or 'scanner'")
+        return validation.validate_scan_scenario_config(self)
 
-        new_config = copy(self)
-
-        for key, value in vars(new_config).items():
-            if isinstance(value, dict):
-                if value.get(source, None):
-                    setattr(new_config, key, value.get(source))
-
-        if source == 'web_scraped':
-            # Flattens nested to (supplier, item) tuple.
-            new_config.flatten_nested_dicts(['consumption_segment_mappers'])
-            # Converts dict to (suppler, item) tuple pairs.
-            new_config.get_key_value_pairs(['input_data'])
-
-        if source == 'scanner':
-            new_config.combine_scanner_input_data()
-
-        return new_config
-
-    def combine_scanner_input_data(self) -> 'ScenarioConfig':
+    def combine_input_data(self) -> None:
         """Combine with supplier dict and without supplier list."""
-        scan_input_data = deepcopy(self.input_data)
-
         # First get key value pairs from the with supplier section.
         # Since it is a dict.
-        self.input_data = scan_input_data.get('with_supplier', [])
-        if self.input_data:
-            self.get_key_value_pairs(['input_data'])
+        with_supplier_inputs = get_key_value_pairs(
+            self.input_data.get('with_supplier', {})
+        )
 
         # Add the list, and fill the tuples to the same length.
-        self.input_data += scan_input_data.get('without_supplier', [])
+        self.input_data = (
+            with_supplier_inputs
+            + self.input_data.get('without_supplier', [])
+        )
         self.fill_tuples(['input_data'], repeat=True, length=2)
 
         return self
+
+
+class WebScrapedScenarioConfig(Config):
+    """Class with methods for web scraped scenario configs."""
+
+    def __init__(self, *args, **kwargs):
+        """Init like config, then run .combine_input_data()."""
+        super().__init__(*args, **kwargs)
+        self.flatten_nested_dicts(['consumption_segment_mappers'])
+        self.get_key_value_pairs(['input_data'])
+
+    def validate(self) -> str:
+        """Validate the scenario config against the schema.
+
+        Returns
+        -------
+        str
+            An error message with all validation errors. Returns an
+            empty string if no errors.
+        """
+        return validation.validate_webscraped_scenario_config(self)
 
 
 class DevConfig(Config):

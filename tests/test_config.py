@@ -308,7 +308,7 @@ class TestConfig:
             conf.extend_attr('plants', ['heather'])
 
 
-class TestScenarioConfig:
+class TestScanScenarioConfig:
     """Group of tests for ScenarioConfig."""
 
     @pytest.mark.skip(reason="test shell")
@@ -346,109 +346,70 @@ class TestScenarioConfig:
                 supplier_2:
                     multi_item_timber: /mapper/path/multi_item_timber.parquet
         """)
-        return ScenarioConfig('my_config')
+        return ScanScenarioConfig('my_config')
 
-    def test_pick_source_scanner(self, scenario_conf):
-        """Test picks and transforms input data and item_mappers for scanner."""
-        scan_conf = scenario_conf.pick_source('scanner')
-        assert scan_conf.input_data == [
-            ('supplier_3', 'retailer_3'),
-            ('retailer_1', 'retailer_1'),
-            ('retailer_2', 'retailer_2'),
-        ]
-        assert scan_conf.consumption_segment_mappers == {
-            'retailer_1': '/mapper/path/retailer_1.parquet',
-            'retailer_2': '/mapper/path/retailer_2.parquet',
-            'retailer_3': '/mapper/path/retailer_3.parquet',
-        }
-
-    def test_pick_source_web_scraped(self, scenario_conf, all_in_output):
-        """Test picks and transforms input data and item_mappers for web_scraped."""
-        scan_conf = scenario_conf.pick_source('web_scraped')
-        # Use all_in_output as order of a dict is ambiguous.
-        assert all_in_output(
-            output=scan_conf.input_data,
-            values=[
-                ('supplier_1', 'single_item_1'),
-                ('supplier_2', 'multi_item_timber'),
-            ]
-        )
-        assert scan_conf.consumption_segment_mappers == {
-            ('supplier_1', 'single_item_1'): '/mapper/path/single_item_1.parquet',
-            ('supplier_2', 'multi_item_timber'): '/mapper/path/multi_item_timber.parquet',
-        }
-
-    def test_pick_source_raises_when_wrong_source_passed(self, scenario_conf):
-        """Test raises ValueError if source not web_scraped or scanner."""
-        with pytest.raises(ValueError):
-            scenario_conf.pick_source('pistachio')
-
-    def test_combine_scanner_input_data_works_when_both_with_and_without_supplier(
-        self, test_config
+    @parametrize_cases(
+        Case(
+            label="when_both_with_and_without_supplier",
+            yaml_input="""
+            input_data:
+                without_supplier:
+                    - retailer_1
+                    - retailer_2
+                with_supplier:
+                    supplier_3:
+                        retailer_3
+            """,
+            expected=[
+                ('supplier_3', 'retailer_3'),
+                ('retailer_1', 'retailer_1'),
+                ('retailer_2', 'retailer_2'),
+            ],
+        ),
+        Case(
+            label="when_only_with_supplier",
+            yaml_input="""
+            input_data:
+                with_supplier:
+                    supplier_2:
+                        retailer_2
+                    supplier_3:
+                        retailer_3
+            """,
+            expected=[
+                ('supplier_2', 'retailer_2'),
+                ('supplier_3', 'retailer_3'),
+            ],
+        ),
+        Case(
+            label="when_only_without_supplier",
+            yaml_input="""
+            input_data:
+                without_supplier:
+                    - retailer_1
+                    - retailer_2
+            """,
+            expected=[
+                ('retailer_1', 'retailer_1'),
+                ('retailer_2', 'retailer_2'),
+            ],
+        ),
+    )
+    def test_combine_input_data_works(
+        self, test_config, all_in_output, yaml_input, expected,
     ):
         """Test returns tuple pairs for supplier and retailer, when both
         without_supplier and with_supplier specified.
         """
-        test_config(yaml_input="""
-        input_data:
-            without_supplier:
-                - retailer_1
-                - retailer_2
-            with_supplier:
-                supplier_3:
-                    retailer_3
-        """)
-        conf = ScenarioConfig('my_config')
-        conf = conf.combine_scanner_input_data()
-        assert conf.input_data == [
-            ('supplier_3', 'retailer_3'),
-            ('retailer_1', 'retailer_1'),
-            ('retailer_2', 'retailer_2'),
-        ]
-
-    def test_combine_scanner_input_data_works_when_only_with_supplier(
-        self, test_config, all_in_output
-    ):
-        """Test returns tuple pairs for supplier and retailer, when only
-        with_supplier specified.
-        """
-        test_config(yaml_input="""
-        input_data:
-            with_supplier:
-                supplier_2:
-                    retailer_2
-                supplier_3:
-                    retailer_3
-        """)
-        conf = ScenarioConfig('my_config')
-        conf = conf.combine_scanner_input_data()
-        # Use all_in_output as order of a dict is ambiguous.
+        test_config(yaml_input=yaml_input)
+        # The method .combine_input_data() is called when the class is
+        # instantiated, so no need to call again.
+        conf = ScanScenarioConfig('my_config')
+        # Use all_in_output because dict makes order ambiguous.
         assert all_in_output(
             output=conf.input_data,
-            values=[
-                ('supplier_2', 'retailer_2'),
-                ('supplier_3', 'retailer_3'),
-            ],
+            values=expected,
         )
-
-    def test_combine_scanner_input_data_works_when_only_without_supplier(
-        self, test_config
-    ):
-        """Test returns tuple pairs for supplier and retailer, when only
-        without_supplier specified.
-        """
-        test_config(yaml_input="""
-        input_data:
-            without_supplier:
-                - retailer_1
-                - retailer_2
-        """)
-        conf = ScenarioConfig('my_config')
-        conf = conf.combine_scanner_input_data()
-        assert conf.input_data == [
-            ('retailer_1', 'retailer_1'),
-            ('retailer_2', 'retailer_2'),
-        ]
 
 
 class TestLoggingConfig:

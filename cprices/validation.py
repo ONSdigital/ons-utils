@@ -9,7 +9,7 @@ Both functions return an error message that can be used to raise an
 exception. The intention is that the messages from all scenarios will be
 combined before being raised.
 """
-from typing import Dict, Sequence, Mapping, Union
+from typing import Dict, Sequence, Mapping, Union, Hashable
 
 import cerberus
 from flatten_dict import flatten
@@ -24,7 +24,8 @@ def validate_scan_scenario_config(config) -> str:
     Returns
     -------
     str
-        An error message with all validation errors.
+        An error message with all validation errors. Returns an empty
+        string if no errors.
     """
     return get_all_errors(
         config,
@@ -48,7 +49,8 @@ def validate_webscraped_scenario_config(config) -> str:
     Returns
     -------
     str
-        An error message with all validation errors.
+        An error message with all validation errors. Returns an empty
+        string if no errors.
     """
     return get_all_errors(
         config,
@@ -69,7 +71,7 @@ def get_all_errors(
     config,
     sections: Sequence[str],
     mapper_sections: Sequence[str]
-) -> Sequence[str]:
+) -> str:
     """Combine cerberus and mapper error messages."""
     # Get section errors.
     schema = full_schema(sections)
@@ -115,11 +117,11 @@ def get_mapper_errors(config, sections: Sequence[str]) -> Sequence[str]:
     return mapper_err_msgs
 
 
-def validate_filepaths(filepaths: Mapping) -> Sequence[str]:
+def validate_filepaths(filepaths: Mapping[Hashable, str]) -> Sequence[str]:
     """Validate a dict of filepaths and output resulting errors."""
     err_msgs = []
     # Flatten so it can handle any nesting level.
-    for key, path in flatten(filepaths).items():
+    for key, path in filepaths.items():
         if not hdfs.test(path):
             err_msgs.append(
                 f"{key}: file at {path} does not exist."
@@ -156,9 +158,9 @@ def remove_list_wrappers(
 
 
 if __name__ == "__main__":
-    from cprices.config import ScenarioConfig
-    sc_config = ScenarioConfig('scenario_scan', subdir='scanner')
+    from cprices.config import ScanScenarioConfig, WebScrapedScenarioConfig
+    sc_config = ScanScenarioConfig('scenario_scan', subdir='scanner')
     print(validate_scan_scenario_config(sc_config))
 
-    sc_config = ScenarioConfig('scenario_web', subdir='web_scraped')
+    sc_config = WebScrapedScenarioConfig('scenario_web', subdir='web_scraped')
     print(validate_webscraped_scenario_config(sc_config))
