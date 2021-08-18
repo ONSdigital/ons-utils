@@ -1,9 +1,10 @@
 """Validation rules for config files."""
-from dataclasses import dataclass
-from typing import Dict, Callable, Sequence, Mapping, Tuple, Union
+from collections import abc
+from typing import Sequence, Mapping
 
 import cerberus
-from cerberus import Validator
+from flatten_dict import flatten
+
 
 from epds_utils import hdfs
 
@@ -20,19 +21,6 @@ class ScenarioSectionError(Exception):
         super().__init__(self.message)
 
 
-def schemas_lib() -> Dict[str, Callable]:
-    """Return a dict of validation functions for each section."""
-    return {
-        'preprocessing': preprocessing_schema,
-        'consumptions_segments_mappers': validate_classification,
-        'outlier_detection': validate_outlier_detection,
-        'averaging': validate_averaging,
-        'grouping': validate_grouping,
-        'flag_low_expenditures': validate_flag_low_expenditures,
-        'indices': validate_indices,
-    }
-
-
 def check_config_sections_exist(config, sections) -> None:
     """Validate that all sections are in the given config."""
     for key in sections:
@@ -46,14 +34,6 @@ def check_config_sections_exist(config, sections) -> None:
 #     for section in sections:
 #         validator = validators.get(section)
 #         validator(config)
-
-
-def build_schema(sections: Sequence[str]):
-    """Build the full schema from the sections."""
-    schema_lib = schemas_lib()
-    schemas = [schema_lib.get(section) for section in sections]
-
-    return {k: v for schema in schemas for k,v in schema.items()}
 
 
 def validate_conventional_scenario_sections(config) -> None:
@@ -91,462 +71,39 @@ def validate_webscraped_scenario_config(config) -> None:
     # validate_section_values(config, required_sections)
 
 
-def validate_non_section_values(config) -> None:
-    """Validate the generic input settings in the config."""
-    v = Validator()
-    v.schema = {
-        'start_date': {
-            'type': 'date',
-            'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
-        },
-        'end_date': {
-            'type': 'date',
-            'regex': r'([12]\d{3}-(0[1-9]|1[0-2])-01)',
-        },
-        'extra_strata': {
-            'type': ['list', 'string'],
-        }
-    }
-
-    if not v.validate({'start_date': config.start_date}):
-        raise ValueError(
-            f"{config.name}: parameter 'start_date'"
-            " must be a string in the format YYYY-MM-01."
-        )
-
-    if not v.validate({'end_date': config.end_date}):
-        raise ValueError(
-            f"{config.name}: parameter 'end_date'"
-            " must be a string in the format YYYY-MM-01."
-        )
-
-    if config.extra_strata:
-        if not v.validate({'extra_strata': config.extra_strata}):
-            raise ValueError(
-                f"{config.name}: parameter 'extra_strata'"
-                " must be a string or list of strings."
+def validate_filepaths(filepaths: Mapping) -> Sequence[str]:
+    """Validate a dict of filepaths and output resulting errors."""
+    err_msgs = []
+    # Flatten so it can handle any nesting level.
+    for key, path in flatten(filepaths).items():
+        if not hdfs.test(path):
+            err_msgs.append(
+                f"{key}: file at {path} does not exist."
             )
 
-
-def preprocessing_schema() -> Mapping:
-    """Validate the preprocessing settings in the config."""
-    return {
-        'use_unit_prices': {'type': 'boolean'},
-        'product_id_code_col': {
-            'type': 'string',
-            'allowed': {'gtin', 'productid_ons', 'sku'},
-        },
-        'calc_price_before_discount': {'type': 'boolean'},
-        'promo_col': {
-            'type': 'string',
-            'allowed': {'price_promo_discount', 'multi_promo_discount'},
-        },
-        'sales_value_col': {
-            'type': 'string',
-            'allowed': {
-                'sales_value_inc_discounts',
-                'sales_value_exc_discounts',
-                'sales_value_vat',
-                'sales_value_vat_exc_discounts',
-            },
-        },
-        'align_daily_frequency': {
-            'type': 'string',
-            'allowed': ['weekly', 'monthly'],
-        },
-        'week_selection': {
-            'type': 'list',
-            'allowed': [1, 2, 3, 4],
-            'nullable': True,
-        },
-    }
+    return err_msgs
 
 
-class ValidationErrors:
-    """A class to print various error messages for Validation."""
+# def remove_list_values(d):
+#     """"""
+#     new_d = {}
+#     for k, v in d.items():
+#         if isinstance(v, abc.Mapping):
+#             new_d.update(remove_list_values(d))
+#         else:
+#             new_d.update({k: v[0]})
 
-    def __init__(self, name: str, config, schema):
-        """Init the class."""
-        self.name = name
-        self.schema = schema
-        self.config = config
-        self.Validator = self.get_validator()
-        self.messages = self.get_error_messages()
-
-    def get_validator(self) -> cerberus.Validator:
-        """Creates a Validator and validates the config on the schema."""
-        v = Validator()
-        v.schema = self.schema
-        v.validate(self.config)
-        return v
-
-    def get_error_messages(self):
-        """Get all the error messages for the schema."""
-        v = self.Validator
-
-        header = f'Validation errors for config {self.name}\n'
-        underline = '-' * len(header) + '\n'
-
-        messages = [header + underline]
-
-        for err in v._errors:
-            msg_builder = ErrorMessageBuilder(err, v.schema)
-            messages.append(msg_builder.build_message())
-
-        return "\n".join(messages)
+#     return new_d
 
 
-@dataclass
-class ErrorMessageBuilder:
-
-    err: cerberus.errors.ValidationError
-    schema: cerberus.schema.DefinitionSchema
-
-    def build_message(self) -> str:
-        """Construct the main error message."""
-        sections = self.get_sections()
-        msg = [
-            f"parameter {self.get_parameter_name()}",
-            # Only adds sections str part if section exists.
-            *([f"in {'/'.join(sections)}"] if sections else []),
-            self.get_must_str(),
-            self.get_instead_str(),
-        ]
-
-        return " ".join(msg)
-
-    def get_must_str(self) -> str:
-        """Return the must string depending on the error rule."""
-        type_ = self.get_expected_type()
-        err = self.err
-
-        if err.rule == 'allowed' & type_ == 'list':
-            return f"must be one or more of : {err.constraint}."
-        elif err.rule == 'allowed':
-            return f"must be one of : {err.constraint}."
-        elif err.rule == 'type':
-            return f"must be a value of type {err.type}."
-
-    def get_instead_str(self) -> str:
-        """Return the instead string depending on the error rule."""
-        err = self.err
-        if err.rule == 'type':
-            return f"Instead got value {err.value} of type {type(err.value)}."
-        else:
-            return f"Instead got {err.value}."
-
-    def get_parameter_name(self) -> str:
-        """Get the last entry in the document path."""
-        return self.err.document_path[-1]
-
-    def get_sections(self) -> Union[Tuple[str], Tuple[()]]:
-        """Get the sections from the document path."""
-        return self.err.document_path[:-1]
-
-    def get_expected_type(self) -> str:
-        """Return the expected type for the parameter from the schema."""
-        param = self.get_parameter_name()
-        return self.schema.get(param).get('type')
-
-
-
-def validate_classification(config) -> None:
-    """Validate the classification settings in the config."""
-    mappers = config.consumption_segment_mappers
-    for data_source, d1 in mappers.items():
-        for level, d2 in d1.items():
-            if data_source == 'scanner':
-                validate_mapper_paths(d2, data_source, level)
-
-            if data_source == 'web_scraped':
-                for item, path in d2.items():
-                    scenario = f'{level}, {item}'
-                    validate_mapper_paths(path, data_source, scenario)
-
-
-def validate_mapper_paths(
-    path: str,
-    data_source: str,
-    level: str,
-) -> None:
-    """Validate the item mappers exist in hdfs."""
-    if not hdfs.test(path):
-        raise Exception(
-            f"{data_source}: {level} user defined mapper"
-            f" {path} does not exist."
-        )
-
-
-def validate_outlier_detection(config):
-    """Validate the outlier detection settings in the config."""
-    return {
-        'active': {'type': 'boolean'},
-        'options': {
-            'log_transform': {'type': 'boolean'},
-            'outlier_methods': {
-                'type': 'string',
-                'allowed': {'tukey', 'kimber', 'ksigma'}
-            },
-            'k': {
-                'type': 'float',
-                'min': 1,
-                'max': 4,
-            },
-            'fence_value': {'type': 'float'},
-            'stddev_method': {
-                'type': 'string',
-                'allowed': ['population', 'sample'],
-            },
-            'quartile_method': {
-                'type': 'string',
-                'allowed': ['exact', 'approx'],
-            },
-            'accuracy': {
-                'type': 'float',
-                'min': 1,
-            },
-        },
-    }
-
-    active = config.outlier_detection['active']
-    if not v.validate({'active': active}):
-        raise ValueError(
-            f"{config.name}: parameter 'active' in outlier_detection"
-            " must be a boolean."
-            f" Instead got '{active}'."
-        )
-
-    # If active is True, validate the rest.
-    if active:
-        to_validate = config.outlier_detection['options']['log_transform']
-        if not v.validate({'log_transform': to_validate}):
-            raise ValueError(
-                f"{config.name}: parameter 'log_transform' in"
-                " outlier_detection must be a boolean."
-                f" Instead got '{to_validate}'."
-            )
-
-        to_validate = config.outlier_detection['options']['method']
-        if not v.validate({'outlier_methods': to_validate}):
-            raise ValueError(
-                f"{config.name}: parameter 'method' for outlier detection"
-                f" must be one of {outlier_methods}."
-                f" Instead got '{to_validate}'."
-            )
-
-        to_validate = config.outlier_detection['options']['k']
-        if not v.validate({'k': to_validate}):
-            raise ValueError(
-                f"{config.name}: parameter 'k' for outlier detection"
-                " must be a float between 1 and 4."
-                f" Instead got '{to_validate}'."
-            )
-
-        to_validate = config.outlier_detection['options']['stddev_method']
-        if not v.validate({'stddev_method': to_validate}):
-            raise ValueError(
-                f"{config.name}: parameter 'stddev_method' for outlier"
-                " detection must be one of {'population', 'sample'}."
-                f" Instead got '{to_validate}'."
-            )
-
-        to_validate = config.outlier_detection['options']['quartile_method']
-        if not v.validate({'quartile_method': to_validate}):
-            raise ValueError(
-                f"{config.name}: parameter 'quartile_method' for outlier"
-                " detection must be one of {'exact', 'approx'}."
-                f" Instead got '{to_validate}'."
-            )
-
-        to_validate = config.outlier_detection['options']['accuracy']
-        if not v.validate({'accuracy': to_validate}):
-            raise ValueError(
-                f"{config.name}: parameter 'accuracy' for outlier"
-                " detection must be a positive numeric literal."
-                f" Instead got '{to_validate}'."
-            )
-
-
-def validate_grouping(config):
-    """ """
-    pass
-
-
-def validate_averaging(config):
-    """Validate the averaging settings in the config."""
-    averaging_methods = {
-        'unweighted_arithmetic',
-        'unweighted_geometric',
-        'weighted_arithmetic',
-        'weighted_geometric'
-    }
-    v = Validator()
-    v.schema = {
-        'active': {'type': 'boolean'},
-        'method': {
-            'type': 'string',
-            'allowed': averaging_methods,
-        },
-    }
-
-    active = config.averaging['active']
-    if not v.validate({'active': active}):
-        raise ValueError(
-            f"{config.name}: parameter 'active' in grouping"
-            " must be a boolean."
-            f" Instead got '{active}'."
-        )
-
-    if active:
-        to_validate = config.averaging['method']
-        if not v.validate({'method': to_validate}):
-            raise ValueError(
-                f"{config.name}: method for averaging must"
-                " be one of {averaging_methods}."
-                f" Instead got '{to_validate}'."
-            )
-
-
-def validate_flag_low_expenditures(config):
-    """Validate the flag_low_expenditures settings in the config."""
-    v = Validator()
-    v.schema = {
-        'active': {'type': 'boolean'},
-        'threshold': {
-            'type': 'float',
-            'min': 0,
-            'max': 1,
-        },
-    }
-
-    active = config.flag_low_expenditures['active']
-    if not v.validate({'active': active}):
-        raise ValueError(
-            f"{config.name}: parameter 'active' in flag_low_expenditures"
-            " must be a boolean."
-            f" Instead got '{active}'."
-        )
-
-    if active:
-        to_validate = config.flag_low_expenditures['threshold']
-        if not v.validate({'threshold': to_validate}):
-            raise ValueError(
-                f"{config.name}: threshold in flag_low_expenditures"
-                " must be a float between 0 and 1."
-                f" Instead got '{to_validate}'."
-            )
-
-
-def validate_indices(config):
-    """Validate the indices settings in the config."""
-    base_price_methods = {
-        'fixed_base',
-        'chained',
-        'bilateral',
-        'fixed_base_with_rebase',
-    }
-
-    index_methods = {
-        'carli',
-        'jevons',
-        'dutot',
-        'laspeyres',
-        'paasche',
-        'fisher',
-        'tornqvist',
-        'geary-khamis',
-    }
-
-    multilateral_methods = {
-        'ewgeks',
-        'rygeks',
-        'geks_movement_splice',
-        'geks_window_splice',
-        'geks_half_window_splice',
-        'geks_december_link_splice',
-        'geks_mean_splice',
-    }
-
-    v = Validator()
-    v.schema = {
-        'base_price_methods': {
-            'type': 'list',
-            'allowed': base_price_methods,
-            'nullable': True,
-        },
-        'index_methods': {
-            'type': 'list',
-            'allowed': index_methods,
-        },
-        'multilateral_methods': {
-            'type': 'list',
-            'allowed': multilateral_methods,
-            'nullable': True,
-        },
-        'base_period': {
-            'type': 'integer',
-            'min': 1,
-            'max': 12,
-        },
-        'window': {
-            'type': 'integer',
-            'min': 3,
-        },
-    }
-
-    to_validate = config.indices['base_price_methods']
-    if not v.validate({'base_price_methods': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'base_price_methods' in indices"
-            f" must be a list containing values among {base_price_methods}."
-            f" Instead got '{to_validate}'."
-        )
-
-    to_validate = config.indices['index_methods']
-    if not v.validate({'index_methods': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'index_methods' in indices"
-            " must be a list containing values among {index_methods}."
-            f" Instead got '{to_validate}'."
-        )
-
-    to_validate = config.indices['multilateral_methods']
-    if not v.validate({'multilateral_methods': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'multilateral_methods' in indices"
-            " must be a list containing values among {multilateral_methods}."
-            f" Instead got '{to_validate}'."
-        )
-
-    to_validate = config.indices['window']
-    if not v.validate({'window': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'window' in indices"
-            " must be a positive integer > 2."
-            f" Instead got '{to_validate}'."
-        )
-
-    to_validate = config.indices['base_period']
-    if not v.validate({'base_period': to_validate}):
-        raise ValueError(
-            f"{config.name}: parameter 'base_period' in indices"
-            " must be an integer representing a month between 1"
-            " and 12 inclusive."
-            f" Instead got '{to_validate}'."
-        )
-
-    if not (
-        config.indices['base_price_methods']
-        or config.indices['multilateral_methods']
-    ):
-        raise ValueError(
-            "One of either 'base_price_methods' or 'multilateral_methods'"
-            " must be provided. They can't both be None."
-        )
+# def recursive_items(dictionary):
+#     for key, value in dictionary.items():
+#         if type(value) is dict:
+#             yield from recursive_items(value)
+#         else:
+#             yield key, value
 
 
 if __name__ == "__main__":
     from cprices.config import ScenarioConfig
     sc_config = ScenarioConfig('scenario_scan', subdir='scanner')
-    schema = preprocessing_schema()
-    errors = ValidationErrors('scan', vars(sc_config), schema)
