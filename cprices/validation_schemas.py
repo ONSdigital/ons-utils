@@ -1,23 +1,40 @@
-"""The cerberus schemas for config validation."""
+"""The cerberus schemas for config validation.
+
+Provides:
+
+* :func:`full_schema` - Returns the schema for the given sections.
+"""
 from typing import Dict, Mapping, Sequence
 
 
 def full_schema(sections: Sequence[str]) -> Dict[str, Dict]:
     """Return the full schema for the given sections."""
     schema = non_section_schema()
-    schema.update({k: v for k, v in schema_sections() if k in sections})
+    schema.update({
+        k: v for k, v in schema_sections().items()
+        if k in sections
+    })
     return schema
 
 
 def schema_sections() -> Dict[str, Dict]:
     """Return a schema with all the sections."""
-    return {
+    section_schemas = {
         'preprocessing': preprocessing_schema(),
         'outlier_detection': outlier_detection_schema(),
         'averaging': averaging_schema(),
         'grouping': grouping_schema(),
         'flag_low_expenditures': flag_low_expenditures_schema(),
         'indices': validate_indices(),
+    }
+    # For nested schema, needs 'type' and 'schema'.
+    return {
+        section: {
+            'type': 'dict',
+            'required': True,
+            'schema': schema,
+        }
+        for section, schema in section_schemas.items()
     }
 
 
@@ -77,28 +94,31 @@ def outlier_detection_schema() -> Dict:
     return {
         'active': {'type': 'boolean'},
         'options': {
-            'log_transform': {'type': 'boolean'},
-            'outlier_methods': {
-                'type': 'string',
-                'allowed': {'tukey', 'kimber', 'ksigma'}
-            },
-            'k': {
-                'type': 'float',
-                'min': 1,
-                'max': 4,
-            },
-            'fence_value': {'type': 'float'},
-            'stddev_method': {
-                'type': 'string',
-                'allowed': ['population', 'sample'],
-            },
-            'quartile_method': {
-                'type': 'string',
-                'allowed': ['exact', 'approx'],
-            },
-            'accuracy': {
-                'type': 'float',
-                'min': 1,
+            'type': 'dict',
+            'schema': {
+                'log_transform': {'type': 'boolean'},
+                'outlier_methods': {
+                    'type': 'string',
+                    'allowed': {'tukey', 'kimber', 'ksigma'}
+                },
+                'k': {
+                    'type': 'float',
+                    'min': 1,
+                    'max': 4,
+                },
+                'fence_value': {'type': 'float'},
+                'stddev_method': {
+                    'type': 'string',
+                    'allowed': ['population', 'sample'],
+                },
+                'quartile_method': {
+                    'type': 'string',
+                    'allowed': ['exact', 'approx'],
+                },
+                'accuracy': {
+                    'type': 'float',
+                    'min': 1,
+                },
             },
         },
     }
