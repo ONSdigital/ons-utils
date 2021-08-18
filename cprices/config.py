@@ -78,8 +78,8 @@ class Config:
     def get_config_path(self, subdir: Optional[str] = None) -> Path:
         """Return the path to the config file."""
         filename = self.name + '.yaml'
-        to_join = filename if not subdir else [filename, subdir]
-        return self.get_config_dir().joinpath(to_join)
+        to_join = [filename] if not subdir else [subdir, filename]
+        return self.get_config_dir().joinpath(*to_join)
 
     def load_config(self):
         """Load the config file."""
