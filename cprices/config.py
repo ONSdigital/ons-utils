@@ -167,21 +167,27 @@ class Config:
 class SelectedScenarioConfig(Config):
     """Class to store the selected scenarios."""
 
-    def __init__(self, filename: str, *args):
-        """Init like config.
+    def __init__(self, *args, to_unpack=['selected_scenarios'], **kwargs):
+        """Init like config, then run .combine_input_data()."""
+        super().__init__(*args, to_unpack=to_unpack, **kwargs)
+        self.nones_to_empty_iterator()
 
-        Stores scenarios attribute as key value pairs.
+    def nones_to_empty_iterator(self):
+        """Constrain None values to empty iterators.
+
+        This allows them to still be iterated over in main.py.
         """
-        super.__init__(filename, *args)
-        self.get_key_value_pairs('scenarios')
+        for attr, value in vars(self).items():
+            if not value:
+                setattr(self, attr, [])
 
 
 class ScanScenarioConfig(Config):
     """Class with methods for scanner scenario configs."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, subdir='scanner', **kwargs):
         """Init like config, then run .combine_input_data()."""
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, subdir=subdir, **kwargs)
         self.combine_input_data()
 
     def validate(self) -> str:
@@ -216,9 +222,9 @@ class ScanScenarioConfig(Config):
 class WebScrapedScenarioConfig(Config):
     """Class with methods for web scraped scenario configs."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, subdir='web_scraped', **kwargs):
         """Init like config, then run .combine_input_data()."""
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, subdir=subdir, **kwargs)
         self.flatten_nested_dicts(['consumption_segment_mappers'])
         self.get_key_value_pairs(['input_data'])
 

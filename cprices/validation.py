@@ -2,6 +2,7 @@
 
 Provides:
 
+* :cls:`ConfigValidationError`
 * :func:`validate_scan_scenario_config`
 * :func:`validate_webscraped_scenario_config`
 
@@ -18,6 +19,10 @@ from epds_utils import hdfs
 from cprices.validation_schemas import full_schema
 
 
+class ConfigValidationError(Exception):
+    """Error for Config Validation."""
+
+
 def validate_scan_scenario_config(config) -> str:
     """Validate the config using required sections for scanner.
 
@@ -30,7 +35,7 @@ def validate_scan_scenario_config(config) -> str:
     return get_all_errors(
         config,
         sections=[
-            'input_data',
+            # 'input_data',
             'preprocessing',
             'outlier_detection',
             'averaging',
@@ -55,7 +60,8 @@ def validate_webscraped_scenario_config(config) -> str:
     return get_all_errors(
         config,
         sections=[
-            'input_data',
+            # 'input_data',
+            'preprocessing',
             'outlier_detection',
             'averaging',
             'grouping'
