@@ -404,7 +404,7 @@ class TestScanScenarioConfig:
         test_config(yaml_input=yaml_input)
         # The method .combine_input_data() is called when the class is
         # instantiated, so no need to call again.
-        conf = ScanScenarioConfig('my_config')
+        conf = ScanScenarioConfig('my_config', subdir=None)
         # Use all_in_output because dict makes order ambiguous.
         assert all_in_output(
             output=conf.input_data,
