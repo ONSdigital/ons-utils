@@ -132,7 +132,6 @@ def grouping_schema() -> Dict:
 def averaging_schema() -> Dict:
     """Return schema for averaging validation."""
     return {
-        'active': {'type': 'boolean'},
         'method': {
             'type': 'string',
             'allowed': {
