@@ -16,6 +16,7 @@ from cprices.utils.helpers import (
     get_key_value_pairs,
     is_non_string_sequence,
     list_convert,
+    tuple_convert,
 )
 
 
@@ -163,16 +164,20 @@ class Config:
             for k in attrs
         })
 
-    def extend_attr(self, attr: str, extend_vals: Sequence[Any]) -> None:
+    def extend_attr(
+        self,
+        attr: str,
+        extend_vals: Union[Any, Sequence[Any]],
+    ) -> None:
         """Extend a list or tuple attr with the given values."""
         current_vals = getattr(self, attr)
 
         if not is_non_string_sequence(current_vals):
             raise AttributeError(f'attribute {attr} is not an extendable type')
         elif isinstance(current_vals, tuple):
-            extend_vals = tuple(extend_vals)
+            extend_vals = tuple_convert(extend_vals)
         elif isinstance(current_vals, list):
-            extend_vals = list(extend_vals)
+            extend_vals = list_convert(extend_vals)
 
         setattr(self, attr, getattr(self, attr) + extend_vals)
 
@@ -195,7 +200,11 @@ class SelectedScenarioConfig(Config):
                 setattr(self, attr, [])
 
 
-class ScanScenarioConfig(Config):
+class ScenarioConfig(Config):
+    """Base class for scenario configs."""
+
+
+class ScanScenarioConfig(ScenarioConfig):
     """Class with methods for scanner scenario configs."""
 
     def __init__(self, *args, subdir='scanner', **kwargs):
@@ -232,7 +241,7 @@ class ScanScenarioConfig(Config):
         return self
 
 
-class WebScrapedScenarioConfig(Config):
+class WebScrapedScenarioConfig(ScenarioConfig):
     """Class with methods for web scraped scenario configs."""
 
     def __init__(self, *args, subdir='web_scraped', **kwargs):
@@ -262,13 +271,13 @@ class DevConfig(Config):
     ) -> None:
         """Add extra strata columns to DevConfig column list attributes.
 
-        Adds to the grouping columns, the columns to read in from the
+        Adds to the strata columns, the columns to read in from the
         tables, and the columns taken through from preprocessing.
         """
         column_attrs = [
             'strata_cols',
-            'preprocess_cols',
             'data_cols',
+            'preprocess_cols',
         ]
         for attr in column_attrs:
             # Ensures that there are no duplicates of the user-specified
@@ -280,6 +289,65 @@ class DevConfig(Config):
                 if c not in getattr(self, attr)
             ]
             self.extend_attr(attr, missing_strata)
+
+    def add_extra_strata_from_config_if_exists(
+        self,
+        config: ScenarioConfig,
+    ) -> None:
+        """Add extra strata from the given config if it is an attr."""
+        if hasattr(config, 'extra_strata') and config.extra_strata:
+            self.add_strata(config.extra_strata)
+
+    def add_extra_data_cols_from_config(
+        self,
+        config: ScanScenarioConfig
+    ) -> None:
+        """Add the extra data cols specificed in the scenario config.
+
+        Adds 'sales_value_col' and 'promo_col' from the preprocessing
+        section of the ScanScenarioConfig, the the data_cols attr.
+        """
+        # sales_value_col and promo_col may change with every scenario
+        # so we add to data_cols here.
+        extend_vals = [
+            config.preprocessing['sales_value_col'],
+            config.preprocessing['promo_col'],
+        ]
+        for vals in extend_vals:
+            self.extend_attr('data_cols', vals)
+
+
+class ScanDevConfig(DevConfig):
+    """The per scenario DevConfig for the scanner scenarios."""
+
+    def __init__(
+        self,
+        filename: str,
+        config: ScanScenarioConfig,
+        subdir='scanner',
+    ):
+        """Use the given scenario config to init the dev config."""
+        super().__init__(filename, subdir=subdir)
+
+        # Extra strata are added to all the cols settings in dev config.
+        self.add_extra_strata_from_config_if_exists(config)
+        self.add_extra_data_cols_from_config(config)
+
+
+class WebScrapedDevConfig(DevConfig):
+    """The per scenario DevConfig for the web scraped scenarios."""
+
+    def __init__(
+        self,
+        filename: str,
+        config: WebScrapedScenarioConfig,
+        subdir='web_scraped',
+    ):
+        """Use the given scenario config to init the dev config."""
+        super().__init__(filename, subdir=subdir)
+
+        # Extra strata are added to all the cols settings in dev config.
+        self.add_extra_strata_from_config_if_exists(config)
 
 
 class LoggingConfig:

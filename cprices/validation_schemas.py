@@ -76,6 +76,7 @@ def preprocessing_schema() -> Dict:
                 'sales_value_exc_discounts',
                 'sales_value_vat',
                 'sales_value_vat_exc_discounts',
+                'sales_value_inc_discriminatory_discounts',
             },
         },
         'align_daily_frequency': {

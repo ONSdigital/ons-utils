@@ -273,6 +273,12 @@ class TestConfig:
             expected=['jasmine', 'ivy', 'bramble', 'lavender'],
         ),
         Case(
+            "extend_list_with_single_value_not_sequence",
+            attr_val=['jasmine', 'ivy'],
+            extend_vals='bramble',
+            expected=['jasmine', 'ivy', 'bramble'],
+        ),
+        Case(
             "extend_tuple_with_tuple",
             attr_val=('jasmine', 'ivy'),
             extend_vals=('bramble',),
@@ -282,6 +288,12 @@ class TestConfig:
             "extend_tuple_with_list",
             attr_val=('jasmine', 'ivy'),
             extend_vals=['bramble'],
+            expected=('jasmine', 'ivy', 'bramble'),
+        ),
+        Case(
+            "extend_tuple_with_single_value_not_sequence",
+            attr_val=('jasmine', 'ivy'),
+            extend_vals='bramble',
             expected=('jasmine', 'ivy', 'bramble'),
         ),
     )
@@ -316,37 +328,28 @@ class TestScanScenarioConfig:
         """Test for this."""
         pass
 
-    @pytest.fixture
-    def scenario_conf(self, test_config):
-        """Return a Scenario Config with both scanner and web_scraped
-        input_data and item_mappers.
+    def test_combines_input_data_on_init(self, test_config, all_in_output):
+        """Test that with supplier and without supplier input data is
+        combined on init.
         """
         test_config("""
         input_data:
-            scanner:
-                without_supplier:
-                    - retailer_1
-                    - retailer_2
-                with_supplier:
-                    supplier_3:
-                        retailer_3
-            web_scraped:
-                supplier_1:
-                    - single_item_1
-                supplier_2:
-                    - multi_item_timber
-        consumption_segment_mappers:
-            scanner:
-                retailer_1: /mapper/path/retailer_1.parquet
-                retailer_2: /mapper/path/retailer_2.parquet
-                retailer_3: /mapper/path/retailer_3.parquet
-            web_scraped:
-                supplier_1:
-                    single_item_1: /mapper/path/single_item_1.parquet
-                supplier_2:
-                    multi_item_timber: /mapper/path/multi_item_timber.parquet
+            without_supplier:
+                - retailer_1
+                - retailer_2
+            with_supplier:
+                supplier_3:
+                    retailer_3
         """)
-        return ScanScenarioConfig('my_config')
+        conf = ScanScenarioConfig('my_config', subdir=None)
+        assert all_in_output(
+            output=conf.input_data,
+            values=[
+                ('supplier_3', 'retailer_3'),
+                ('retailer_1', 'retailer_1'),
+                ('retailer_2', 'retailer_2'),
+            ],
+        )
 
     @parametrize_cases(
         Case(
@@ -412,54 +415,70 @@ class TestScanScenarioConfig:
         )
 
 
-class TestLoggingConfig:
-    """Group of tests for LoggingConfig."""
+class TestWebScrapedScenarioConfig:
+    """Tests for the web scraped scenario configs."""
 
-    @pytest.mark.skip(reason="test shell")
-    def test_init(self):
-        """Test for LoggingConfig."""
-        pass
+    @pytest.fixture
+    def scenario_conf(self, test_config):
+        """Return a Scenario Config with both scanner and web_scraped
+        input_data and item_mappers.
+        """
+        test_config("""
+        input_data:
+            supplier_1:
+                - single_item_1
+            supplier_2:
+                - multi_item_timber
+        consumption_segment_mappers:
+            supplier_1:
+                single_item_1: /mapper/path/single_item_1.parquet
+            supplier_2:
+                multi_item_timber: /mapper/path/multi_item_timber.parquet
+        """)
+        return WebScrapedScenarioConfig('my_config', subdir=None)
 
-    @pytest.mark.skip(reason="test shell")
-    def test_create_log_id(self):
-        """Test for this."""
-        pass
+    def test_init_gets_keys_value_pairs_for_input_data(
+        self, all_in_output, scenario_conf
+    ):
+        """Test gets key value pairs for input data as expected."""
+        assert all_in_output(
+            output=scenario_conf.input_data,
+            values=[
+                ('supplier_1', 'single_item_1'),
+                ('supplier_2', 'multi_item_timber'),
+            ]
+        )
 
-    @pytest.mark.skip(reason="test shell")
-    def test_get_logs_dir(self):
-        """Test for this."""
-        pass
+    def test_init_flattens_consumption_segment_mappers_dict(
+        self, scenario_conf
+    ):
+        """Test consumption segment mappers nested dict is flat."""
+        assert scenario_conf.consumption_segment_mappers == {
+            ('supplier_1', 'single_item_1'): '/mapper/path/single_item_1.parquet',
+            ('supplier_2', 'multi_item_timber'): '/mapper/path/multi_item_timber.parquet',
+        }
 
-    @pytest.mark.skip(reason="test shell")
-    def test_create_logs_dir(self):
-        """Test for this."""
-        pass
 
-    @pytest.mark.skip(reason="test shell")
-    def test_set_logging_config(self):
-        """Test for this."""
-        pass
+@pytest.fixture
+def dev_config(test_config):
+    """Return DevConfig file with columns to be removed."""
+    test_config(yaml_input="""
+    strata_cols:
+        - col_1
+        - col_2
+    preprocess_cols:
+        - col_3
+        - col_4
+    data_cols:
+        - col_6
+        - col_7
+    """)
+
+    return DevConfig("my_config")
 
 
 class TestDevConfig:
     """Group of tests for DevConfig."""
-
-    @pytest.fixture
-    def dev_config(self, test_config):
-        """Return DevConfig file with columns to be removed."""
-        test_config(yaml_input="""
-        strata_cols:
-            - col_1
-            - col_2
-        preprocess_cols:
-            - col_3
-            - col_4
-        data_cols:
-            - col_6
-            - col_7
-        """)
-
-        return DevConfig("my_config")
 
     @parametrize_cases(
         Case(
@@ -498,3 +517,173 @@ class TestDevConfig:
         assert dev_config.strata_cols == exp_strata_cols
         assert dev_config.preprocess_cols == exp_preprocess_cols
         assert dev_config.data_cols == exp_data_cols
+
+    @parametrize_cases(
+        Case(
+            "adds_when_it_exists",
+            scenario_yaml="""
+            extra_strata:
+                - sedimentary
+                - igneous
+            """,
+            exp_strata_cols=['col_1', 'col_2', 'sedimentary', 'igneous'],
+            exp_preprocess_cols=['col_3', 'col_4', 'sedimentary', 'igneous'],
+            exp_data_cols=['col_6', 'col_7', 'sedimentary', 'igneous'],
+        ),
+        Case(
+            "doesnt_add_when_it_is_None",
+            scenario_yaml="""
+            extra_strata:
+            """,
+            exp_strata_cols=['col_1', 'col_2'],
+            exp_preprocess_cols=['col_3', 'col_4'],
+            exp_data_cols=['col_6', 'col_7'],
+        ),
+        Case(
+            "doesnt_add_when_there_is_no_extra_strata_section",
+            scenario_yaml="""
+            other_section: blah
+            """,
+            exp_strata_cols=['col_1', 'col_2'],
+            exp_preprocess_cols=['col_3', 'col_4'],
+            exp_data_cols=['col_6', 'col_7'],
+        ),
+    )
+    def test_add_extra_strata_if_exists(
+        self, test_config, dev_config, scenario_yaml,
+        exp_strata_cols, exp_preprocess_cols, exp_data_cols
+    ):
+        """Test when the add_extra_strata_if_exists() method is called
+        with a ScenarioConfig, that it does nothing when extra strata is
+        empty or doesn't exist.
+        """
+        test_config(yaml_input=scenario_yaml, name="scenario_config")
+        config = ScenarioConfig("scenario_config", subdir=None)
+
+        dev_config.add_extra_strata_from_config_if_exists(config)
+
+        assert dev_config.strata_cols == exp_strata_cols
+        assert dev_config.preprocess_cols == exp_preprocess_cols
+        assert dev_config.data_cols == exp_data_cols
+
+    def test_add_extra_data_cols_from_config(
+        self, test_config, dev_config,
+    ):
+        """Test it adds preprocess columns to data_cols attribute."""
+        test_config(
+            yaml_input="""
+            preprocessing:
+                sales_value_col: sales_value
+                promo_col: promo
+            """,
+            name="scenario_config",
+        )
+        config = ScenarioConfig("scenario_config")
+
+        dev_config.add_extra_data_cols_from_config(config)
+        assert dev_config.data_cols == ['col_6', 'col_7', 'sales_value', 'promo']
+
+
+class TestScanDevConfig:
+    """Tests for the ScanDevConfig."""
+
+    @pytest.fixture
+    def scan_dev_config(self, dev_config, test_config, monkeypatch):
+        """Create an instance of ScanDevConfig with extra strata and
+        preprocessing sections.
+        """
+        # Patch the combine_input_data method which is called on init,
+        # since we don't care about it for this test.
+        monkeypatch.setattr(
+            ScanScenarioConfig,
+            "combine_input_data",
+            lambda x: ('retailer_1',),
+        )
+        test_config(
+            yaml_input="""
+            extra_strata:
+                - sedimentary
+                - igneous
+            preprocessing:
+                sales_value_col: sales_value
+                promo_col: promo
+            """,
+            name="scenario_config",
+        )
+
+        config = ScanScenarioConfig("scenario_config", subdir=None)
+        # my_config.yaml is created by the dev_config fixture.
+        return ScanDevConfig("my_config", subdir=None, config=config)
+
+    def test_adds_extra_strata_to_cols_attrs_on_init(self, scan_dev_config):
+        assert all([
+            new_col in getattr(scan_dev_config, attr)
+            for attr in ['strata_cols', 'preprocess_cols', 'data_cols']
+            for new_col in ['sedimentary', 'igneous']
+        ])
+
+    def test_adds_config_cols_to_data_cols_on_init(
+        self, scan_dev_config
+    ):
+        assert all([
+            new_col in getattr(scan_dev_config, 'data_cols')
+            for new_col in ['sales_value', 'promo']
+        ])
+
+
+class WebScrapedDevConfig:
+    """Tests for the WebScrapedDevConfig"""
+
+    @pytest.fixture
+    def web_dev_config(self, dev_config, test_config):
+        """Create an instance of ScanDevConfig with extra strata and
+        preprocessing sections.
+        """
+        test_config(
+            yaml_input="""
+            extra_strata:
+                - sedimentary
+                - igneous
+            """,
+            name="scenario_config",
+        )
+
+        config = WebScrapedScenarioConfig("scenario_config", subdir=None)
+        # my_config.yaml is created by the dev_config fixture.
+        return WebScrapedDevConfig("my_config", subdir=None, config=config)
+
+    def test_adds_extra_strata_to_cols_attrs_on_init(self, web_dev_config):
+        assert all([
+            new_col in getattr(web_dev_config, attr)
+            for attr in ['strata_cols', 'preprocess_cols', 'data_cols']
+            for new_col in ['sedimentary', 'igneous']
+        ])
+
+
+class TestLoggingConfig:
+    """Group of tests for LoggingConfig."""
+
+    @pytest.mark.skip(reason="test shell")
+    def test_init(self):
+        """Test for LoggingConfig."""
+        pass
+
+    @pytest.mark.skip(reason="test shell")
+    def test_create_log_id(self):
+        """Test for this."""
+        pass
+
+    @pytest.mark.skip(reason="test shell")
+    def test_get_logs_dir(self):
+        """Test for this."""
+        pass
+
+    @pytest.mark.skip(reason="test shell")
+    def test_create_logs_dir(self):
+        """Test for this."""
+        pass
+
+    @pytest.mark.skip(reason="test shell")
+    def test_set_logging_config(self):
+        """Test for this."""
+        pass
