@@ -38,7 +38,13 @@ class Config:
     ):
         """Initialise the Config class.
 
-        filename:
+        Parameters
+        ----------
+        filename : str,
+            The filename of the config file without the YAML extension.
+        subdir : str, optional
+            The subdirectory within the config directory that contains
+            the config file.
         to_unpack : sequence of str
             A list of keys that contain mappings to unpack. The mappings
             at given keys will be set as new attributes directly.
@@ -75,7 +81,14 @@ class Config:
                 return loc.joinpath('config')
 
     def get_config_path(self, subdir: Optional[str] = None) -> Path:
-        """Return the path to the config file."""
+        """Return the path to the config file.
+
+        Parameters
+        ----------
+        subdir : str, optional
+            The subdirectory within the config directory that contains
+            the config file.
+        """
         filename = self.name + '.yaml'
         to_join = [filename] if not subdir else [subdir, filename]
         return self.get_config_dir().joinpath(*to_join)
