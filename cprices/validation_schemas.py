@@ -42,7 +42,7 @@ def non_section_schema() -> Dict:
     """Return schema for config options not indented in a section."""
     return {
         'extra_strata': {
-            'type': ['list', 'string'],
+            'type': {'list', 'string'},
             'nullable': True,
         }
     }
@@ -80,11 +80,11 @@ def preprocessing_schema() -> Dict:
         },
         'align_daily_frequency': {
             'type': 'string',
-            'allowed': ['weekly', 'monthly'],
+            'allowed': {'weekly', 'monthly'},
         },
         'week_selection': {
             'type': 'list',
-            'allowed': [1, 2, 3, 4],
+            'allowed': {1, 2, 3, 4},
             'nullable': True,
         },
     }
@@ -110,11 +110,11 @@ def outlier_detection_schema() -> Dict:
                 'fence_value': {'type': 'float'},
                 'stddev_method': {
                     'type': 'string',
-                    'allowed': ['population', 'sample'],
+                    'allowed': {'population', 'sample'},
                 },
                 'quartile_method': {
                     'type': 'string',
-                    'allowed': ['exact', 'approx'],
+                    'allowed': {'exact', 'approx'},
                 },
                 'accuracy': {
                     'type': 'float',
