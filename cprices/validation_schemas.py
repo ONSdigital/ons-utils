@@ -43,6 +43,7 @@ def non_section_schema() -> Dict:
     return {
         'extra_strata': {
             'type': ['list', 'string'],
+            'nullable': True,
         }
     }
 
