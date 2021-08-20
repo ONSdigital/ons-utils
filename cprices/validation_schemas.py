@@ -42,9 +42,9 @@ def non_section_schema() -> Dict:
     """Return schema for config options not indented in a section."""
     return {
         'extra_strata': {
-            'type': {'list', 'string'},
+            'type': ['list', 'string'],
             'nullable': True,
-        }
+        },
     }
 
 
