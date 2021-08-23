@@ -1,5 +1,5 @@
 """Configuration file loader and validation functions."""
-from collections import abc
+from abc import abstractmethod, ABC
 from datetime import datetime
 from logging.config import dictConfig
 import os
@@ -9,6 +9,7 @@ import yaml
 
 from flatten_dict import flatten
 
+from cprices._typing import PathLike
 from cprices import validation
 from cprices.utils.helpers import (
     fill_tuples,
@@ -118,13 +119,13 @@ class Config:
             the method to unpack mappings at given keys by setting them
             as new attributes directly.
         """
-        if not isinstance(attrs, abc.Mapping):
+        if not isinstance(attrs, Mapping):
             raise ConfigFormatError
 
         # Initialise to_unpack as empty list if not given.
         for attr in to_unpack if to_unpack else []:
             nested_mapping = attrs.pop(attr)
-            if not isinstance(nested_mapping, abc.Mapping):
+            if not isinstance(nested_mapping, Mapping):
                 raise TypeError(
                     f"given attr {attr} to unpack must be a mapping"
                 )
@@ -181,6 +182,27 @@ class Config:
 
         setattr(self, attr, getattr(self, attr) + extend_vals)
 
+    def prepend_dir(self, attrs: Sequence[str], dir: PathLike) -> None:
+        """Prepend the dirpath onto the given attrs.
+
+        Works when the attr is a filepath or a dict of filepaths.
+
+        Parameters
+        ----------
+        dir : str, bytes, os.PathLike, pathlib.Path
+            A directory path to prepend to the paths in attrs.
+        """
+        for attr in attrs:
+            current_attr = getattr(self, attr)
+            if isinstance(current_attr, Mapping):
+                new_attr = {
+                    key: Path(dir, path).as_posix()
+                    for key, path in current_attr.items()
+                }
+                setattr(self, attr, new_attr)
+            else:
+                setattr(self, attr, Path(dir, current_attr).as_posix())
+
 
 class SelectedScenarioConfig(Config):
     """Class to store the selected scenarios."""
@@ -200,18 +222,10 @@ class SelectedScenarioConfig(Config):
                 setattr(self, attr, [])
 
 
-class ScenarioConfig(Config):
+class ScenarioConfig(Config, ABC):
     """Base class for scenario configs."""
 
-
-class ScanScenarioConfig(ScenarioConfig):
-    """Class with methods for scanner scenario configs."""
-
-    def __init__(self, *args, subdir='scanner', **kwargs):
-        """Init like config, then run .combine_input_data()."""
-        super().__init__(*args, subdir=subdir, **kwargs)
-        self.combine_input_data()
-
+    @abstractmethod
     def validate(self) -> str:
         """Validate the scenario config against the schema.
 
@@ -221,45 +235,6 @@ class ScanScenarioConfig(ScenarioConfig):
             An error message with all validation errors. Returns an
             empty string if no errors.
         """
-        return validation.validate_scan_scenario_config(self)
-
-    def combine_input_data(self) -> None:
-        """Combine with supplier dict and without supplier list."""
-        # First get key value pairs from the with supplier section.
-        # Since it is a dict.
-        with_supplier_inputs = get_key_value_pairs(
-            self.input_data.get('with_supplier', {})
-        )
-
-        # Add the list, and fill the tuples to the same length.
-        self.input_data = (
-            with_supplier_inputs
-            + self.input_data.get('without_supplier', [])
-        )
-        self.fill_tuples(['input_data'], repeat=True, length=2)
-
-        return self
-
-
-class WebScrapedScenarioConfig(ScenarioConfig):
-    """Class with methods for web scraped scenario configs."""
-
-    def __init__(self, *args, subdir='web_scraped', **kwargs):
-        """Init like config, then run .combine_input_data()."""
-        super().__init__(*args, subdir=subdir, **kwargs)
-        self.flatten_nested_dicts(['consumption_segment_mappers'])
-        self.get_key_value_pairs(['input_data'])
-
-    def validate(self) -> str:
-        """Validate the scenario config against the schema.
-
-        Returns
-        -------
-        str
-            An error message with all validation errors. Returns an
-            empty string if no errors.
-        """
-        return validation.validate_webscraped_scenario_config(self)
 
 
 class DevConfig(Config):
@@ -300,7 +275,7 @@ class DevConfig(Config):
 
     def add_extra_data_cols_from_config(
         self,
-        config: ScanScenarioConfig
+        config: ScenarioConfig,
     ) -> None:
         """Add the extra data cols specificed in the scenario config.
 
@@ -315,6 +290,68 @@ class DevConfig(Config):
         ]
         for vals in extend_vals:
             self.extend_attr('data_cols', vals)
+
+
+class ScanScenarioConfig(ScenarioConfig):
+    """Class with methods for scanner scenario configs."""
+
+    def __init__(
+        self,
+        filename: str,
+        dev_config: DevConfig,
+        subdir='scanner',
+        **kwargs,
+    ):
+        """Init like config, then run .combine_input_data()."""
+        super().__init__(filename, subdir=subdir, **kwargs)
+        self.combine_input_data()
+        self.prepend_dir(
+            attrs=['consumption_segment_mappers'],
+            dir=dev_config.mappers_dir,
+        )
+
+    def validate(self) -> str:
+        return validation.validate_scan_scenario_config(self)
+
+    def combine_input_data(self) -> None:
+        """Combine with supplier dict and without supplier list."""
+        # First get key value pairs from the with supplier section.
+        # Since it is a dict.
+        with_supplier_inputs = get_key_value_pairs(
+            self.input_data.get('with_supplier', {})
+        )
+
+        # Add the list, and fill the tuples to the same length.
+        self.input_data = (
+            with_supplier_inputs
+            + self.input_data.get('without_supplier', [])
+        )
+        self.fill_tuples(['input_data'], repeat=True, length=2)
+
+        return self
+
+
+class WebScrapedScenarioConfig(ScenarioConfig):
+    """Class with methods for web scraped scenario configs."""
+
+    def __init__(
+        self,
+        filename: str,
+        dev_config: DevConfig,
+        subdir='web_scraped',
+        **kwargs,
+    ):
+        """Init like config, then run .combine_input_data()."""
+        super().__init__(filename, subdir=subdir, **kwargs)
+        self.flatten_nested_dicts(['consumption_segment_mappers'])
+        self.get_key_value_pairs(['input_data'])
+        self.prepend_dir(
+            attrs=['consumption_segment_mappers'],
+            dir=dev_config.mappers_dir,
+        )
+
+    def validate(self) -> str:
+        return validation.validate_webscraped_scenario_config(self)
 
 
 class ScanDevConfig(DevConfig):

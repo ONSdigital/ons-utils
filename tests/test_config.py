@@ -319,6 +319,55 @@ class TestConfig:
         with pytest.raises(AttributeError):
             conf.extend_attr('plants', ['heather'])
 
+    def test_prepend_dir(self, test_config, make_path_like):
+        """Test that the method prepends the given directory to the attrs."""
+        conf = test_config()
+        conf.update({'mappers': make_path_like('jobs/places.csv')})
+
+        test_dir = 'people'
+        conf.prepend_dir(['mappers'], dir=test_dir)
+        assert conf.mappers == 'people/jobs/places.csv'
+
+
+@pytest.fixture
+def mock_dev_config(mocker):
+    """Mock up a dev_config class with the mappers_dir attribute."""
+    dev_config_mock = mocker.MagicMock()
+    dev_config_mock.mappers_dir = 'my_dir'
+    return dev_config_mock
+
+
+@pytest.fixture
+def scenario_scan_config(test_config, monkeypatch, mock_dev_config):
+    """Return a ScanScenarioConfig with the given yaml input."""
+    def _(
+        yaml_input: str,
+        mock_methods_on_init: Union[bool, Sequence[str]] = False
+    ) -> ScanScenarioConfig:
+        test_config(yaml_input, name='scenario_config')
+
+        # Monkeypatch each of the methods given by mock_methods_on_init.The
+        # methods return None, so just patch with that.
+        if mock_methods_on_init is True:
+            mock_methods_on_init = ['prepend_dir', 'combine_input_data']
+        elif not mock_methods_on_init:
+            mock_methods_on_init = []
+
+        with monkeypatch.context() as mp:
+            for method in mock_methods_on_init:
+                mp.setattr(
+                    ScanScenarioConfig,
+                    method,
+                    lambda *args, **kwargs: None,
+                )
+
+            return ScanScenarioConfig(
+                'scenario_config',
+                dev_config=mock_dev_config,
+                subdir=None,
+            )
+    return _
+
 
 class TestScanScenarioConfig:
     """Group of tests for ScenarioConfig."""
@@ -328,11 +377,13 @@ class TestScanScenarioConfig:
         """Test for this."""
         pass
 
-    def test_combines_input_data_on_init(self, test_config, all_in_output):
+    def test_combines_input_data_on_init(
+        self, all_in_output, scenario_scan_config,
+    ):
         """Test that with supplier and without supplier input data is
         combined on init.
         """
-        test_config("""
+        test_yaml = """
         input_data:
             without_supplier:
                 - retailer_1
@@ -340,8 +391,11 @@ class TestScanScenarioConfig:
             with_supplier:
                 supplier_3:
                     retailer_3
-        """)
-        conf = ScanScenarioConfig('my_config', subdir=None)
+        """
+        conf = scenario_scan_config(
+            test_yaml,
+            mock_methods_on_init=['prepend_dir'],
+        )
         assert all_in_output(
             output=conf.input_data,
             values=[
@@ -399,15 +453,16 @@ class TestScanScenarioConfig:
         ),
     )
     def test_combine_input_data_works(
-        self, test_config, all_in_output, yaml_input, expected,
+        self, all_in_output, yaml_input, expected,
+        scenario_scan_config,
     ):
         """Test returns tuple pairs for supplier and retailer, when both
         without_supplier and with_supplier specified.
         """
-        test_config(yaml_input=yaml_input)
-        # The method .combine_input_data() is called when the class is
-        # instantiated, so no need to call again.
-        conf = ScanScenarioConfig('my_config', subdir=None)
+        # Patches both init methods on creation so the
+        # .combine_input_data() method can be called after.
+        conf = scenario_scan_config(yaml_input, mock_methods_on_init=True)
+        conf.combine_input_data()
         # Use all_in_output because dict makes order ambiguous.
         assert all_in_output(
             output=conf.input_data,
@@ -419,7 +474,7 @@ class TestWebScrapedScenarioConfig:
     """Tests for the web scraped scenario configs."""
 
     @pytest.fixture
-    def scenario_conf(self, test_config):
+    def scenario_conf(self, test_config, mock_dev_config):
         """Return a Scenario Config with both scanner and web_scraped
         input_data and item_mappers.
         """
@@ -435,7 +490,12 @@ class TestWebScrapedScenarioConfig:
             supplier_2:
                 multi_item_timber: /mapper/path/multi_item_timber.parquet
         """)
-        return WebScrapedScenarioConfig('my_config', subdir=None)
+        # my_config.yaml created by the call to test_config
+        return WebScrapedScenarioConfig(
+            'my_config',
+            dev_config=mock_dev_config,
+            subdir=None,
+        )
 
     def test_init_gets_keys_value_pairs_for_input_data(
         self, all_in_output, scenario_conf
@@ -550,15 +610,14 @@ class TestDevConfig:
         ),
     )
     def test_add_extra_strata_if_exists(
-        self, test_config, dev_config, scenario_yaml,
-        exp_strata_cols, exp_preprocess_cols, exp_data_cols
+        self, scenario_scan_config, dev_config, scenario_yaml,
+        exp_strata_cols, exp_preprocess_cols, exp_data_cols,
     ):
         """Test when the add_extra_strata_if_exists() method is called
         with a ScenarioConfig, that it does nothing when extra strata is
         empty or doesn't exist.
         """
-        test_config(yaml_input=scenario_yaml, name="scenario_config")
-        config = ScenarioConfig("scenario_config", subdir=None)
+        config = scenario_scan_config(scenario_yaml, mock_methods_on_init=True)
 
         dev_config.add_extra_strata_from_config_if_exists(config)
 
@@ -567,18 +626,15 @@ class TestDevConfig:
         assert dev_config.data_cols == exp_data_cols
 
     def test_add_extra_data_cols_from_config(
-        self, test_config, dev_config,
+        self, dev_config, scenario_scan_config,
     ):
         """Test it adds preprocess columns to data_cols attribute."""
-        test_config(
-            yaml_input="""
-            preprocessing:
-                sales_value_col: sales_value
-                promo_col: promo
-            """,
-            name="scenario_config",
-        )
-        config = ScenarioConfig("scenario_config")
+        scenario_yaml = """
+        preprocessing:
+            sales_value_col: sales_value
+            promo_col: promo
+        """
+        config = scenario_scan_config(scenario_yaml, mock_methods_on_init=True)
 
         dev_config.add_extra_data_cols_from_config(config)
         assert dev_config.data_cols == ['col_6', 'col_7', 'sales_value', 'promo']
@@ -588,30 +644,20 @@ class TestScanDevConfig:
     """Tests for the ScanDevConfig."""
 
     @pytest.fixture
-    def scan_dev_config(self, dev_config, test_config, monkeypatch):
+    def scan_dev_config(self, dev_config, scenario_scan_config):
         """Create an instance of ScanDevConfig with extra strata and
         preprocessing sections.
         """
-        # Patch the combine_input_data method which is called on init,
-        # since we don't care about it for this test.
-        monkeypatch.setattr(
-            ScanScenarioConfig,
-            "combine_input_data",
-            lambda x: ('retailer_1',),
-        )
-        test_config(
-            yaml_input="""
-            extra_strata:
-                - sedimentary
-                - igneous
-            preprocessing:
-                sales_value_col: sales_value
-                promo_col: promo
-            """,
-            name="scenario_config",
-        )
+        yaml_input = """
+        extra_strata:
+            - sedimentary
+            - igneous
+        preprocessing:
+            sales_value_col: sales_value
+            promo_col: promo
+        """
+        config = scenario_scan_config(yaml_input, mock_methods_on_init=True)
 
-        config = ScanScenarioConfig("scenario_config", subdir=None)
         # my_config.yaml is created by the dev_config fixture.
         return ScanDevConfig("my_config", subdir=None, config=config)
 
@@ -631,24 +677,56 @@ class TestScanDevConfig:
         ])
 
 
+@pytest.fixture
+def scenario_web_scraped_config(test_config, monkeypatch, mock_dev_config):
+    """Return a WebScrapedScenarioConfig with the given yaml input."""
+    def _(
+        yaml_input: str,
+        mock_methods_on_init: Union[bool, Sequence[str]] = False
+    ) -> WebScrapedScenarioConfig:
+        test_config(yaml_input, name='scenario_config')
+
+        # Monkeypatch each of the methods given by mock_methods_on_init.
+        # The methods return None, so just patch with that.
+        if mock_methods_on_init is True:
+            mock_methods_on_init = [
+                'prepend_dir',
+                'flatten_nested_dicts',
+                'get_key_value_pairs',
+            ]
+        elif not mock_methods_on_init:
+            mock_methods_on_init = []
+
+        with monkeypatch.context() as mp:
+            for method in mock_methods_on_init:
+                mp.setattr(
+                    WebScrapedScenarioConfig,
+                    method,
+                    lambda *args, **kwargs: None,
+                )
+
+            return WebScrapedScenarioConfig(
+                'scenario_config',
+                dev_config=mock_dev_config,
+                subdir=None,
+            )
+    return _
+
+
 class WebScrapedDevConfig:
     """Tests for the WebScrapedDevConfig"""
 
     @pytest.fixture
-    def web_dev_config(self, dev_config, test_config):
+    def web_dev_config(self, dev_config, scenario_web_scraped_config):
         """Create an instance of ScanDevConfig with extra strata and
         preprocessing sections.
         """
-        test_config(
-            yaml_input="""
-            extra_strata:
-                - sedimentary
-                - igneous
-            """,
-            name="scenario_config",
-        )
-
-        config = WebScrapedScenarioConfig("scenario_config", subdir=None)
+        yaml_input = """
+        extra_strata:
+            - sedimentary
+            - igneous
+        """
+        config = scenario_web_scraped_config(yaml_input, mock_methods_on_init=True)
         # my_config.yaml is created by the dev_config fixture.
         return WebScrapedDevConfig("my_config", subdir=None, config=config)
 
