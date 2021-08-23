@@ -11,7 +11,7 @@ def test_combine_scenario_df_outputs():
     pass
 
 
-@pytest.mark.skip(reason="test shell")
+@pytest.mark.skip(reason="requires mocking of env variables")
 def test_create_run_id():
     """Test for this."""
     pass
