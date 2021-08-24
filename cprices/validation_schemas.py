@@ -132,16 +132,20 @@ def grouping_schema() -> Dict:
         'active': {'type': 'boolean'},
         'post_grouping_averaging_method': {
             # There are no weights in web_scraped yet.
-            'unweighted_arithmetic',
-            'unweighted_geometric',
+            'allowed': {
+                'unweighted_arithmetic',
+                'unweighted_geometric',
+            }
         },
-        'mappers': {'type': 'dict'},
-        'keysrules': {'type': 'string'},
-        'valuesrules': {
-            'type': ['dict', 'str'],
-            'keysrules': {'type': 'string'},
-            'valuesrules': {'type': 'integer'},
-        }
+        'mappers': {
+            'type': 'dict',
+            'keyschema': {'type': 'string'},
+            'valueschema': {
+                'type': 'dict',
+                'keyschema': {'type': 'string'},
+                'valueschema': {'type': 'string'},
+            },
+        },
     }
 
 

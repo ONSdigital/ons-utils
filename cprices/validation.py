@@ -43,7 +43,7 @@ def validate_scan_scenario_config(config) -> str:
             'indices',
         ],
         mapper_sections=[
-            'consumption_segment_mappers'
+            'consumption_segment_mappers',
         ],
     )
 
@@ -64,11 +64,11 @@ def validate_webscraped_scenario_config(config) -> str:
             'preprocessing',
             'outlier_detection',
             'averaging',
-            'grouping'
-            'indices'
+            'grouping',
+            'indices',
         ],
         mapper_sections=[
-            'consumption_segment_mappers'
+            'consumption_segment_mappers',
         ],
     )
 
@@ -102,7 +102,7 @@ def get_cerberus_errors(config: Mapping, schema: Mapping) -> Sequence[str]:
     err_msgs = []
     if not v.validate(config):
         # Get the errors in a suitable format.
-        errs = flatten(remove_list_wrappers(v.errors))
+        errs = flatten(remove_list_wrappers(v.errors), reducer='dot')
         for param, msg in errs.items():
             err_msgs.append(f"parameter {param}: {msg}")
 
