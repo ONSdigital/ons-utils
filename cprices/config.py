@@ -1,20 +1,23 @@
 """Configuration file loader and validation functions."""
-from collections import abc
-from copy import copy, deepcopy
+from abc import abstractmethod, ABC
 from datetime import datetime
 from logging.config import dictConfig
 import os
 from pathlib import Path
-from typing import Mapping, Any, Sequence, Optional
+from typing import Any, Mapping, Optional, Sequence, Union
 import yaml
 
 from flatten_dict import flatten
 
+from cprices._typing import PathLike
 from cprices import validation
 from cprices.utils.helpers import (
     fill_tuples,
     fill_tuple_keys,
     get_key_value_pairs,
+    is_non_string_sequence,
+    list_convert,
+    tuple_convert,
 )
 
 
@@ -32,16 +35,24 @@ class Config:
     def __init__(
         self,
         filename: str,
+        subdir: Optional[str] = None,
         to_unpack: Optional[Sequence[str]] = None,
     ):
         """Initialise the Config class.
 
+        Parameters
+        ----------
+        filename : str,
+            The filename of the config file without the YAML extension.
+        subdir : str, optional
+            The subdirectory within the config directory that contains
+            the config file.
         to_unpack : sequence of str
             A list of keys that contain mappings to unpack. The mappings
             at given keys will be set as new attributes directly.
         """
         self.name = filename
-        self.config_path = self.get_config_path()
+        self.config_path = self.get_config_path(subdir)
         self.set_attrs(self.load_config(), to_unpack)
 
     def get_config_dir(self) -> Path:
@@ -71,9 +82,18 @@ class Config:
             if loc.joinpath('config').exists():
                 return loc.joinpath('config')
 
-    def get_config_path(self) -> Path:
-        """Return the path to the config file."""
-        return self.get_config_dir().joinpath(self.name + '.yaml')
+    def get_config_path(self, subdir: Optional[str] = None) -> Path:
+        """Return the path to the config file.
+
+        Parameters
+        ----------
+        subdir : str, optional
+            The subdirectory within the config directory that contains
+            the config file.
+        """
+        filename = self.name + '.yaml'
+        to_join = [filename] if not subdir else [subdir, filename]
+        return self.get_config_dir().joinpath(*to_join)
 
     def load_config(self):
         """Load the config file."""
@@ -99,13 +119,13 @@ class Config:
             the method to unpack mappings at given keys by setting them
             as new attributes directly.
         """
-        if not isinstance(attrs, abc.Mapping):
+        if not isinstance(attrs, Mapping):
             raise ConfigFormatError
 
         # Initialise to_unpack as empty list if not given.
         for attr in to_unpack if to_unpack else []:
             nested_mapping = attrs.pop(attr)
-            if not isinstance(nested_mapping, abc.Mapping):
+            if not isinstance(nested_mapping, Mapping):
                 raise TypeError(
                     f"given attr {attr} to unpack must be a mapping"
                 )
@@ -115,11 +135,11 @@ class Config:
 
     def flatten_nested_dicts(self, attrs: Sequence[str]) -> None:
         """Flatten the nested dict config for web_scraped."""
-        self.update({k: flatten(vars(self)[k]) for k in attrs})
+        self.update({k: flatten(getattr(self, k)) for k in attrs})
 
     def get_key_value_pairs(self, attrs: Sequence[str]) -> None:
         """Get the key value pairs from a dictionary as list of tuples."""
-        self.update({k: get_key_value_pairs(vars(self)[k]) for k in attrs})
+        self.update({k: get_key_value_pairs(getattr(self, k)) for k in attrs})
 
     def fill_tuples(
         self,
@@ -129,7 +149,7 @@ class Config:
     ) -> None:
         """Fill tuples so they are all the same length."""
         self.update({
-            k: fill_tuples(vars(self)[k], repeat=repeat, length=length)
+            k: fill_tuples(getattr(self, k), repeat=repeat, length=length)
             for k in attrs
         })
 
@@ -141,92 +161,230 @@ class Config:
     ) -> None:
         """Fill tuple keys so they are all the same length."""
         self.update({
-            k: fill_tuple_keys(vars(self)[k], repeat=repeat, length=length)
+            k: fill_tuple_keys(getattr(self, k), repeat=repeat, length=length)
             for k in attrs
         })
+
+    def extend_attr(
+        self,
+        attr: str,
+        extend_vals: Union[Any, Sequence[Any]],
+    ) -> None:
+        """Extend a list or tuple attr with the given values."""
+        current_vals = getattr(self, attr)
+
+        if not is_non_string_sequence(current_vals):
+            raise AttributeError(f'attribute {attr} is not an extendable type')
+        elif isinstance(current_vals, tuple):
+            extend_vals = tuple_convert(extend_vals)
+        elif isinstance(current_vals, list):
+            extend_vals = list_convert(extend_vals)
+
+        setattr(self, attr, getattr(self, attr) + extend_vals)
+
+    def prepend_dir(self, attrs: Sequence[str], dir: PathLike) -> None:
+        """Prepend the dirpath onto the given attrs.
+
+        Works when the attr is a filepath or a dict of filepaths.
+
+        Parameters
+        ----------
+        dir : str, bytes, os.PathLike, pathlib.Path
+            A directory path to prepend to the paths in attrs.
+        """
+        for attr in attrs:
+            current_attr = getattr(self, attr)
+            if isinstance(current_attr, Mapping):
+                new_attr = {
+                    key: Path(dir, path).as_posix()
+                    for key, path in current_attr.items()
+                }
+                setattr(self, attr, new_attr)
+            else:
+                setattr(self, attr, Path(dir, current_attr).as_posix())
 
 
 class SelectedScenarioConfig(Config):
     """Class to store the selected scenarios."""
 
+    def __init__(self, *args, to_unpack=['selected_scenarios'], **kwargs):
+        """Init like config, then run .combine_input_data()."""
+        super().__init__(*args, to_unpack=to_unpack, **kwargs)
+        self.nones_to_empty_iterator()
 
-class ScenarioConfig(Config):
-    """Class to store the configuration settings for particular scenario."""
+    def nones_to_empty_iterator(self):
+        """Constrain None values to empty iterators.
 
-    def validate(self):
-        """Validate the scenario config against the schema."""
-        validation.validate_config(self)
+        This allows them to still be iterated over in main.py.
+        """
+        for attr, value in vars(self).items():
+            if not value:
+                setattr(self, attr, [])
 
-    def pick_source(self, source: str) -> 'ScenarioConfig':
-        """Select the config parameters for the given source.
 
-        Parameters
-        ----------
-        source : {'web_scraped', 'scanner'}, str
-            The data source to pick the config for.
+class ScenarioConfig(Config, ABC):
+    """Base class for scenario configs."""
+
+    @abstractmethod
+    def validate(self) -> str:
+        """Validate the scenario config against the schema.
 
         Returns
         -------
-        Config
-            An altered version of the main scenario config for the data
-            source.
+        str
+            An error message with all validation errors. Returns an
+            empty string if no errors.
         """
-        if source not in {'web_scraped', 'scanner'}:
-            raise ValueError("source must be 'web_scraped' or 'scanner'")
-
-        new_config = copy(self)
-
-        for key, value in vars(new_config).items():
-            if isinstance(value, dict):
-                if value.get(source, None):
-                    setattr(new_config, key, value.get(source))
-
-        if source == 'web_scraped':
-            # Flattens nested to (supplier, item) tuple.
-            new_config.flatten_nested_dicts(['item_mappers'])
-            # Converts dict to (suppler, item) tuple pairs.
-            new_config.get_key_value_pairs(['input_data'])
-
-        if source == 'scanner':
-            new_config.combine_scanner_input_data()
-
-        return new_config
-
-    def combine_scanner_input_data(self) -> 'ScenarioConfig':
-        """Combine with supplier dict and without supplier list."""
-        scan_input_data = deepcopy(self.input_data)
-
-        # First get key value pairs from the with supplier section.
-        # Since it is a dict.
-        self.input_data = scan_input_data.get('with_supplier', [])
-        if self.input_data:
-            self.get_key_value_pairs(['input_data'])
-
-        # Add the list, and fill the tuples to the same length.
-        self.input_data += scan_input_data.get('without_supplier', [])
-        self.fill_tuples(['input_data'], repeat=True, length=2)
-
-        return self
 
 
 class DevConfig(Config):
     """Class to store the dev config settings."""
 
-    def remove_grouping(self, col):
-        """Remove user defined column from DevConfig."""
-        self.groupby_cols.remove(col)
-        self.web_scraped_preprocess_cols.remove(col)
-        self.scanner_preprocess_cols.remove(col)
+    def add_strata(
+        self,
+        extra_strata: Union[str, Sequence[str]],
+    ) -> None:
+        """Add extra strata columns to DevConfig column list attributes.
 
-    def remove_store_type_from_grouping(self):
-        """Define string to remove store type."""
-        self.remove_grouping('store_type')
+        Adds to the strata columns, the columns to read in from the
+        tables, and the columns taken through from preprocessing.
+        """
+        column_attrs = [
+            'strata_cols',
+            'data_cols',
+            'preprocess_cols',
+        ]
+        for attr in column_attrs:
+            # Ensures that there are no duplicates of the user-specified
+            # strata cols in the result of the subsequent extension, by
+            # checking if they are already in the given attributes
+            # above.
+            missing_strata = [
+                c for c in list_convert(extra_strata)
+                if c not in getattr(self, attr)
+            ]
+            self.extend_attr(attr, missing_strata)
 
-    def remove_geography_from_grouping(self):
-        """Ensure all nuts levels are removed from config."""
-        for col in copy(self.groupby_cols):
-            if col.startswith('nuts'):
-                self.remove_grouping(col)
+    def add_extra_strata_from_config_if_exists(
+        self,
+        config: ScenarioConfig,
+    ) -> None:
+        """Add extra strata from the given config if it is an attr."""
+        if hasattr(config, 'extra_strata') and config.extra_strata:
+            self.add_strata(config.extra_strata)
+
+    def add_extra_data_cols_from_config(
+        self,
+        config: ScenarioConfig,
+    ) -> None:
+        """Add the extra data cols specificed in the scenario config.
+
+        Adds 'sales_value_col' and 'promo_col' from the preprocessing
+        section of the ScanScenarioConfig, the the data_cols attr.
+        """
+        # sales_value_col and promo_col may change with every scenario
+        # so we add to data_cols here.
+        extend_vals = [
+            config.preprocessing['sales_value_col'],
+            config.preprocessing['promo_col'],
+        ]
+        for vals in extend_vals:
+            self.extend_attr('data_cols', vals)
+
+
+class ScanScenarioConfig(ScenarioConfig):
+    """Class with methods for scanner scenario configs."""
+
+    def __init__(
+        self,
+        filename: str,
+        dev_config: DevConfig,
+        subdir='scanner',
+        **kwargs,
+    ):
+        """Init like config, then run .combine_input_data()."""
+        super().__init__(filename, subdir=subdir, **kwargs)
+        self.combine_input_data()
+        self.prepend_dir(
+            attrs=['consumption_segment_mappers'],
+            dir=dev_config.mappers_dir,
+        )
+
+    def validate(self) -> str:
+        return validation.validate_scan_scenario_config(self)
+
+    def combine_input_data(self) -> None:
+        """Combine with supplier dict and without supplier list."""
+        # First get key value pairs from the with supplier section.
+        # Since it is a dict.
+        with_supplier_inputs = get_key_value_pairs(
+            self.input_data.get('with_supplier', {})
+        )
+
+        # Add the list, and fill the tuples to the same length.
+        self.input_data = (
+            with_supplier_inputs
+            + self.input_data.get('without_supplier', [])
+        )
+        self.fill_tuples(['input_data'], repeat=True, length=2)
+
+        return self
+
+
+class WebScrapedScenarioConfig(ScenarioConfig):
+    """Class with methods for web scraped scenario configs."""
+
+    def __init__(
+        self,
+        filename: str,
+        dev_config: DevConfig,
+        subdir='web_scraped',
+        **kwargs,
+    ):
+        """Init like config, then run .combine_input_data()."""
+        super().__init__(filename, subdir=subdir, **kwargs)
+        self.flatten_nested_dicts(['consumption_segment_mappers'])
+        self.get_key_value_pairs(['input_data'])
+        self.prepend_dir(
+            attrs=['consumption_segment_mappers'],
+            dir=dev_config.mappers_dir,
+        )
+
+    def validate(self) -> str:
+        return validation.validate_webscraped_scenario_config(self)
+
+
+class ScanDevConfig(DevConfig):
+    """The per scenario DevConfig for the scanner scenarios."""
+
+    def __init__(
+        self,
+        filename: str,
+        config: ScanScenarioConfig,
+        subdir='scanner',
+    ):
+        """Use the given scenario config to init the dev config."""
+        super().__init__(filename, subdir=subdir)
+
+        # Extra strata are added to all the cols settings in dev config.
+        self.add_extra_strata_from_config_if_exists(config)
+        self.add_extra_data_cols_from_config(config)
+
+
+class WebScrapedDevConfig(DevConfig):
+    """The per scenario DevConfig for the web scraped scenarios."""
+
+    def __init__(
+        self,
+        filename: str,
+        config: WebScrapedScenarioConfig,
+        subdir='web_scraped',
+    ):
+        """Use the given scenario config to init the dev config."""
+        super().__init__(filename, subdir=subdir)
+
+        # Extra strata are added to all the cols settings in dev config.
+        self.add_extra_strata_from_config_if_exists(config)
 
 
 class LoggingConfig:
@@ -309,8 +467,3 @@ class LoggingConfig:
             'disable_existing_loggers': disable_other_loggers,
         }
         dictConfig(logging_config)
-
-
-if __name__ == "__main__":
-    sc_config = ScenarioConfig('scenario_scan')
-    print(sc_config.pick_source('scanner').input_data)

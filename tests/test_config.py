@@ -5,21 +5,36 @@ import pytest
 from cprices.config import *
 from cprices import config
 
+from tests.conftest import (
+    Case,
+    parametrize_cases,
+)
 
-def write_config_yaml(dir, yaml_input: str = "my_attr: test") -> None:
+
+def write_config_yaml(
+    dir,
+    yaml_input: str = "my_attr: test",
+    name: str = 'my_config',
+) -> None:
     """Write a file called my_config.yaml with given yaml at given dir."""
-    with open(dir.join('my_config.yaml'), 'w') as f:
+    with open(dir.join(f'{name}.yaml'), 'w') as f:
         yaml.dump(yaml.safe_load(yaml_input), f)
 
 
 @pytest.fixture
 def test_config(tmpdir, monkeypatch):
     """Sets up a test config file in tmpdir/config with given yaml."""
-    def _(yaml_input: str = "my_attr: test") -> Config:
-        config_dir = tmpdir.mkdir('config')
+    def _(
+        yaml_input: str = "my_attr: test",
+        name: str = 'my_config',
+    ) -> Config:
+        config_dir = (
+            tmpdir.join('config') if tmpdir.join('config').check()
+            else tmpdir.mkdir('config')
+        )
         monkeypatch.setattr(config.Path, 'home', lambda: Path(tmpdir))
-        write_config_yaml(config_dir, yaml_input=yaml_input)
-        return Config('my_config')
+        write_config_yaml(config_dir, yaml_input, name)
+        return Config(name)
     return _
 
 
@@ -244,8 +259,117 @@ class TestConfig:
             ('chips', 'chips', 'chips', 'chips'): 2
         }
 
+    @parametrize_cases(
+        Case(
+            "extend_list_with_list",
+            attr_val=['jasmine', 'ivy'],
+            extend_vals=['bramble', 'lavender'],
+            expected=['jasmine', 'ivy', 'bramble', 'lavender'],
+        ),
+        Case(
+            "extend_list_with_tuple",
+            attr_val=['jasmine', 'ivy'],
+            extend_vals=('bramble', 'lavender'),
+            expected=['jasmine', 'ivy', 'bramble', 'lavender'],
+        ),
+        Case(
+            "extend_list_with_single_value_not_sequence",
+            attr_val=['jasmine', 'ivy'],
+            extend_vals='bramble',
+            expected=['jasmine', 'ivy', 'bramble'],
+        ),
+        Case(
+            "extend_tuple_with_tuple",
+            attr_val=('jasmine', 'ivy'),
+            extend_vals=('bramble',),
+            expected=('jasmine', 'ivy', 'bramble'),
+        ),
+        Case(
+            "extend_tuple_with_list",
+            attr_val=('jasmine', 'ivy'),
+            extend_vals=['bramble'],
+            expected=('jasmine', 'ivy', 'bramble'),
+        ),
+        Case(
+            "extend_tuple_with_single_value_not_sequence",
+            attr_val=('jasmine', 'ivy'),
+            extend_vals='bramble',
+            expected=('jasmine', 'ivy', 'bramble'),
+        ),
+    )
+    def test_extend_attr(
+        self, test_config,
+        attr_val, extend_vals, expected
+    ):
+        """Test extend_attrs works for tuple and list attrs."""
+        conf = test_config()
+        conf.update({'plants': attr_val})
+        conf.extend_attr('plants', extend_vals)
+        assert conf.plants == expected
 
-class TestScenarioConfig:
+    @pytest.mark.parametrize(
+        'attr_val', [{'rosemary'}, 'rosemary', 5, {'one': 1}],
+        ids=lambda x: f"{type(x)}"
+    )
+    def test_extend_attrs_raises_when_attr_is_wrong_type(
+        self, test_config, attr_val,
+    ):
+        conf = test_config()
+        conf.update({'plants': attr_val})
+        with pytest.raises(AttributeError):
+            conf.extend_attr('plants', ['heather'])
+
+    def test_prepend_dir(self, test_config, make_path_like):
+        """Test that the method prepends the given directory to the attrs."""
+        conf = test_config()
+        conf.update({'mappers': make_path_like('jobs/places.csv')})
+
+        test_dir = 'people'
+        conf.prepend_dir(['mappers'], dir=test_dir)
+        assert conf.mappers == 'people/jobs/places.csv'
+
+
+@pytest.fixture
+def mock_dev_config(mocker):
+    """Mock up a dev_config class with the mappers_dir attribute."""
+    dev_config_mock = mocker.MagicMock()
+    dev_config_mock.mappers_dir = 'my_dir'
+    return dev_config_mock
+
+
+@pytest.fixture
+def scenario_scan_config(test_config, monkeypatch, mock_dev_config):
+    """Return a ScanScenarioConfig with the given yaml input."""
+    def _(
+        yaml_input: str,
+        mock_methods_on_init: Union[bool, Sequence[str]] = False
+    ) -> ScanScenarioConfig:
+        test_config(yaml_input, name='scenario_config')
+
+        # Monkeypatch each of the methods given by mock_methods_on_init.The
+        # methods return None, so just patch with that.
+        if mock_methods_on_init is True:
+            mock_methods_on_init = ['prepend_dir', 'combine_input_data']
+        elif not mock_methods_on_init:
+            mock_methods_on_init = []
+
+        with monkeypatch.context() as mp:
+            for method in mock_methods_on_init:
+                mp.setattr(
+                    ScanScenarioConfig,
+                    method,
+                    lambda *args, **kwargs: None,
+                )
+
+            return ScanScenarioConfig(
+                'scenario_config',
+                dev_config=mock_dev_config,
+                subdir=None,
+            )
+    return _
+
+
+class TestScanScenarioConfig:
     """Group of tests for ScenarioConfig."""
 
     @pytest.mark.skip(reason="test shell")
@@ -253,139 +377,365 @@ class TestScenarioConfig:
         """Test for this."""
         pass
 
-    @pytest.fixture
-    def scenario_conf(self, test_config):
-        """Return a Scenario Config with both scanner and web_scraped
-        input_data and item_mappers.
+    def test_combines_input_data_on_init(
+        self, all_in_output, scenario_scan_config,
+    ):
+        """Test that with supplier and without supplier input data is
+        combined on init.
         """
-        test_config("""
+        test_yaml = """
         input_data:
-            scanner:
+            without_supplier:
+                - retailer_1
+                - retailer_2
+            with_supplier:
+                supplier_3:
+                    retailer_3
+        """
+        conf = scenario_scan_config(
+            test_yaml,
+            mock_methods_on_init=['prepend_dir'],
+        )
+        assert all_in_output(
+            output=conf.input_data,
+            values=[
+                ('supplier_3', 'retailer_3'),
+                ('retailer_1', 'retailer_1'),
+                ('retailer_2', 'retailer_2'),
+            ],
+        )
+
+    @parametrize_cases(
+        Case(
+            label="when_both_with_and_without_supplier",
+            yaml_input="""
+            input_data:
                 without_supplier:
                     - retailer_1
                     - retailer_2
                 with_supplier:
                     supplier_3:
                         retailer_3
-            web_scraped:
-                supplier_1:
-                    - single_item_1
-                supplier_2:
-                    - multi_item_timber
-        item_mappers:
-            scanner:
-                retailer_1: /mapper/path/retailer_1.parquet
-                retailer_2: /mapper/path/retailer_2.parquet
-                retailer_3: /mapper/path/retailer_3.parquet
-            web_scraped:
-                supplier_1:
-                    single_item_1: /mapper/path/single_item_1.parquet
-                supplier_2:
-                    multi_item_timber: /mapper/path/multi_item_timber.parquet
-        """)
-        return ScenarioConfig('my_config')
-
-    def test_pick_source_scanner(self, scenario_conf):
-        """Test picks and transforms input data and item_mappers for scanner."""
-        scan_conf = scenario_conf.pick_source('scanner')
-        assert scan_conf.input_data == [
-            ('supplier_3', 'retailer_3'),
-            ('retailer_1', 'retailer_1'),
-            ('retailer_2', 'retailer_2'),
-        ]
-        assert scan_conf.item_mappers == {
-            'retailer_1': '/mapper/path/retailer_1.parquet',
-            'retailer_2': '/mapper/path/retailer_2.parquet',
-            'retailer_3': '/mapper/path/retailer_3.parquet',
-        }
-
-    def test_pick_source_web_scraped(self, scenario_conf, all_in_output):
-        """Test picks and transforms input data and item_mappers for web_scraped."""
-        scan_conf = scenario_conf.pick_source('web_scraped')
-        # Use all_in_output as order of a dict is ambiguous.
+            """,
+            expected=[
+                ('supplier_3', 'retailer_3'),
+                ('retailer_1', 'retailer_1'),
+                ('retailer_2', 'retailer_2'),
+            ],
+        ),
+        Case(
+            label="when_only_with_supplier",
+            yaml_input="""
+            input_data:
+                with_supplier:
+                    supplier_2:
+                        retailer_2
+                    supplier_3:
+                        retailer_3
+            """,
+            expected=[
+                ('supplier_2', 'retailer_2'),
+                ('supplier_3', 'retailer_3'),
+            ],
+        ),
+        Case(
+            label="when_only_without_supplier",
+            yaml_input="""
+            input_data:
+                without_supplier:
+                    - retailer_1
+                    - retailer_2
+            """,
+            expected=[
+                ('retailer_1', 'retailer_1'),
+                ('retailer_2', 'retailer_2'),
+            ],
+        ),
+    )
+    def test_combine_input_data_works(
+        self, all_in_output, yaml_input, expected,
+        scenario_scan_config,
+    ):
+        """Test returns tuple pairs for supplier and retailer, when both
+        without_supplier and with_supplier specified.
+        """
+        # Patches both init methods on creation so the
+        # .combine_input_data() method can be called after.
+        conf = scenario_scan_config(yaml_input, mock_methods_on_init=True)
+        conf.combine_input_data()
+        # Use all_in_output because dict makes order ambiguous.
         assert all_in_output(
-            output=scan_conf.input_data,
+            output=conf.input_data,
+            values=expected,
+        )
+
+
+class TestWebScrapedScenarioConfig:
+    """Tests for the web scraped scenario configs."""
+
+    @pytest.fixture
+    def scenario_conf(self, test_config, mock_dev_config):
+        """Return a Scenario Config with both scanner and web_scraped
+        input_data and item_mappers.
+        """
+        test_config("""
+        input_data:
+            supplier_1:
+                - single_item_1
+            supplier_2:
+                - multi_item_timber
+        consumption_segment_mappers:
+            supplier_1:
+                single_item_1: /mapper/path/single_item_1.parquet
+            supplier_2:
+                multi_item_timber: /mapper/path/multi_item_timber.parquet
+        """)
+        # my_config.yaml created by the call to test_config
+        return WebScrapedScenarioConfig(
+            'my_config',
+            dev_config=mock_dev_config,
+            subdir=None,
+        )
+
+    def test_init_gets_keys_value_pairs_for_input_data(
+        self, all_in_output, scenario_conf
+    ):
+        """Test gets key value pairs for input data as expected."""
+        assert all_in_output(
+            output=scenario_conf.input_data,
             values=[
                 ('supplier_1', 'single_item_1'),
                 ('supplier_2', 'multi_item_timber'),
             ]
         )
-        assert scan_conf.item_mappers == {
+
+    def test_init_flattens_consumption_segment_mappers_dict(
+        self, scenario_conf
+    ):
+        """Test consumption segment mappers nested dict is flat."""
+        assert scenario_conf.consumption_segment_mappers == {
             ('supplier_1', 'single_item_1'): '/mapper/path/single_item_1.parquet',
             ('supplier_2', 'multi_item_timber'): '/mapper/path/multi_item_timber.parquet',
         }
 
-    def test_pick_source_raises_when_wrong_source_passed(self, scenario_conf):
-        """Test raises ValueError if source not web_scraped or scanner."""
-        with pytest.raises(ValueError):
-            scenario_conf.pick_source('pistachio')
 
-    def test_combine_scanner_input_data_works_when_both_with_and_without_supplier(
-        self, test_config
-    ):
-        """Test returns tuple pairs for supplier and retailer, when both
-        without_supplier and with_supplier specified.
-        """
-        test_config(yaml_input="""
-        input_data:
-            without_supplier:
-                - retailer_1
-                - retailer_2
-            with_supplier:
-                supplier_3:
-                    retailer_3
-        """)
-        conf = ScenarioConfig('my_config')
-        conf = conf.combine_scanner_input_data()
-        assert conf.input_data == [
-            ('supplier_3', 'retailer_3'),
-            ('retailer_1', 'retailer_1'),
-            ('retailer_2', 'retailer_2'),
-        ]
+@pytest.fixture
+def dev_config(test_config):
+    """Return DevConfig file with columns to be removed."""
+    test_config(yaml_input="""
+    strata_cols:
+        - col_1
+        - col_2
+    preprocess_cols:
+        - col_3
+        - col_4
+    data_cols:
+        - col_6
+        - col_7
+    """)
 
-    def test_combine_scanner_input_data_works_when_only_with_supplier(
-        self, test_config, all_in_output
-    ):
-        """Test returns tuple pairs for supplier and retailer, when only
-        with_supplier specified.
-        """
-        test_config(yaml_input="""
-        input_data:
-            with_supplier:
-                supplier_2:
-                    retailer_2
-                supplier_3:
-                    retailer_3
-        """)
-        conf = ScenarioConfig('my_config')
-        conf = conf.combine_scanner_input_data()
-        # Use all_in_output as order of a dict is ambiguous.
-        assert all_in_output(
-            output=conf.input_data,
-            values=[
-                ('supplier_2', 'retailer_2'),
-                ('supplier_3', 'retailer_3'),
-            ],
-        )
+    return DevConfig("my_config")
 
-    def test_combine_scanner_input_data_works_when_only_without_supplier(
-        self, test_config
+
+class TestDevConfig:
+    """Group of tests for DevConfig."""
+
+    @parametrize_cases(
+        Case(
+            label="add_list_of_new_values",
+            new_strata=['new_1', 'new_2'],
+            exp_strata_cols=['col_1', 'col_2', 'new_1', 'new_2'],
+            exp_preprocess_cols=['col_3', 'col_4', 'new_1', 'new_2'],
+            exp_data_cols=['col_6', 'col_7', 'new_1', 'new_2'],
+        ),
+        Case(
+            label="add_single_new_value",
+            new_strata='new_1',
+            exp_strata_cols=['col_1', 'col_2', 'new_1'],
+            exp_preprocess_cols=['col_3', 'col_4', 'new_1'],
+            exp_data_cols=['col_6', 'col_7', 'new_1'],
+        ),
+        Case(
+            label="doesnt_add_if_already_in_cols",
+            new_strata='col_1',
+            exp_strata_cols=['col_1', 'col_2'],
+            exp_preprocess_cols=['col_3', 'col_4', 'col_1'],
+            exp_data_cols=['col_6', 'col_7', 'col_1'],
+        ),
+    )
+    def test_add_strata(
+        self,
+        dev_config,
+        new_strata,
+        exp_strata_cols,
+        exp_preprocess_cols,
+        exp_data_cols,
     ):
-        """Test returns tuple pairs for supplier and retailer, when only
-        without_supplier specified.
+        """Test add_strata method in DevConfig."""
+        dev_config.add_strata(new_strata)
+
+        assert dev_config.strata_cols == exp_strata_cols
+        assert dev_config.preprocess_cols == exp_preprocess_cols
+        assert dev_config.data_cols == exp_data_cols
+
+    @parametrize_cases(
+        Case(
+            "adds_when_it_exists",
+            scenario_yaml="""
+            extra_strata:
+                - sedimentary
+                - igneous
+            """,
+            exp_strata_cols=['col_1', 'col_2', 'sedimentary', 'igneous'],
+            exp_preprocess_cols=['col_3', 'col_4', 'sedimentary', 'igneous'],
+            exp_data_cols=['col_6', 'col_7', 'sedimentary', 'igneous'],
+        ),
+        Case(
+            "doesnt_add_when_it_is_None",
+            scenario_yaml="""
+            extra_strata:
+            """,
+            exp_strata_cols=['col_1', 'col_2'],
+            exp_preprocess_cols=['col_3', 'col_4'],
+            exp_data_cols=['col_6', 'col_7'],
+        ),
+        Case(
+            "doesnt_add_when_there_is_no_extra_strata_section",
+            scenario_yaml="""
+            other_section: blah
+            """,
+            exp_strata_cols=['col_1', 'col_2'],
+            exp_preprocess_cols=['col_3', 'col_4'],
+            exp_data_cols=['col_6', 'col_7'],
+        ),
+    )
+    def test_add_extra_strata_if_exists(
+        self, scenario_scan_config, dev_config, scenario_yaml,
+        exp_strata_cols, exp_preprocess_cols, exp_data_cols,
+    ):
+        """Test when the add_extra_strata_if_exists() method is called
+        with a ScenarioConfig, that it does nothing when extra strata is
+        empty or doesn't exist.
         """
-        test_config(yaml_input="""
-        input_data:
-            without_supplier:
-                - retailer_1
-                - retailer_2
-        """)
-        conf = ScenarioConfig('my_config')
-        conf = conf.combine_scanner_input_data()
-        assert conf.input_data == [
-            ('retailer_1', 'retailer_1'),
-            ('retailer_2', 'retailer_2'),
-        ]
+        config = scenario_scan_config(scenario_yaml, mock_methods_on_init=True)
+
+        dev_config.add_extra_strata_from_config_if_exists(config)
+
+        assert dev_config.strata_cols == exp_strata_cols
+        assert dev_config.preprocess_cols == exp_preprocess_cols
+        assert dev_config.data_cols == exp_data_cols
+
+    def test_add_extra_data_cols_from_config(
+        self, dev_config, scenario_scan_config,
+    ):
+        """Test it adds preprocess columns to data_cols attribute."""
+        scenario_yaml = """
+        preprocessing:
+            sales_value_col: sales_value
+            promo_col: promo
+        """
+        config = scenario_scan_config(scenario_yaml, mock_methods_on_init=True)
+
+        dev_config.add_extra_data_cols_from_config(config)
+        assert dev_config.data_cols == ['col_6', 'col_7', 'sales_value', 'promo']
+
+
+class TestScanDevConfig:
+    """Tests for the ScanDevConfig."""
+
+    @pytest.fixture
+    def scan_dev_config(self, dev_config, scenario_scan_config):
+        """Create an instance of ScanDevConfig with extra strata and
+        preprocessing sections.
+        """
+        yaml_input = """
+        extra_strata:
+            - sedimentary
+            - igneous
+        preprocessing:
+            sales_value_col: sales_value
+            promo_col: promo
+        """
+        config = scenario_scan_config(yaml_input, mock_methods_on_init=True)
+
+        # my_config.yaml is created by the dev_config fixture.
+        return ScanDevConfig("my_config", subdir=None, config=config)
+
+    def test_adds_extra_strata_to_cols_attrs_on_init(self, scan_dev_config):
+        assert all([
+            new_col in getattr(scan_dev_config, attr)
+            for attr in ['strata_cols', 'preprocess_cols', 'data_cols']
+            for new_col in ['sedimentary', 'igneous']
+        ])
+
+    def test_adds_config_cols_to_data_cols_on_init(
+        self, scan_dev_config
+    ):
+        assert all([
+            new_col in getattr(scan_dev_config, 'data_cols')
+            for new_col in ['sales_value', 'promo']
+        ])
+
+
+@pytest.fixture
+def scenario_web_scraped_config(test_config, monkeypatch, mock_dev_config):
+    """Return a WebScrapedScenarioConfig with the given yaml input."""
+    def _(
+        yaml_input: str,
+        mock_methods_on_init: Union[bool, Sequence[str]] = False
+    ) -> WebScrapedScenarioConfig:
+        test_config(yaml_input, name='scenario_config')
+
+        # Monkeypatch each of the methods given by mock_methods_on_init.
+        # The methods return None, so just patch with that.
+        if mock_methods_on_init is True:
+            mock_methods_on_init = [
+                'prepend_dir',
+                'flatten_nested_dicts',
+                'get_key_value_pairs',
+            ]
+        elif not mock_methods_on_init:
+            mock_methods_on_init = []
+
+        with monkeypatch.context() as mp:
+            for method in mock_methods_on_init:
+                mp.setattr(
+                    WebScrapedScenarioConfig,
+                    method,
+                    lambda *args, **kwargs: None,
+                )
+
+            return WebScrapedScenarioConfig(
+                'scenario_config',
+                dev_config=mock_dev_config,
+                subdir=None,
+            )
+    return _
+
+
+class WebScrapedDevConfig:
+    """Tests for the WebScrapedDevConfig"""
+
+    @pytest.fixture
+    def web_dev_config(self, dev_config, scenario_web_scraped_config):
+        """Create an instance of ScanDevConfig with extra strata and
+        preprocessing sections.
+        """
+        yaml_input = """
+        extra_strata:
+            - sedimentary
+            - igneous
+        """
+        config = scenario_web_scraped_config(yaml_input, mock_methods_on_init=True)
+        # my_config.yaml is created by the dev_config fixture.
+        return WebScrapedDevConfig("my_config", subdir=None, config=config)
+
+    def test_adds_extra_strata_to_cols_attrs_on_init(self, web_dev_config):
+        assert all([
+            new_col in getattr(web_dev_config, attr)
+            for attr in ['strata_cols', 'preprocess_cols', 'data_cols']
+            for new_col in ['sedimentary', 'igneous']
+        ])
 
 
 class TestLoggingConfig:
@@ -415,51 +765,3 @@ class TestLoggingConfig:
     def test_set_logging_config(self):
         """Test for this."""
         pass
-
-
-class TestDevConfig:
-    """Group of tests for DevConfig."""
-
-    @pytest.fixture
-    def dev_config(self, test_config):
-        """Return DevConfig file with columns to be removed."""
-        test_config(yaml_input="""
-        groupby_cols:
-            - col_1
-            - col_2
-            - nuts1_name
-            - nuts2_name
-            - nuts3_name
-            - store_type
-        web_scraped_preprocess_cols:
-            - col_3
-            - nuts1_name
-            - nuts2_name
-            - nuts3_name
-            - store_type
-        scanner_preprocess_cols:
-            - col_4
-            - col_5
-            - nuts1_name
-            - nuts2_name
-            - nuts3_name
-            - store_type
-        """)
-
-        return DevConfig("my_config")
-
-    def test_remove_geography_from_grouping(self, dev_config):
-        """Test nuts columns are removed from config."""
-        dev_config.remove_geography_from_grouping()
-
-        assert dev_config.groupby_cols == ['col_1', 'col_2', 'store_type']
-        assert dev_config.web_scraped_preprocess_cols == ['col_3', 'store_type']
-        assert dev_config.scanner_preprocess_cols == ['col_4', 'col_5', 'store_type']
-
-    def test_remove_store_type_from_grouping(self, dev_config):
-        """Test store type columns are removed from config."""
-        dev_config.remove_store_type_from_grouping()
-
-        assert dev_config.groupby_cols == ['col_1', 'col_2', 'nuts1_name', 'nuts2_name', 'nuts3_name']
-        assert dev_config.web_scraped_preprocess_cols == ['col_3', 'nuts1_name', 'nuts2_name', 'nuts3_name']
-        assert dev_config.scanner_preprocess_cols == ['col_4', 'col_5', 'nuts1_name', 'nuts2_name', 'nuts3_name']

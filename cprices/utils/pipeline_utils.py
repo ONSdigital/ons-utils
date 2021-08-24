@@ -115,3 +115,18 @@ def get_config_params(spark: SparkSession, config: Config) -> SparkDF:
     )
 
     return spark.createDataFrame(configuration)
+
+
+def check_empty(df: SparkDF) -> None:
+    """Raise a DataFrameEmptyError if DataFrame is empty."""
+    if len(df.head(1)) == 0:
+        raise DataFrameEmptyError
+
+
+class DataFrameEmptyError(Exception):
+
+    def __str__(self):
+        return (
+            "The DataFrame is empty."
+            " Check the mappers have the correct values."
+        )

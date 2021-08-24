@@ -334,27 +334,26 @@ class TestConcat:
         ),
         Case(
             "can_concatenate_two_dfs_with_different_columns",
-            marks=pytest.mark.xfail(reason="requires pyspark v3.1.0 and code change"),
             input_data=pytest.lazy_fixture('cheese_list_diff_cols'),
             keys=['british', 'italian'],
             names=['country'],
-            expected=create_dataframe([
-                ('country', 'tasted', 'name', 'crumbliness', 'maturity', 'tang', 'creaminess', 'saltiness'),
-                ('british', 'yes', 'cheddar', 3, 4, 4, 2, None),
-                ('british', 'yes', 'caerphilly', 3, 3, 2, 2, None),
-                ('italian', 'buffalo mozzarella', None, None, None, None, 4, 3),
-                ('italian', 'ricotta', None, None, None, None, 5, 1),
-            ])
+            expected=[
+                ('british', 'cheddar', 3, 4, 4, 2, None),
+                ('british', 'caerphilly', 3, 3, 2, 2, None),
+                ('italian', 'buffalo mozzarella', None, None, None, 4, 3),
+                ('italian', 'ricotta', None, None, None, 5, 1),
+            ],
+            schema='country string, name string, crumbliness long, maturity long, tang long, creaminess long, saltiness long',
         ),
     )
     def test_union_dataframes_sequence_input_cases(
         self, to_spark,
-        input_data, keys, names, expected,
+        input_data, keys, names, expected, schema
     ):
         """Test all the positive cases for unioning dataframes with concat."""
         actual = concat(input_data, names, keys)
 
-        assert_df_equality(actual, to_spark(expected), ignore_nullable=True)
+        assert_df_equality(actual, to_spark(expected, schema), ignore_nullable=True)
 
     def test_unions_all_dataframes_in_mapping_input_when_keys_is_None(
         self, to_spark, cheese_dict, solo_keys_expected
