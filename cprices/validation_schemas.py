@@ -128,7 +128,21 @@ def outlier_detection_schema() -> Dict:
 
 def grouping_schema() -> Dict:
     """Return schema for grouping validation."""
-    pass
+    return {
+        'active': {'type': 'boolean'},
+        'post_grouping_averaging_method': {
+            # There are no weights in web_scraped yet.
+            'unweighted_arithmetic',
+            'unweighted_geometric',
+        },
+        'mappers': {'type': 'dict'},
+        'keysrules': {'type': 'string'},
+        'valuesrules': {
+            'type': ['dict', 'str'],
+            'keysrules': {'type': 'string'},
+            'valuesrules': {'type': 'integer'},
+        }
+    }
 
 
 def averaging_schema() -> Dict:
