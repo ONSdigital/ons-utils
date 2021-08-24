@@ -10,6 +10,7 @@ from typing import Dict, Mapping, Sequence
 def full_schema(sections: Sequence[str]) -> Dict[str, Dict]:
     """Return the full schema for the given sections."""
     schema = non_section_schema()
+    schema.update(consumption_segment_mappers_schema())
     schema.update({
         k: v for k, v in schema_sections().items()
         if k in sections
@@ -87,6 +88,17 @@ def preprocessing_schema() -> Dict:
             'type': 'list',
             'allowed': {1, 2, 3, 4},
             'nullable': True,
+        },
+    }
+
+
+def consumption_segment_mappers_schema() -> Dict:
+    """Return schema for consumption segment mappers validation."""
+    return {
+        'consumption_segment_mappers': {
+            'type': 'dict',
+            'keyschema': {'type': ['string', 'list']},
+            'valueschema': {'type': 'string'},
         },
     }
 
