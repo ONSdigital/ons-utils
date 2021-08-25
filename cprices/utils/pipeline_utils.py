@@ -17,6 +17,13 @@ import os
 from typing import Dict, Mapping
 
 from humanfriendly import format_timespan
+import matplotlib as mpl
+# So matplotlib works over SSH.
+if os.environ.get('DISPLAY', '') == '':
+    print(
+        'No display found. Using non-interactive Agg backend for matplotlib.'
+    )
+    mpl.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
 
