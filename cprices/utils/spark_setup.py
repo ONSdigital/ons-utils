@@ -108,7 +108,7 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
     ):
         miscmods_path = (
             Path(
-                'opt', 'ons', 'virtualenv', f'miscMods_v{miscmods_version}',
+                '/opt', 'ons', 'virtualenv', f'miscMods_v{miscmods_version}',
                 'bin', 'python3.6',
             ).as_posix()
         )
