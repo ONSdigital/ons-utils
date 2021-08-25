@@ -128,5 +128,5 @@ class DataFrameEmptyError(Exception):
     def __str__(self):
         return (
             "The DataFrame is empty."
-            " Check the mappers have the correct values."
+            " Investigate the issue, fix and rerun the pipeline."
         )
