@@ -14,6 +14,7 @@ Provides:
 from datetime import datetime
 import logging
 import os
+import textwrap
 from typing import Dict, Mapping
 
 from humanfriendly import format_timespan
@@ -137,3 +138,21 @@ class DataFrameEmptyError(Exception):
             "The DataFrame is empty."
             " Investigate the issue, fix and rerun the pipeline."
         )
+
+
+def wrap_print(s: str) -> None:
+    """Apply dedent and wrap triple quoted text nicely."""
+    # Splitting and joining on double line break preserves the
+    # paragraphs.
+    final_str = (
+        '\n\n'.join([
+            textwrap.fill(paragraph, 100)
+            for paragraph in textwrap.dedent(s).split('\n\n')
+        ])
+    )
+    if final_str[0] == ' ':
+        # Remove the first char as it's whitespace. Occurs when doing a
+        # line break straight after triple quotes.
+        final_str = final_str[1:]
+
+    print(final_str)
