@@ -141,7 +141,7 @@ class DataFrameEmptyError(Exception):
         )
 
 
-def wrap_print(s: str) -> None:
+def nice_wrap(s: str) -> str:
     """Apply dedent and wrap triple quoted text nicely."""
     # Splitting and joining on double line break preserves the
     # paragraphs.
@@ -156,7 +156,7 @@ def wrap_print(s: str) -> None:
         # line break straight after triple quotes.
         final_str = final_str[1:]
 
-    print(final_str)
+    return final_str
 
 
 def to_title(s: str) -> str:
