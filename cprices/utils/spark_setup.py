@@ -113,6 +113,7 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
             )
             .resolve(strict=True)  # strict=True raises FileNotFoundError
             .as_posix()
+        )
 
         LOGGER.info(
             f'Setting PYSPARK_PYTHON environment variable to {miscmods_path}'
