@@ -74,6 +74,7 @@ def spark_config(spark: SparkSession, session_size: str = 'default') -> None:
         spark.conf.set('spark.workerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
 
     spark.conf.set('spark.executor.memory', executor_memory)
+    spark.conf.set('spark.executor.memoryOverhead', 600)
     spark.conf.set('spark.executor.cores', executor_cores)
     spark.conf.set('spark.dynamicAllocation.maxExecutors', max_executors)
     spark.conf.set('spark.yarn.executor.memoryOverhead', memory_overhead)
