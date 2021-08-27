@@ -18,7 +18,7 @@ import textwrap
 from typing import Dict, Mapping
 
 from humanfriendly import format_timespan
-import matplotlib.pyplot as plt
+import matplotlib as mpl
 import pandas as pd
 
 from pyspark.sql import (
@@ -32,13 +32,14 @@ from cprices.utils import spark_helpers
 
 LOGGER = logging.getLogger()
 
-import matplotlib as mpl    # noqa: E402
 # So matplotlib works over SSH.
 if os.environ.get('DISPLAY', '') == '':
     LOGGER.debug(
         'No display found. Using non-interactive Agg backend for matplotlib.'
     )
     mpl.use('Agg')
+
+import matplotlib.pyplot as plt     # noqa: E402
 
 
 def combine_scenario_df_outputs(
