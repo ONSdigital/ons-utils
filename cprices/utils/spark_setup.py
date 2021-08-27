@@ -16,20 +16,25 @@ from cprices._typing import FilePath
 LOGGER = logging.getLogger('')
 
 
-def start_spark_session(session_size: str = 'default') -> SparkSession:
+def start_spark_session(
+    session_size: str = 'default',
+    miscmods_version: float = 3.05,
+) -> SparkSession:
     """Start the Spark Session.
 
     Parameters
     ----------
     session_size : {'default', 'large'}, str
         The Spark session size.
+    miscmods_version : float, default 3.05
+        The minimum miscmods version number to use.
 
     Returns
     -------
     SparkSession
     """
     # Overrides PYSPARK_PYTHON if lower miscmods version than specified.
-    set_pyspark_python_env(miscmods_version=3.05)
+    set_pyspark_python_env(miscmods_version=miscmods_version)
 
     spark = (
         SparkSession.builder.appName('cprices')
