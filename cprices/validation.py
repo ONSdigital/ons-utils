@@ -10,6 +10,8 @@ Both functions return an error message that can be used to raise an
 exception. The intention is that the messages from all scenarios will be
 combined before being raised.
 """
+from functools import lru_cache
+import logging
 from typing import Dict, Sequence, Mapping, Union, Hashable
 
 import cerberus
@@ -126,14 +128,21 @@ def get_mapper_errors(config, sections: Sequence[str]) -> Sequence[str]:
 def validate_filepaths(filepaths: Mapping[Hashable, str]) -> Sequence[str]:
     """Validate a dict of filepaths and output resulting errors."""
     err_msgs = []
+    logger = logging.getLogger()
     # Flatten so it can handle any nesting level.
     for key, path in filepaths.items():
-        if not hdfs.test(path):
+        if not file_exists_on_hdfs(path):
             err_msgs.append(
                 f"{key}: file at {path} does not exist."
             )
 
+    logger.debug(file_exists_on_hdfs.cache_info())
     return err_msgs
+
+
+@lru_cache(maxsize=32)
+def file_exists_on_hdfs(path: str):
+    return hdfs.test(path)
 
 
 def get_underlined_header(header: str, char: str = '-') -> str:
