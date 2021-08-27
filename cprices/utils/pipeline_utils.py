@@ -156,3 +156,8 @@ def wrap_print(s: str) -> None:
         final_str = final_str[1:]
 
     print(final_str)
+
+
+def to_title(s: str):
+    """Prints a title with underline and newline."""
+    print(f"{s.replace('_', ' ').title()}\n{len(s) * '='}\n\n")
