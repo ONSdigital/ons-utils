@@ -49,7 +49,8 @@ class Config:
             the config file.
         to_unpack : sequence of str
             A list of keys that contain mappings to unpack. The mappings
-            at given keys will be set as new attributes directly.
+            at given keys will be set as new attributes directly, in
+            addition to the mapping being added as a normal attribute.
         """
         self.name = filename
         self.config_path = self.get_config_path(subdir)
@@ -115,16 +116,16 @@ class Config:
         Parameters
         ----------
         to_unpack : sequence of str
-            A list of keys that contain mappings to unpack. Instructs
-            the method to unpack mappings at given keys by setting them
-            as new attributes directly.
+            A list of keys that contain mappings to unpack. The mappings
+            at given keys will be set as new attributes directly, in
+            addition to the mapping being added as a normal attribute.
         """
         if not isinstance(attrs, Mapping):
             raise ConfigFormatError
 
         # Initialise to_unpack as empty list if not given.
         for attr in to_unpack if to_unpack else []:
-            nested_mapping = attrs.pop(attr)
+            nested_mapping = attrs[attr]
             if not isinstance(nested_mapping, Mapping):
                 raise TypeError(
                     f"given attr {attr} to unpack must be a mapping"
