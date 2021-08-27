@@ -99,7 +99,7 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
     """
     current_env = os.getenv('PYSPARK_PYTHON')
     # The PYSPARK_PYTHON variable is predefined so will try and check this.
-    LOGGER.info(
+    LOGGER.debug(
         f'PYSPARK_PYTHON environment variable is preset to {current_env}'
     )
 
@@ -119,7 +119,7 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
             .as_posix()
         )
 
-        LOGGER.info(
+        LOGGER.debug(
             f'Setting PYSPARK_PYTHON environment variable to {miscmods_path}'
         )
         os.environ['PYSPARK_PYTHON'] = miscmods_path

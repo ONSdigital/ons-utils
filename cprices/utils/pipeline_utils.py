@@ -18,13 +18,6 @@ import textwrap
 from typing import Dict, Mapping
 
 from humanfriendly import format_timespan
-import matplotlib as mpl
-# So matplotlib works over SSH.
-if os.environ.get('DISPLAY', '') == '':
-    print(
-        'No display found. Using non-interactive Agg backend for matplotlib.'
-    )
-    mpl.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -38,6 +31,14 @@ from cprices.utils.helpers import invert_nested_keys
 from cprices.utils import spark_helpers
 
 LOGGER = logging.getLogger()
+
+import matplotlib as mpl    # noqa: E402
+# So matplotlib works over SSH.
+if os.environ.get('DISPLAY', '') == '':
+    LOGGER.debug(
+        'No display found. Using non-interactive Agg backend for matplotlib.'
+    )
+    mpl.use('Agg')
 
 
 def combine_scenario_df_outputs(
@@ -92,7 +93,6 @@ def plot_run_times(times: Mapping[str, float]) -> None:
     # # Reverse the index.
     # run_times = run_times.reindex(run_times.index[::-1])
     run_times = _get_run_times_as_df(times)
-    LOGGER.info(times)
 
     plt.figure()
     run_times.plot(kind='barh', stacked=True, title='Run time [seconds]')
@@ -158,6 +158,6 @@ def wrap_print(s: str) -> None:
     print(final_str)
 
 
-def to_title(s: str):
+def to_title(s: str) -> str:
     """Prints a title with underline and newline."""
-    print(f"{s.replace('_', ' ').title()}\n{len(s) * '='}\n\n")
+    return f"\n{s.replace('_', ' ').title()}\n{len(s) * '='}"
