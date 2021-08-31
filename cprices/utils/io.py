@@ -61,16 +61,36 @@ def read_output(spark: SparkSession, run_id: str, output: str) -> SparkDF:
     return spark.read.parquet(path)
 
 
-def get_recent_run_ids() -> pd.Series:
-    """Return the last 20 cprices run IDs."""
+def get_recent_run_ids(
+    n: int = 20,
+    username: Optional[str] = None,
+) -> pd.Series:
+    """Return the recent cprices run IDs.
+
+    Parameters
+    ----------
+    username : str, default None
+        Filter for recent runs for a CDSW username.
+    n : int, default 20
+        The number of recent cprices run IDs to return.
+
+    Returns
+    -------
+    pandas Series
+        The ``n`` recent run IDs, filtered for ``username`` if given.
+    """
     dirs = hdfs.read_dir(dev_config.processed_dir)
     # Date and time are at the 5 and 6 indices respectively.
     datetimes = [d[5] + ' ' + d[6] for d in dirs]
     # The full file path is in the last index position.
     run_ids = [Path(d[-1]).stem for d in dirs]
 
-    return (
-        pd.DataFrame({'time': pd.to_datetime(datetimes), 'run_id': run_ids})
-        .sort_values('time', ascending=False)
-        .run_id.head(20)
+    run_ids = (
+        pd.Series(run_ids, index=pd.to_datetime(datetimes), name='run_id')
+        .sort_index(ascending=False)
     )
+
+    if username:
+        run_ids = run_ids.loc[run_ids.str.contains(username)]
+
+    return run_ids.head(n)
