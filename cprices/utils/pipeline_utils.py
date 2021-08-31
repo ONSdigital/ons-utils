@@ -15,7 +15,7 @@ from datetime import datetime
 import logging
 import os
 import textwrap
-from typing import Dict, Mapping
+from typing import Callable, Dict, Mapping, Optional
 
 from humanfriendly import format_timespan
 import matplotlib as mpl
@@ -162,3 +162,34 @@ def nice_wrap(s: str) -> str:
 def to_title(s: str) -> str:
     """Prints a title with underline and newline."""
     return f"\n{s.replace('_', ' ').title()}\n{len(s) * '='}"
+
+
+# Created this function to potentially use instead of just cache().count()
+# as it provides some additional logging. Intention is that it would be
+# used with an if statement to potentially stop the function in its tracks,
+# resulting in no output for a given scenario. But then continuing on
+# with the run to calculate further scenarios.
+def count_rows_and_check_if_empty(
+    df: SparkDF,
+    stage: str,
+    scenario_name: str,
+    logger: Optional[Callable[[str], None]] = print,
+) -> bool:
+    """Count DataFrame rows and return True if empty.
+
+    Caches the DataFrame before the count so the output from the Spark
+    execution plan is saved in memory. Logs the number of rows in the
+    DataFrame. Prints a warning if the DataFrame is empty.
+    """
+    n_rows = df.cache().count()
+    if n_rows == 0:
+        logger.warning(f"""
+            DataFrame after stage {stage} is empty for scenario
+            {scenario_name}. Contact emerging platforms to investigate
+            why. There will be no results for this scenario. Continuing
+            to the next.
+        """)
+        return True
+    else:
+        logger.info(f"DataFrame after {stage} stage has {n_rows} rows.")
+        return False
