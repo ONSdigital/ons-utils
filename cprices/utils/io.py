@@ -17,7 +17,7 @@ from epds_utils import hdfs
 
 from cprices.config import DevConfig
 
-dev_config = DevConfig('dev_config')
+dev_config = DevConfig('dev_config', to_unpack=['directories'])
 
 
 def read_hive_table(
@@ -53,7 +53,11 @@ def read_output(spark: SparkSession, run_id: str, output: str) -> SparkDF:
         'inliers_outliers', 'expenditure', 'filtered', 'configuration'}
 
     """
-    path = Path(dev_config.processed_dir).joinpath(run_id, output)
+    path = (
+        Path(dev_config.processed_dir)
+        .joinpath(run_id, output)
+        .as_posix()
+    )
     return spark.read.parquet(path)
 
 
