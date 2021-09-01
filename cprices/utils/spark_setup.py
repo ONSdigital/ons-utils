@@ -16,20 +16,25 @@ from cprices._typing import FilePath
 LOGGER = logging.getLogger('')
 
 
-def start_spark_session(session_size: str = 'default') -> SparkSession:
+def start_spark_session(
+    session_size: str = 'default',
+    miscmods_version: float = 3.05,
+) -> SparkSession:
     """Start the Spark Session.
 
     Parameters
     ----------
     session_size : {'default', 'large'}, str
         The Spark session size.
+    miscmods_version : float, default 3.05
+        The minimum miscmods version number to use.
 
     Returns
     -------
     SparkSession
     """
     # Overrides PYSPARK_PYTHON if lower miscmods version than specified.
-    set_pyspark_python_env(miscmods_version=3.05)
+    set_pyspark_python_env(miscmods_version=miscmods_version)
 
     spark = (
         SparkSession.builder.appName('cprices')
@@ -69,6 +74,7 @@ def spark_config(spark: SparkSession, session_size: str = 'default') -> None:
         spark.conf.set('spark.workerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
 
     spark.conf.set('spark.executor.memory', executor_memory)
+    spark.conf.set('spark.executor.memoryOverhead', 600)
     spark.conf.set('spark.executor.cores', executor_cores)
     spark.conf.set('spark.dynamicAllocation.maxExecutors', max_executors)
     spark.conf.set('spark.yarn.executor.memoryOverhead', memory_overhead)
@@ -94,7 +100,7 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
     """
     current_env = os.getenv('PYSPARK_PYTHON')
     # The PYSPARK_PYTHON variable is predefined so will try and check this.
-    LOGGER.info(
+    LOGGER.debug(
         f'PYSPARK_PYTHON environment variable is preset to {current_env}'
     )
 
@@ -108,12 +114,13 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
     ):
         miscmods_path = (
             Path(
-                'opt', 'ons', 'virtualenv', f'miscMods_v{miscmods_version}',
-                'bin', 'python3.6',
-            ).as_posix()
+                '/opt/ons/virtualenv', f'miscMods_v{miscmods_version}',
+                'bin/python3.6',
+            )
+            .as_posix()
         )
 
-        LOGGER.info(
+        LOGGER.debug(
             f'Setting PYSPARK_PYTHON environment variable to {miscmods_path}'
         )
         os.environ['PYSPARK_PYTHON'] = miscmods_path

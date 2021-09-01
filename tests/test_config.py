@@ -159,8 +159,9 @@ class TestConfig:
         attr_keys = vars(conf).keys()
         assert 'jenny' in attr_keys
         assert 'bruce' in attr_keys
-        # The mapping at 'names' is unpacked directly to the attributes above.
-        assert 'names' not in attr_keys
+        # The mapping at 'names' is also in attribute, in addition to
+        # the mapping being unpacked directly.
+        assert 'names' in attr_keys
         assert 'kids' in attr_keys
 
     def test_set_attrs_raises_TypeError_when_attr_to_unpack_is_not_mapping(

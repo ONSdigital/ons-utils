@@ -10,6 +10,7 @@ from typing import Dict, Mapping, Sequence
 def full_schema(sections: Sequence[str]) -> Dict[str, Dict]:
     """Return the full schema for the given sections."""
     schema = non_section_schema()
+    schema.update(consumption_segment_mappers_schema())
     schema.update({
         k: v for k, v in schema_sections().items()
         if k in sections
@@ -91,6 +92,17 @@ def preprocessing_schema() -> Dict:
     }
 
 
+def consumption_segment_mappers_schema() -> Dict:
+    """Return schema for consumption segment mappers validation."""
+    return {
+        'consumption_segment_mappers': {
+            'type': 'dict',
+            'keyschema': {'type': ['string', 'list']},
+            'valueschema': {'type': 'string'},
+        },
+    }
+
+
 def outlier_detection_schema() -> Dict:
     """Return schema for outlier detection validation."""
     return {
@@ -128,7 +140,25 @@ def outlier_detection_schema() -> Dict:
 
 def grouping_schema() -> Dict:
     """Return schema for grouping validation."""
-    pass
+    return {
+        'active': {'type': 'boolean'},
+        'post_grouping_averaging_method': {
+            # There are no weights in web_scraped yet.
+            'allowed': {
+                'unweighted_arithmetic',
+                'unweighted_geometric',
+            }
+        },
+        'mappers': {
+            'type': 'dict',
+            'keyschema': {'type': 'string'},
+            'valueschema': {
+                'type': 'dict',
+                'keyschema': {'type': 'string'},
+                'valueschema': {'type': 'string'},
+            },
+        },
+    }
 
 
 def averaging_schema() -> Dict:

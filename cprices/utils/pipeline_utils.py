@@ -14,10 +14,11 @@ Provides:
 from datetime import datetime
 import logging
 import os
-from typing import Dict, Mapping
+import textwrap
+from typing import Callable, Dict, Mapping, Optional
 
 from humanfriendly import format_timespan
-import matplotlib.pyplot as plt
+import matplotlib as mpl
 import pandas as pd
 
 from pyspark.sql import (
@@ -30,6 +31,15 @@ from cprices.utils.helpers import invert_nested_keys
 from cprices.utils import spark_helpers
 
 LOGGER = logging.getLogger()
+
+# So matplotlib works over SSH.
+if os.environ.get('DISPLAY', '') == '':
+    LOGGER.debug(
+        'No display found. Using non-interactive Agg backend for matplotlib.'
+    )
+    mpl.use('Agg')
+
+import matplotlib.pyplot as plt     # noqa: E402
 
 
 def combine_scenario_df_outputs(
@@ -84,7 +94,6 @@ def plot_run_times(times: Mapping[str, float]) -> None:
     # # Reverse the index.
     # run_times = run_times.reindex(run_times.index[::-1])
     run_times = _get_run_times_as_df(times)
-    LOGGER.info(times)
 
     plt.figure()
     run_times.plot(kind='barh', stacked=True, title='Run time [seconds]')
@@ -128,5 +137,59 @@ class DataFrameEmptyError(Exception):
     def __str__(self):
         return (
             "The DataFrame is empty."
-            " Check the mappers have the correct values."
+            " Investigate the issue, fix and rerun the pipeline."
         )
+
+
+def nice_wrap(s: str) -> str:
+    """Apply dedent and wrap triple quoted text nicely."""
+    # Splitting and joining on double line break preserves the
+    # paragraphs.
+    final_str = (
+        '\n\n'.join([
+            textwrap.fill(paragraph, 100)
+            for paragraph in textwrap.dedent(s).split('\n\n')
+        ])
+    )
+    if final_str[0] == ' ':
+        # Remove the first char as it's whitespace. Occurs when doing a
+        # line break straight after triple quotes.
+        final_str = final_str[1:]
+
+    return final_str
+
+
+def to_title(s: str) -> str:
+    """Prints a title with underline and newline."""
+    return f"\n{s.replace('_', ' ').title()}\n{len(s) * '='}"
+
+
+# Created this function to potentially use instead of just cache().count()
+# as it provides some additional logging. Intention is that it would be
+# used with an if statement to potentially stop the function in its tracks,
+# resulting in no output for a given scenario. But then continuing on
+# with the run to calculate further scenarios.
+def count_rows_and_check_if_empty(
+    df: SparkDF,
+    stage: str,
+    scenario_name: str,
+    logger: Optional[Callable[[str], None]] = print,
+) -> bool:
+    """Count DataFrame rows and return True if empty.
+
+    Caches the DataFrame before the count so the output from the Spark
+    execution plan is saved in memory. Logs the number of rows in the
+    DataFrame. Prints a warning if the DataFrame is empty.
+    """
+    n_rows = df.cache().count()
+    if n_rows == 0:
+        logger.warning(nice_wrap(f"""
+            DataFrame after stage {stage} is empty for scenario
+            {scenario_name}. Contact emerging platforms to investigate
+            why. There will be no results for this scenario. Continuing
+            to the next.
+        """))
+        return True
+    else:
+        logger.info(f"DataFrame after {stage} stage has {n_rows} rows.")
+        return False
