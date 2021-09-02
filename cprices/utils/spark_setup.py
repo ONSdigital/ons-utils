@@ -10,6 +10,7 @@ from typing import Union
 
 from epds_utils.hdfs import hdfs_utils
 from pyspark.sql import SparkSession
+import IPython
 
 from cprices._typing import FilePath
 
@@ -78,6 +79,12 @@ def spark_config(spark: SparkSession, session_size: str = 'default') -> None:
     spark.conf.set('spark.executor.cores', executor_cores)
     spark.conf.set('spark.dynamicAllocation.maxExecutors', max_executors)
     spark.conf.set('spark.yarn.executor.memoryOverhead', memory_overhead)
+
+
+def launch_spark_ui() -> None:
+    """Displays a link to launch the Spark UI."""
+    url = f"spark-{os.environ['CDSW_ENGINE_ID']}.{os.environ['CDSW_DOMAIN']}"
+    return IPython.display.HTML(f"<a href=http://{url}>Spark UI</a>")
 
 
 def set_pyspark_python_env(miscmods_version: float) -> None:
