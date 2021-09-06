@@ -277,6 +277,7 @@ class DevConfig(Config):
     def add_extra_data_cols_from_config(
         self,
         config: ScenarioConfig,
+        extend_
     ) -> None:
         """Add the extra data cols specificed in the scenario config.
 
@@ -287,7 +288,7 @@ class DevConfig(Config):
         # so we add to data_cols here.
         extend_vals = [
             config.preprocessing['sales_value_col'],
-            config.preprocessing['discount_col'],
+            # config.preprocessing['discount_col'],  # TODO (matt price) raise with Mitch why this is cannot be hardcoded..
         ]
         for vals in extend_vals:
             self.extend_attr('data_cols', vals)
