@@ -633,12 +633,12 @@ class TestDevConfig:
         scenario_yaml = """
         preprocessing:
             sales_value_col: sales_value
-            promo_col: promo
+            discount_col: discount_col
         """
         config = scenario_scan_config(scenario_yaml, mock_methods_on_init=True)
 
         dev_config.add_extra_data_cols_from_config(config)
-        assert dev_config.data_cols == ['col_6', 'col_7', 'sales_value', 'promo']
+        assert dev_config.data_cols == ['col_6', 'col_7', 'sales_value', 'discount_col']
 
 
 class TestScanDevConfig:
@@ -655,7 +655,7 @@ class TestScanDevConfig:
             - igneous
         preprocessing:
             sales_value_col: sales_value
-            promo_col: promo
+            discount_col: discount_col
         """
         config = scenario_scan_config(yaml_input, mock_methods_on_init=True)
 
@@ -674,7 +674,7 @@ class TestScanDevConfig:
     ):
         assert all([
             new_col in getattr(scan_dev_config, 'data_cols')
-            for new_col in ['sales_value', 'promo']
+            for new_col in ['sales_value', 'discount_col']
         ])
 
 

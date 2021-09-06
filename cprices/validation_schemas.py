@@ -65,8 +65,8 @@ def preprocessing_schema() -> Dict:
             'type': 'string',
             'allowed': {'gtin', 'productid_ons', 'sku'},
         },
-        'calc_price_before_discount': {'type': 'boolean'},
-        'promo_col': {
+        'remove_discounts': {'type': 'boolean'},
+        'discount_col': {
             'type': 'string',
             'allowed': {'price_promo_discount', 'multi_promo_discount'},
         },
