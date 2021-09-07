@@ -277,7 +277,6 @@ class DevConfig(Config):
     def add_extra_data_cols_from_config(
         self,
         config: ScenarioConfig,
-        extend_
     ) -> None:
         """Add the extra data cols specificed in the scenario config.
 
