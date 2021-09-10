@@ -34,6 +34,7 @@ def test_doesnt_set_pyspark_python_env_when_already_later_version(monkeypatch):
     assert os.getenv('PYSPARK_PYTHON') == '/opt/ons/virtualenv/miscMods_v3.10/bin/python3.6'
 
 
+@pytest.mark.skip(reason='bug with functions and tests so reverting code to create spark session.')
 @pytest.mark.spark
 class TestSparkConf:
     """Tests for the spark_conf function."""

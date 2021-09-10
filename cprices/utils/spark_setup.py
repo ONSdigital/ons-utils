@@ -36,18 +36,47 @@ def start_spark_session(
     """
     # Overrides PYSPARK_PYTHON if lower miscmods version than specified.
     set_pyspark_python_env(miscmods_version=miscmods_version)
+    node_name = os.getenv('CDSW_NODE_NAME')
+    node_id = re.search(r'([a-z])\d{2}', node_name).group(1)
+    if node_id == 'd':
+        LOGGER.debug(f'Setting up a {session_size} DevTest spark_session')
 
-    spark = (
-        SparkSession.builder.appName('cprices')
-        .config('spark.dynamicAllocation.enabled', 'true')
-        .config('spark.shuffle.service.enabled', 'true')
-        .config('spark.ui.showConsoleProgress', 'false')
-        .enableHiveSupport()
-        .getOrCreate()
-    )
-    # Configure Spark based on which cluster it's on.
-    spark_config(spark, session_size)
-    return spark
+        executor_memory = '8g' if session_size == 'large' else '2g'
+        executor_cores = 3 if session_size == 'large' else 1
+        return (
+            SparkSession.builder.appName('cprices')
+            .config('spark.executor.memory', executor_memory)
+            .config('spark.yarn.executor.memoryOverhead', '1g')
+            .config('spark.executor.cores', executor_cores)
+            .config('spark.dynamicAllocation.maxExecutors', 3)
+            .config('spark.dynamicAllocation.enabled', 'true')
+            .config('spark.shuffle.service.enabled', 'true')
+            # This stops progress bars appearing in the console whilst running
+            .config('spark.ui.showConsoleProgress', 'false')
+            .enableHiveSupport()
+            .getOrCreate()
+        )
+
+    elif node_id in ['p', 'u']:
+        LOGGER.debug('Setting up a Prod spark_session')
+
+        return (
+            SparkSession.builder.appName('cprices')
+            .config('spark.dynamicAllocation.enabled', 'true')
+            .config('spark.shuffle.service.enabled', 'true')
+            .config('spark.ui.showConsoleProgress', 'false')
+            #.config("spark.sql.shuffle.partitions", 240)  # DAPCAT XL session
+            .config('spark.executor.memory', '20g')
+            #.config('spark.executor.memoryOverhead', 600)  # not in old prod session
+            .config('spark.executor.cores', 5)
+            .config('spark.dynamicAllocation.maxExecutors', 12)
+            .config('spark.yarn.executor.memoryOverhead', '2g')
+            .config('spark.driver.maxResultSize', '6g')
+            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+            .config('spark.workerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
+            .enableHiveSupport()
+            .getOrCreate()
+        )
 
 
 def spark_config(spark: SparkSession, session_size: str = 'default') -> None:
