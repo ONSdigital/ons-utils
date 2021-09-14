@@ -2,15 +2,18 @@
 
 Includes:
 * read_hive_table - Python friendly Hive table reader
+* write_hive_table - Python friendly Hive table writer
 * read_output - Reads the given output dataframe for a given run_id.
 * get_recent_run_ids - Returns the last 20 run_ids for the pipeline.
 """
-from typing import Optional, Sequence
+import os
 from pathlib import Path
+from typing import Callable, Optional, Sequence
 
 import pandas as pd
 from pyspark.sql import (
     DataFrame as SparkDF,
+    functions as F,
     SparkSession,
 )
 from epds_utils import hdfs
@@ -39,7 +42,60 @@ def read_hive_table(
     return spark.sql(f"SELECT {selection} FROM {table_path}")
 
 
-def read_output(spark: SparkSession, run_id: str, output: str) -> SparkDF:
+def write_hive_table(
+    spark: SparkSession,
+    df: SparkDF,
+    table_name: str,
+    mode: str = 'overwrite',
+    logger: Optional[Callable[[str], None]] = print,
+ ) -> None:
+    """
+    Create a Hive table from a spark dataframe.
+
+    Will also add two columns:
+
+        * 'append_timestamp' - the timestamp for when the row was added
+        * 'append_user' - the username of the person who added the row
+
+    Note, to delete a table entirely in the Hive editor in HUE run the
+    following SQL query (note this has no warning before executing)
+
+        DROP TABLE <database name>.<table name>
+
+    Parameters
+    ----------
+    spark
+        Active spark session.
+    df : SparkDF
+        The spark dataframe to be saved ot Hive table.
+    table_name : str
+        The name to be used for the table, should be of form
+            <database name>.<table name>
+    mode : str, optional {'overwrite', 'append'}
+        Whether to overwrite or append to the Hive table.
+    logger : callable, default print
+        Optional logger that accepts a string argument
+    """
+    logger(f'Will {mode.upper()} data to {table_name}')
+
+    (
+        df
+        .withColumn('append_timestamp', F.current_timestamp())
+        .withColumn('append_user', F.lit(os.environ['HADOOP_USER_NAME']))
+        .write
+        .saveAsTable(
+            table_name,
+            format='hive',
+            mode=mode
+        )
+    )
+
+
+def read_output(
+    spark: SparkSession,
+    run_id: str,
+    output: str
+) -> SparkDF:
     """Read the given output for the given run_id.
 
     Parameters

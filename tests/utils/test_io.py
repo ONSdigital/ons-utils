@@ -9,6 +9,12 @@ def test_read_hive_table():
 
 
 @pytest.mark.skip(reason="test shell")
+def test_write_hive_table():
+    """Test for this."""
+    pass
+
+
+@pytest.mark.skip(reason="test shell")
 def test_read_output():
     """Test for this."""
     pass
