@@ -116,11 +116,12 @@ def get_mapper_errors(config, sections: Sequence[str]) -> Sequence[str]:
     # Get mapper errors.
     mapper_err_msgs = []
     for section in sections:
-        err_msgs = validate_filepaths(getattr(config, section))
-        if err_msgs:
-            mapper_err_msgs.append(
-                "\n".join(['\n' + section + ' errors:'] + err_msgs)
-            )
+        pass
+#         err_msgs = validate_filepaths(getattr(config, section))
+#         if err_msgs:
+#             mapper_err_msgs.append(
+#                 "\n".join(['\n' + section + ' errors:'] + err_msgs)
+#             )
 
     return mapper_err_msgs
 
