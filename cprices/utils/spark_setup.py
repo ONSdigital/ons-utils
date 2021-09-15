@@ -18,67 +18,113 @@ LOGGER = logging.getLogger('')
 
 
 def start_spark_session(
-    session_size: str = 'default',
+    session_size: str = 'medium',
     miscmods_version: float = 3.05,
+    appname: str = 'cprices'
 ) -> SparkSession:
     """Start the Spark Session.
 
+    Provides the DAPCATs recommended (with some minor variation) session sizes:
+
+        * small
+        * medium
+        * large (UAT or Prod only)
+        * XL (UAT or Prod only)
+
+    as detailed here:
+    http://np2rvlapxx507/DAP_CATS/guidance/-/blob/master/spark_session_sizes.ipynb
+
     Parameters
     ----------
-    session_size : {'default', 'large'}, str
+    session_size : {'small', 'medium', 'large', 'xl'}, str
         The Spark session size.
     miscmods_version : float, default 3.05
         The minimum miscmods version number to use.
+    appname : str
+        The spark session app name, which is post-pended by the session size
 
     Returns
     -------
     SparkSession
-    """
+    """   # noqa: E501
     # Overrides PYSPARK_PYTHON if lower miscmods version than specified.
     set_pyspark_python_env(miscmods_version=miscmods_version)
 
-    spark = (
-        SparkSession.builder.appName('cprices')
-        .config('spark.dynamicAllocation.enabled', 'true')
-        .config('spark.shuffle.service.enabled', 'true')
-        .config('spark.ui.showConsoleProgress', 'false')
-        .enableHiveSupport()
-        .getOrCreate()
-    )
-    # Configure Spark based on which cluster it's on.
-    spark_config(spark, session_size)
+    if session_size == 'small':
+        LOGGER.debug('Setting up a small spark session')
+        spark = (
+            SparkSession.builder.appName(f'{appname}-small')
+            .config("spark.executor.memory", "1g")
+            .config("spark.executor.cores", 1)
+            .config("spark.dynamicAllocation.enabled", "true")
+            .config("spark.dynamicAllocation.maxExecutors", 3)
+            .config("spark.sql.shuffle.partitions", 12)
+            .config("spark.shuffle.service.enabled", "true")
+            .config("spark.ui.showConsoleProgress", "false")
+            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+            .config('spark.workerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
+            .enableHiveSupport()
+            .getOrCreate()
+        )
+
+    elif session_size == 'medium':
+        LOGGER.debug('Setting up a medium spark session')
+        spark = (
+            SparkSession.builder.appName(f'{appname}-medium')
+            .config("spark.executor.memory", "8g")
+            .config("spark.executor.cores", 3)
+            .config("spark.dynamicAllocation.enabled", "true")
+            .config("spark.dynamicAllocation.maxExecutors", 3)
+            .config("spark.sql.shuffle.partitions", 18)
+            .config("spark.shuffle.service.enabled", "true")
+            .config("spark.ui.showConsoleProgress", "false")
+            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+            .config('spark.workerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
+            .enableHiveSupport()
+            .getOrCreate()
+          )
+
+    elif session_size == 'large':
+        LOGGER.debug('Setting up a large spark session')
+        spark = (
+            SparkSession.builder.appName(f'{appname}-large')
+            .config("spark.executor.memory", "10g")
+            .config("spark.yarn.executor.memoryOverhead", "1g")
+            .config("spark.executor.cores", 5)
+            .config("spark.dynamicAllocation.enabled", "true")
+            .config("spark.dynamicAllocation.maxExecutors", 5)
+            .config("spark.sql.shuffle.partitions", 200)
+            .config("spark.shuffle.service.enabled", "true")
+            .config("spark.ui.showConsoleProgress", "false")
+            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+            .config('spark.workerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
+            .enableHiveSupport()
+            .getOrCreate()
+        )
+
+    elif session_size == 'xl':
+        LOGGER.debug('Setting up an extra large spark session')
+        spark = (
+            SparkSession.builder.appName(f'{appname}-xl')
+            .config("spark.executor.memory", "20g")
+            .config("spark.yarn.executor.memoryOverhead", "2g")
+            .config("spark.executor.cores", 5)
+            .config("spark.dynamicAllocation.enabled", "true")
+            .config("spark.dynamicAllocation.maxExecutors", 12)
+            .config("spark.sql.shuffle.partitions", 240)  # = multiple of cores x max executors
+            .config("spark.shuffle.service.enabled", "true")
+            .config("spark.ui.showConsoleProgress", "false")
+            .config('spark.driver.maxResultSize', '6g')
+            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+            .config('spark.workerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
+            .enableHiveSupport()
+            .getOrCreate()
+        )
+
+    # leave a link to open the sparkUI
+    launch_spark_ui()
+
     return spark
-
-
-def spark_config(spark: SparkSession, session_size: str = 'default') -> None:
-    """Set the Spark config based on CDSW node."""
-    # Get the node ID from the environment variable.
-    node_name = os.getenv('CDSW_NODE_NAME')
-    node_id = re.search(r'([a-z])\d{2}', node_name).group(1)
-
-    # 'd' for DevTest, 'u' for UAT, 'p' for Prod.
-    if node_id == 'd':
-        # For DevTest.
-        executor_memory = '8g' if session_size == 'large' else '2g'
-        executor_cores = 3 if session_size == 'large' else 1
-        max_executors = 3
-        memory_overhead = '1g'
-    elif node_id in ['p', 'u']:
-        # For Prod and UAT.
-        executor_memory = '20g'
-        executor_cores = 5
-        max_executors = 12
-        memory_overhead = '2g'
-
-        spark.conf.set('spark.driver.maxResultSize', '6g')
-        spark.conf.set('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-        spark.conf.set('spark.workerEnv.ARROW_PREW_0_15_IPC_FORMAT', 1)
-
-    spark.conf.set('spark.executor.memory', executor_memory)
-    spark.conf.set('spark.executor.memoryOverhead', 600)
-    spark.conf.set('spark.executor.cores', executor_cores)
-    spark.conf.set('spark.dynamicAllocation.maxExecutors', max_executors)
-    spark.conf.set('spark.yarn.executor.memoryOverhead', memory_overhead)
 
 
 def launch_spark_ui() -> None:

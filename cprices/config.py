@@ -280,14 +280,14 @@ class DevConfig(Config):
     ) -> None:
         """Add the extra data cols specificed in the scenario config.
 
-        Adds 'sales_value_col' and 'promo_col' from the preprocessing
+        Adds 'sales_value_col' and 'discount_col' from the preprocessing
         section of the ScanScenarioConfig, the the data_cols attr.
         """
-        # sales_value_col and promo_col may change with every scenario
+        # sales_value_col and discount_col may change with every scenario
         # so we add to data_cols here.
         extend_vals = [
             config.preprocessing['sales_value_col'],
-            config.preprocessing['promo_col'],
+            # config.preprocessing['discount_col'],  # TODO (matt price) raise with Mitch why this is cannot be hardcoded..
         ]
         for vals in extend_vals:
             self.extend_attr('data_cols', vals)
