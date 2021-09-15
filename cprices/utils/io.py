@@ -8,7 +8,8 @@ Includes:
 """
 import os
 from pathlib import Path
-from typing import Callable, Optional, Sequence
+import textwrap
+from typing import Callable, Dict, Optional, Sequence
 
 import pandas as pd
 from pyspark.sql import (
@@ -27,19 +28,126 @@ def read_hive_table(
     spark: SparkSession,
     table_path: str,
     columns: Optional[Sequence[str]] = None,
+    date_column: Optional[str] = None,
+    date_range: Optional[Sequence[str]] = None,
+    column_filter_dict: Optional[Dict[str, Sequence[str]]] = dict(),
 ) -> SparkDF:
     """Read Hive table given table path and column selection.
 
     Parameters
     ----------
+    spark
+        Spark session.
     table_path : str
         Hive table path in format "database_name.table_name".
     columns : list of str, optional
         The column selection. Selects all columns if None passed.
+    date_column : Optional, str
+        The name of the column to be used to filter the date range on.
+    date_range : Optional, sequence (lower bound date, upper bound date)
+        Sequence with two values, a lower and upper value for dates to load in.
+    column_filter_dict : Optional, dict
+        A dictionary containing column: [values] where the values correspond to
+        terms in the column that are to be filtered by.
+
+    Returns
+    -------
+    SparkDF
     """
+    return spark.sql(
+        build_sql_query(
+            table_path=table_path,
+            columns=columns,
+            date_column=date_column,
+            date_range=date_range,
+            column_filter_dict=column_filter_dict
+        )
+    )
+
+
+def build_sql_query(
+    table_path: str,
+    columns: Optional[Sequence[str]] = None,
+    date_column: Optional[str] = None,
+    date_range: Optional[Sequence[str]] = None,
+    column_filter_dict: Optional[Dict[str, Sequence[str]]] = None,
+) -> str:
+    """
+    Create the SQL query to load the data with the specified filter conditions.
+
+    Parameters
+    ----------
+    spark
+        Spark session.
+    table_path : str
+        Hive table path in format "database_name.table_name".
+    columns : list of str, optional
+        The column selection. Selects all columns if None passed.
+    date_column : Optional, str
+        The name of the column to be used to filter the date range on.
+    date_range : Optional, sequence (lower bound date, upper bound date)
+        Sequence with two values, a lower and upper value for dates to load in.
+    column_filter_dict : Optional, dict
+        A dictionary containing column: [values] where the values correspond to
+        terms in the column that are to be filtered by.
+
+    Returns
+    -------
+    str
+        The string containing the SQL query.
+    """
+    # Create empty list to store all parts of query - combined at end.
+    sql_query = []
+
+    # Flag to check whether or not to use a WHERE or AND statement as only one
+    # instance of WHERE is allowed in a query.
+    first_filter_applied = False
+
     # Join columns to comma-separated string for the SQL query.
-    selection = ','.join(columns) if columns else '*'
-    return spark.sql(f"SELECT {selection} FROM {table_path}")
+    selection = ', '.join(columns) if columns else '*'
+
+    sql_query.append(f"SELECT {selection} FROM {table_path}")
+
+    if date_column and date_range:
+        sql_query.append("WHERE (")
+        sql_query.append(f"{date_column} >= '{date_range[0]}'")
+        sql_query.append(f"AND {date_column} < '{date_range[1]}'")
+        sql_query.append(")")
+
+        first_filter_applied = True
+
+    # Add any column-value specific filters onto the query. Addtional queries
+    # are of the form:
+    # AND (column_A = 'value1' OR column_A = 'value2' OR ...)
+    if column_filter_dict:
+        for column in column_filter_dict.keys():
+            # First query for column is different to subsequent ones. If date
+            # has been filtered we use AND, if not we use WHERE for the first
+            # instance.
+            if first_filter_applied:
+                sql_query.append(f"""
+                    AND (\n{column} = '{column_filter_dict[column][0]}'
+                """)
+            else:
+                sql_query.append(f"""
+                    WHERE (\n{column} = '{column_filter_dict[column][0]}'
+                """)
+
+                first_filter_applied = True
+
+            # Subsequent queries on column are the same form but use OR.
+            if len(column_filter_dict[column]) > 1:
+                for item in column_filter_dict[column][1:]:
+                    sql_query.append(f"OR {column} = '{item}'\n")
+
+            # close off the column filter query
+            sql_query.append(')\n')
+
+
+    # Join entries in list into one nicely formatted string for easier unit
+    # testing. Use textwrap.dedent to remove leading whitespace from multiline
+    # strings.
+    return '\n'.join([textwrap.dedent(line.strip()) for line in sql_query])
 
 
 def write_hive_table(
