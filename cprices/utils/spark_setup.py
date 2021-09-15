@@ -111,7 +111,7 @@ def start_spark_session(
             .config("spark.executor.cores", 5)
             .config("spark.dynamicAllocation.enabled", "true")
             .config("spark.dynamicAllocation.maxExecutors", 12)
-            .config("spark.sql.shuffle.partitions", 240)
+            .config("spark.sql.shuffle.partitions", 240)  # = multiple of cores x max executors
             .config("spark.shuffle.service.enabled", "true")
             .config("spark.ui.showConsoleProgress", "false")
             .config('spark.driver.maxResultSize', '6g')
