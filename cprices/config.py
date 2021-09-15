@@ -306,10 +306,6 @@ class ScanScenarioConfig(ScenarioConfig):
         """Init like config, then run .combine_input_data()."""
         super().__init__(filename, subdir=subdir, **kwargs)
         self.combine_input_data()
-        self.prepend_dir(
-            attrs=['consumption_segment_mappers'],
-            dir=dev_config.mappers_dir,
-        )
 
     def validate(self) -> str:
         return validation.validate_scan_scenario_config(self)
@@ -346,10 +342,6 @@ class WebScrapedScenarioConfig(ScenarioConfig):
         super().__init__(filename, subdir=subdir, **kwargs)
         self.flatten_nested_dicts(['consumption_segment_mappers'])
         self.get_key_value_pairs(['input_data'])
-        self.prepend_dir(
-            attrs=['consumption_segment_mappers'],
-            dir=dev_config.mappers_dir,
-        )
 
     def validate(self) -> str:
         return validation.validate_webscraped_scenario_config(self)
