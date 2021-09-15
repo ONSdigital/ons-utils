@@ -123,7 +123,7 @@ def build_sql_query(
         for column in column_filter_dict.keys():
             # First query for column is different to subsequent ones. If date
             # has been filtered we use AND, if not we use WHERE for the first
-            # isntance.
+            # instance.
             if first_filter_applied:
                 sql_query.append(f"""
                     AND (\n{column} = '{column_filter_dict[column][0]}'
