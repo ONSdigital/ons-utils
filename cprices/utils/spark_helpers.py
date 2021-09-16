@@ -7,6 +7,8 @@ from typing import (
     Callable,
     List,
     Mapping,
+    Tuple,
+    Set,
     Any,
     Sequence,
     Union,
@@ -27,6 +29,17 @@ from pyspark.sql.functions import lit, create_map, col, array
 from .helpers import list_convert
 
 Key = Sequence[Union[str, Sequence[str]]]
+
+# The order of these is important, big ---> small.
+SPARK_NUMBER_TYPES = [
+    'decimal(10,0)',
+    'double',
+    'float',
+    'bigint',
+    'int',
+    'smallint',
+    'tinyint',
+]
 
 
 def to_spark_col(_func=None, *, exclude: Sequence[str] = None) -> Callable:
@@ -148,24 +161,54 @@ def concat(
     else:
         frames = list(frames)
 
-    all_dtypes = set()
+    col_schemas = set()
     for frame in frames:
         if not isinstance(frame, SparkDF):
             raise TypeError(
                 f"cannot concatenate object of type '{type(frame)}'; "
                 "only pyspark.sql.DataFrame objs are valid"
             )
-        # Get a list of all column names and types across frames.
-        all_dtypes.update(frame.dtypes)
+        # Get a set of all column schemas (name, type) across frames.
+        col_schemas.update(frame.dtypes)
 
     # Allows dataframes with different columns to be concatenated.
     # Remove when Spark 3.1.0 available.
     filled_frames = []
     for frame in frames:
-        for column, data_type in all_dtypes-set(frame.dtypes):
-            # If frame missing column, then add with null value.
-            frame = frame.withColumn(column, F.lit(None).cast(data_type))
+        for column, dtype in col_schemas-set(frame.dtypes):
+
+            # Check for multiple dtypes in the column schemas for each
+            # column name.
+            col_dtypes = _get_column_types(col_schemas, column)
+
+            if len(col_dtypes) > 1:
+                # If multiple number dtypes, then cast all columns of
+                # same name to largest number dtype present.
+                if _are_all_number_types(col_dtypes):
+                    dtype = _get_largest_number_dtype(col_dtypes)
+                # If multiple dtypes and string dtype present, then cast
+                # all columns of same name to string dtype.
+                elif any(dtype == 'string' for dtype in col_dtypes):
+                    dtype = 'string'
+                else:
+                    raise TypeError(
+                        "Spark column data type mismatch for column:"
+                        f" {column}. Can't auto-convert between types"
+                        f" {col_dtypes}."
+                    )
+
+            # If current frame missing the column in the schema, then
+            # set values to Null.
+            vals = (
+                F.lit(None) if column not in frame.columns
+                else F.col(column)
+            )
+            # Cast the values with the correct dtype.
+            frame = frame.withColumn(column, vals.cast(dtype))
+
         filled_frames.append(frame)
+
+    # Set frames as the filled frames.
     frames = copy(filled_frames)
 
     # Update with commented line when Spark 3.1.0 available.
@@ -258,3 +301,41 @@ def get_hive_table_columns(spark, table_path) -> List[str]:
 def transform(self, f, *args, **kwargs):
     """Chain Pyspark function."""
     return f(self, *args, **kwargs)
+
+
+def _get_column_types(
+    column_schemas: Sequence[Tuple[str, str]],
+    column_name: str,
+) -> Set[str]:
+    """Return a set of all data types present for a given column name.
+
+    Parameters
+    ----------
+    schema
+        A sequence of simple column schemas in the form (name, dtype).
+    column_name
+        The column name to match on in the sequence of column schemas.
+
+    Returns
+    -------
+    set
+        A set of all dtypes present in the column_schemas for a given
+        column name.
+    """
+    return {
+        dtype for name, dtype in column_schemas
+        if name == column_name
+    }
+
+
+def _are_all_number_types(dtypes: Sequence[str]) -> bool:
+    """Return True if all dtypes are Spark number data types."""
+    return all(dtype in SPARK_NUMBER_TYPES for dtype in dtypes)
+
+
+def _get_largest_number_dtype(dtypes: Sequence[str]) -> str:
+    """Return the largest Spark number data type in the input."""
+    return next((
+        dtype for dtype in SPARK_NUMBER_TYPES
+        if dtype in dtypes
+    ))

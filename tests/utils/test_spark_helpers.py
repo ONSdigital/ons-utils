@@ -3,14 +3,22 @@ import math
 
 from chispa import assert_df_equality
 import pandas as pd
+
 from pyspark.sql import (
     Column as SparkCol,
+    column,
     functions as F,
 )
 import pytest
+from pytest_lazyfixture import lazy_fixture
 
 from cprices.utils.spark_helpers import *
-from cprices.utils.spark_helpers import _convert_to_spark_col
+from cprices.utils.spark_helpers import (
+    _convert_to_spark_col,
+    _get_largest_number_dtype,
+    _are_all_number_types,
+    _get_column_types,
+)
 from tests.conftest import create_dataframe, Case, parametrize_cases
 
 
@@ -295,7 +303,7 @@ class TestConcat:
     @parametrize_cases(
         Case(
             "with_no_additional_columns_when_only_frames_passed",
-            input_data=pytest.lazy_fixture('cheese_list'),
+            input_data=lazy_fixture('cheese_list'),
             keys=None,
             names=None,
             expected=create_dataframe([
@@ -311,14 +319,14 @@ class TestConcat:
         ),
         Case(
             "with_additional_column_when_keys_and_names_passed",
-            input_data=pytest.lazy_fixture('cheese_list'),
+            input_data=lazy_fixture('cheese_list'),
             keys=['french', 'greek', 'british'],
             names='country',
-            expected=pytest.lazy_fixture('solo_keys_expected')
+            expected=lazy_fixture('solo_keys_expected')
         ),
         Case(
             "with_two_additional_columns_with_tuple_keys",
-            input_data=pytest.lazy_fixture('cheese_list'),
+            input_data=lazy_fixture('cheese_list'),
             keys=[('french', 'no'), ('greek', 'yes'), ('british', 'yes')],
             names=['country', 'tasted'],
             expected=create_dataframe([
@@ -334,7 +342,7 @@ class TestConcat:
         ),
         Case(
             "can_concatenate_two_dfs_with_different_columns",
-            input_data=pytest.lazy_fixture('cheese_list_diff_cols'),
+            input_data=lazy_fixture('cheese_list_diff_cols'),
             keys=['british', 'italian'],
             names=['country'],
             expected=[
@@ -386,6 +394,151 @@ class TestConcat:
         ]))
         assert_df_equality(actual, expected, ignore_nullable=True)
 
+    def test_casts_lower_number_type_before_concat_to_prevent_nulls(
+        self, create_spark_df
+    ):
+        """Test that when one dataframe is float and other int, the
+        concat works by casting the int column to float before
+        concatenating."""
+        df1 = create_spark_df([
+            ('breed',       'weight'),
+            ('schnauzer',    7      ),
+            ('bull mastiff', 12     ),
+            ('chihuahua',    2      ),
+        ])
+
+        # Weights are ints in first df, but floats in this df.
+        df2 = create_spark_df([
+            ('breed',       'weight'),
+            ('jack russell', 3.2    ),
+            ('puli',         13.4   ),
+            ('doberman',     14.8   ),
+        ])
+
+        actual = concat([df1, df2])
+
+        # All weights are floats in the expected output.
+        expected = create_spark_df([
+            ('breed',       'weight'),
+            ('schnauzer',    7.0    ),
+            ('bull mastiff', 12.0   ),
+            ('chihuahua',    2.0    ),
+            ('jack russell', 3.2    ),
+            ('puli',         13.4   ),
+            ('doberman',     14.8   ),
+        ])
+
+        assert_df_equality(actual, expected)
+        # Assert that the output has the same dtypes as the dataframe
+        # with the higher precedence number type i.e. float.
+        assert actual.dtypes == df2.dtypes
+
+    def test_casts_column_to_str_if_concatenating_str_column_with_non_str_column(
+        self, create_spark_df,
+    ):
+        """Test that if the type in a column of one of the frames to
+        be concatenated is string, then the types of that column in the
+        other frames should be cast to str before concatenating."""
+        df1 = create_spark_df([
+            ('store_type', 'branch'),
+            ('1', 'outlet'),
+            ('2', 'high street'),
+        ])
+
+        df2 = create_spark_df([
+            ('store_type', 'branch'),
+            (3, 'outlet'),
+            (4, 'high street'),
+        ])
+
+        df3 = create_spark_df([
+            ('store_type', 'branch'),
+            (5, 3.2),
+        ])
+
+        actual = concat([df1, df2, df3])
+
+        # Should convert the column in each dataframe to string, if the
+        # dtype is str for one of the dataframes.
+        expected = create_spark_df([
+            ('store_type', 'branch'),
+            ('1', 'outlet'),
+            ('2', 'high street'),
+            ('3', 'outlet'),
+            ('4', 'high street'),
+            ('5', '3.2'),
+        ])
+
+        assert_df_equality(actual, expected)
+
+    def test_fills_missing_column_with_Nones_before_concatenating(
+        self, create_spark_df,
+    ):
+        """When a column is missing, it should be filled with Nones
+        before concatenating."""
+        df1 = create_spark_df([
+            ('unit',        'speed', 'attack'),
+            ('camel_rider',  11,      9      ),
+            ('knight',       13,      12     ),
+        ])
+        df2 = create_spark_df([
+            ('unit',        'attack'),
+            ('villager',     1      ),
+            ('archer',       5      ),
+        ])
+
+        actual = concat([df1, df2])
+
+        expected = create_spark_df([
+            ('unit',        'speed', 'attack'),
+            ('camel_rider',  11,      9      ),
+            ('knight',       13,      12     ),
+            ('villager',     None,    1      ),
+            ('archer',       None,    5      ),
+        ])
+
+        assert_df_equality(actual, expected)
+
+    def test_can_handle_differing_types_and_missing_columns(
+        self, create_spark_df,
+    ):
+        """Test that concat is capable of coercing to the right types
+        and filling missing columns."""
+        df1 = create_spark_df([
+            ('unit',        'speed', 'attack'),
+            ('camel_rider',  11,      '9'      ),
+            ('knight',       13,      '12'     ),
+        ])
+        df2 = create_spark_df([
+            ('unit',        'attack'),
+            ('villager',     1      ),
+            ('archer',       5      ),
+        ])
+        df3 = create_spark_df([
+            ('unit',        'speed'),
+            ('monk',         2.2   ),
+            ('ballista',     2.4   ),
+        ])
+
+        actual = concat([df1, df2, df3])
+
+        expected = create_spark_df([
+            ('unit',        'speed', 'attack'),
+            ('camel_rider',  11.0,    '9'    ),
+            ('knight',       13.0,    '12'   ),
+            ('villager',     None,    '1'    ),
+            ('archer',       None,    '5'    ),
+            ('monk',         2.2,     None   ),
+            ('ballista',     2.4,     None   ),
+        ])
+
+        assert_df_equality(actual, expected)
+        assert actual.dtypes == [
+            ('unit', 'string'),
+            ('speed', 'double'),
+            ('attack', 'string'),
+        ]
+
     @parametrize_cases(
         Case("when_frames_is_sequence", frames=[]),
         Case("when_frames_is_dict", frames=dict()),
@@ -434,7 +587,7 @@ class TestConcat:
             )
 
     @parametrize_cases(
-        Case("spark_dataframe", frames=pytest.lazy_fixture('french_cheese')),
+        Case("spark_dataframe", frames=lazy_fixture('french_cheese')),
         Case("str", frames='my_dataframe'),
     )
     def test_raises_type_error_if_incorrect_type_passed_to_frames(self, frames):
@@ -474,3 +627,71 @@ def test_is_list_or_tuple():
 def test_get_hive_table_columns():
     """Test for this."""
     pass
+
+
+@parametrize_cases(
+    Case(
+        input_schema=[
+            ('shoe', 'string'),
+            ('hat', 'string')
+        ],
+        column_name='shoe',
+        expected={'string'},
+    ),
+    Case(
+        input_schema=[
+            ('speed', 'string'),
+            ('attack', 'int'),
+            ('speed', 'int'),
+        ],
+        column_name='speed',
+        expected={'string', 'int'},
+    ),
+    Case(
+        input_schema=[
+            ('is_date', 'datetime'),
+            ('is_date', 'int'),
+            ('is_date', 'bool'),
+        ],
+        column_name='is_date',
+        expected={'datetime', 'int', 'bool'},
+    ),
+)
+def test_get_column_types(input_schema, column_name, expected):
+    assert _get_column_types(input_schema, column_name) == expected
+
+
+def test_are_all_number_types_positive_case():
+    assert _are_all_number_types(
+        ['float', 'bigint', 'tinyint', 'decimal(10,0)']
+    )
+
+
+def test_are_all_number_types_negative_case():
+    assert _are_all_number_types(['float', 'string', 'bool']) is False
+
+
+@parametrize_cases(
+    Case(
+        input_types=['tinyint', 'tinyint', 'int'],
+        expected='int',
+    ),
+    Case(
+        input_types=['bigint', 'tinyint', 'int'],
+        expected='bigint',
+    ),
+    Case(
+        input_types=['int', 'bigint', 'int', 'float'],
+        expected='float',
+    ),
+    Case(
+        input_types=['double', 'bigint', 'int', 'float'],
+        expected='double',
+    ),
+    Case(
+        input_types=['double', 'double', 'decimal(10,0)'],
+        expected='decimal(10,0)',
+    ),
+)
+def test_get_largest_number_dtype(input_types, expected):
+    assert _get_largest_number_dtype(input_types) == expected
