@@ -3,16 +3,16 @@ from collections import abc
 import functools
 import itertools
 from typing import (
+    Any,
     Callable,
+    Iterable,
     List,
     Mapping,
-    Tuple,
-    Set,
-    Any,
-    Sequence,
-    Union,
-    Iterable,
     Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
 )
 
 from py4j.protocol import Py4JError
@@ -30,7 +30,7 @@ from .helpers import list_convert
 Key = Sequence[Union[str, Sequence[str]]]
 
 # The order of these is important, big ---> small.
-SPARK_NUMBER_TYPES = [
+SPARK_NUMBER_TYPES = (
     'decimal(10,0)',
     'double',
     'float',
@@ -38,7 +38,7 @@ SPARK_NUMBER_TYPES = [
     'int',
     'smallint',
     'tinyint',
-]
+)
 
 
 def to_spark_col(_func=None, *, exclude: Sequence[str] = None) -> Callable:
