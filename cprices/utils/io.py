@@ -19,10 +19,6 @@ from pyspark.sql import (
 )
 from epds_utils import hdfs
 
-from cprices.config import DevConfig
-
-dev_config = DevConfig('dev_config', to_unpack=['directories'])
-
 
 def read_hive_table(
     spark: SparkSession,
@@ -143,7 +139,6 @@ def build_sql_query(
             # close off the column filter query
             sql_query.append(')\n')
 
-
     # Join entries in list into one nicely formatted string for easier unit
     # testing. Use textwrap.dedent to remove leading whitespace from multiline
     # strings.
@@ -202,7 +197,8 @@ def write_hive_table(
 def read_output(
     spark: SparkSession,
     run_id: str,
-    output: str
+    output: str,
+    directory: Optional[str] = None,
 ) -> SparkDF:
     """Read the given output for the given run_id.
 
@@ -215,19 +211,22 @@ def read_output(
         The name of the output from the following selection:
         {'item_indices', 'low_level_indices', 'classified',
         'inliers_outliers', 'expenditure', 'filtered', 'configuration'}
-
+    directory : str, optional
+        Path to the HDFS processed directory. If not provided, will look
+        for the CPRICES_PROCESSED_DIR env variable set during pipeline
+        run.
     """
-    path = (
-        Path(dev_config.processed_dir)
-        .joinpath(run_id, output)
-        .as_posix()
-    )
+    if not directory:
+        directory = os.getenv('CPRICES_PROCESSED_DIR')
+
+    path = Path(directory).joinpath(run_id, output).as_posix()
     return spark.read.parquet(path)
 
 
 def get_recent_run_ids(
     n: int = 20,
     username: Optional[str] = None,
+    directory: str = None,
 ) -> pd.Series:
     """Return the recent cprices run IDs.
 
@@ -237,13 +236,20 @@ def get_recent_run_ids(
         Filter for recent runs for a CDSW username.
     n : int, default 20
         The number of recent cprices run IDs to return.
+    directory : str, optional
+        Path to the HDFS processed directory. If not provided, will look
+        for the CPRICES_PROCESSED_DIR env variable set during pipeline
+        run.
 
     Returns
     -------
     pandas Series
         The ``n`` recent run IDs, filtered for ``username`` if given.
     """
-    dirs = hdfs.read_dir(dev_config.processed_dir)
+    if not directory:
+        directory = os.getenv('CPRICES_PROCESSED_DIR')
+
+    dirs = hdfs.read_dir(directory)
     # Date and time are at the 5 and 6 indices respectively.
     datetimes = [d[5] + ' ' + d[6] for d in dirs]
     # The full file path is in the last index position.
