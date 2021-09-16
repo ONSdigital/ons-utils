@@ -6,7 +6,6 @@ import pandas as pd
 
 from pyspark.sql import (
     Column as SparkCol,
-    column,
     functions as F,
 )
 import pytest
@@ -603,6 +602,22 @@ class TestConcat:
             concat([pd.DataFrame(), pd.DataFrame()])
             concat([british_cheese, pd.DataFrame()])
             concat(['my_df', 7, True])
+
+    def test_raises_type_error_when_trying_to_concatenate_two_column_types_that_cant_be_converted(
+        self, create_spark_df,
+    ):
+        """Test TypeError raised correctly."""
+        df1 = create_spark_df([
+            ('date', 'speed'),
+            (pd.Timestamp('2020-01-01'), 11),
+        ])
+        df2 = create_spark_df([
+            ('date', 'speed'),
+            (True, 1),
+        ])
+
+        with pytest.raises(TypeError):
+            concat([df1, df2])
 
 
 @pytest.mark.skip(reason="test shell")

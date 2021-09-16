@@ -1,6 +1,5 @@
 """A selection of helper functions for building in pyspark."""
 from collections import abc
-from copy import copy
 import functools
 import itertools
 from typing import (
@@ -103,6 +102,13 @@ def concat(
     """
     Concatenate pyspark DataFrames with additional key columns.
 
+    Will attempt to cast column data types where schemas are mismatched
+    and fill empty columns with Nulls:
+
+    * upcasts to largest number data type present (for that column)
+    * casts to string if there is at least one dtype of 'string' for a
+      given column
+
     Parameters
     ----------
     frames : a sequence or mapping of SparkDF
@@ -171,47 +177,17 @@ def concat(
         # Get a set of all column schemas (name, type) across frames.
         col_schemas.update(frame.dtypes)
 
-    # Allows dataframes with different columns to be concatenated.
-    # Remove when Spark 3.1.0 available.
-    filled_frames = []
-    for frame in frames:
-        for column, dtype in col_schemas-set(frame.dtypes):
+    # Allows dataframes with inconsistent schemas to be concatenated by
+    # filling empty columns with Nulls and casting some column data
+    # types where appropriate.
+    #
+    # Potentially remove when Spark 3.1.0 available.
+    frames = [
+        _ensure_consistent_schema(frame, col_schemas)
+        for frame in frames
+    ]
 
-            # Check for multiple dtypes in the column schemas for each
-            # column name.
-            col_dtypes = _get_column_types(col_schemas, column)
-
-            if len(col_dtypes) > 1:
-                # If multiple number dtypes, then cast all columns of
-                # same name to largest number dtype present.
-                if _are_all_number_types(col_dtypes):
-                    dtype = _get_largest_number_dtype(col_dtypes)
-                # If multiple dtypes and string dtype present, then cast
-                # all columns of same name to string dtype.
-                elif any(dtype == 'string' for dtype in col_dtypes):
-                    dtype = 'string'
-                else:
-                    raise TypeError(
-                        "Spark column data type mismatch for column:"
-                        f" {column}. Can't auto-convert between types"
-                        f" {col_dtypes}."
-                    )
-
-            # If current frame missing the column in the schema, then
-            # set values to Null.
-            vals = (
-                F.lit(None) if column not in frame.columns
-                else F.col(column)
-            )
-            # Cast the values with the correct dtype.
-            frame = frame.withColumn(column, vals.cast(dtype))
-
-        filled_frames.append(frame)
-
-    # Set frames as the filled frames.
-    frames = copy(filled_frames)
-
-    # Update with commented line when Spark 3.1.0 available.
+    # Potentially update with commented line when Spark 3.1.0 available.
     # union = functools.partial(SparkDF.unionByName, allowMissingColumns=True)
     union = SparkDF.unionByName
 
@@ -301,6 +277,69 @@ def get_hive_table_columns(spark, table_path) -> List[str]:
 def transform(self, f, *args, **kwargs):
     """Chain Pyspark function."""
     return f(self, *args, **kwargs)
+
+
+def _ensure_consistent_schema(
+    frame: SparkDF,
+    column_schemas: Set[Tuple[str, str]],
+) -> SparkDF:
+    """Ensure the dataframe is consistent with the schema.
+
+    If there are column data type mismatches, (more than one data type
+    for a column name in the column schemas) then will try to convert
+    the data type if possible:
+
+    * if they are all number data types, then picks the largest number
+      type present
+    * if one of the types is string, then ensures it casts the column to
+      string type
+
+    Also fills any missing columns with Null values, ensuring correct
+    dtype.
+
+    Parameters
+    ----------
+    frame : SparkDF
+    column_schema : set
+        A set of simple column schemas in the form (name, dtype) for all
+        dataframes set to be concatenated.
+
+    Returns
+    -------
+    SparkDF
+        Input dataframe with consistent schema.
+    """
+    for column, dtype in column_schemas-set(frame.dtypes):
+        # Check for multiple dtypes in the column schemas for each
+        # column name.
+        col_dtypes = _get_column_types(column_schemas, column)
+
+        if len(col_dtypes) > 1:
+            # If multiple number dtypes, then cast all columns of
+            # same name to largest number dtype present.
+            if _are_all_number_types(col_dtypes):
+                dtype = _get_largest_number_dtype(col_dtypes)
+            # If multiple dtypes and string dtype present, then cast
+            # all columns of same name to string dtype.
+            elif any(dtype == 'string' for dtype in col_dtypes):
+                dtype = 'string'
+            else:
+                raise TypeError(
+                    "Spark column data type mismatch for column:"
+                    f" '{column}'. Can't auto-convert between types"
+                    f" {col_dtypes}."
+                )
+
+        # If current frame missing the column in the schema, then
+        # set values to Null.
+        vals = (
+            F.lit(None) if column not in frame.columns
+            else F.col(column)
+        )
+        # Cast the values with the correct dtype.
+        frame = frame.withColumn(column, vals.cast(dtype))
+
+    return frame
 
 
 def _get_column_types(
