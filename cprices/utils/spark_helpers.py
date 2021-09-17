@@ -299,7 +299,7 @@ def _ensure_consistent_schema(
     Parameters
     ----------
     frame : SparkDF
-    column_schema : set
+    column_schemas : set
         A set of simple column schemas in the form (name, dtype) for all
         dataframes set to be concatenated.
 
@@ -349,7 +349,7 @@ def _get_column_types(
 
     Parameters
     ----------
-    schema
+    column_schemas
         A sequence of simple column schemas in the form (name, dtype).
     column_name
         The column name to match on in the sequence of column schemas.
