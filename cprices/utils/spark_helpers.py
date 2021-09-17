@@ -23,7 +23,6 @@ from pyspark.sql import (
     Window,
     WindowSpec,
 )
-from pyspark.sql.functions import lit, create_map, col, array
 
 from .helpers import list_convert
 
@@ -76,22 +75,22 @@ def to_spark_col(_func=None, *, exclude: Sequence[str] = None) -> Callable:
 def _convert_to_spark_col(s: Any) -> Union[Any, SparkCol]:
     """Convert strings to Spark Columns, otherwise returns input."""
     try:
-        return col(s)
+        return F.col(s)
     except (AttributeError, Py4JError):
         return s
 
 
 def map_col(col_name: str, mapping: Mapping[Any, Any]) -> SparkCol:
     """Map PySpark column using Python mapping."""
-    map_expr = create_map([
-        lit(x)
+    map_expr = F.create_map([
+        F.lit(x)
         if not is_list_or_tuple(x)
         # To handle when the value is a list or tuple.
-        else array([lit(i) for i in x])
+        else F.array([F.lit(i) for i in x])
         # Convert mapping to list.
         for x in itertools.chain(*mapping.items())
     ])
-    return map_expr[col(col_name)]
+    return map_expr[F.col(col_name)]
 
 
 def concat(
