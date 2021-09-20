@@ -141,22 +141,41 @@ class DataFrameEmptyError(Exception):
         )
 
 
-def nice_wrap(s: str) -> str:
-    """Apply dedent and wrap triple quoted text nicely."""
+def nice_wrap(s: str, width: int = 100, border_char: str = None) -> str:
+    """Apply dedent and wrap triple quoted text nicely.
+
+    Parameters
+    ----------
+    s : str
+        The triple quoted string to dedent and wrap.
+    width : int, default 100
+        Number of chars to wrap to.
+    border_char : str, optional
+        A single char to be the border marker. The border will top and
+        tail the string and will be of len ``width``. Leave as ``None``
+        for no border.
+    """
     # Splitting and joining on double line break preserves the
     # paragraphs.
-    final_str = (
+    wrapped_str = (
         '\n\n'.join([
-            textwrap.fill(paragraph, 100)
+            textwrap.fill(paragraph, width)
+            # Stops lists being wrapped.
+            if not paragraph.startswith(('*', '-'))
+            else paragraph
             for paragraph in textwrap.dedent(s).split('\n\n')
         ])
     )
-    if final_str[0] == ' ':
+    if wrapped_str[0] == ' ':
         # Remove the first char as it's whitespace. Occurs when doing a
         # line break straight after triple quotes.
-        final_str = final_str[1:]
+        wrapped_str = wrapped_str[1:]
 
-    return final_str
+    if border_char:
+        border_str = border_char*width
+        wrapped_str = '\n'.join([border_str, wrapped_str, border_str])
+
+    return wrapped_str
 
 
 def to_title(s: str) -> str:
