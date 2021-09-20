@@ -4,7 +4,7 @@ from datetime import datetime
 from logging.config import dictConfig
 import os
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence, Union
+from typing import Any, Collection, Mapping, Optional, Sequence, Union
 import yaml
 
 from flatten_dict import flatten
@@ -181,7 +181,23 @@ class Config:
         elif isinstance(current_vals, list):
             extend_vals = list_convert(extend_vals)
 
-        setattr(self, attr, getattr(self, attr) + extend_vals)
+        setattr(self, attr, current_vals + extend_vals)
+
+    def remove_from_attr(
+        self,
+        attr: str,
+        remove: Collection[Any],
+    ) -> None:
+        """Remove the given values from the attribute."""
+        current_vals = getattr(self, attr)
+
+        if not isinstance(current_vals, Collection):
+            raise AttributeError(
+                f'attribute {attr} is not a collection. There are no'
+                ' removable items'
+            )
+
+        setattr(self, attr, [x for x in current_vals if x not in remove])
 
     def prepend_dir(self, attrs: Sequence[str], dir: PathLike) -> None:
         """Prepend the dirpath onto the given attrs.
@@ -274,24 +290,6 @@ class DevConfig(Config):
         if hasattr(config, 'extra_strata') and config.extra_strata:
             self.add_strata(config.extra_strata)
 
-    def add_extra_data_cols_from_config(
-        self,
-        config: ScenarioConfig,
-    ) -> None:
-        """Add the extra data cols specificed in the scenario config.
-
-        Adds 'sales_value_col' and 'discount_col' from the preprocessing
-        section of the ScanScenarioConfig, the the data_cols attr.
-        """
-        # sales_value_col and discount_col may change with every scenario
-        # so we add to data_cols here.
-        extend_vals = [
-            config.preprocessing['sales_value_col'],
-            # config.preprocessing['discount_col'],  # TODO (matt price) raise with Mitch why this is cannot be hardcoded..
-        ]
-        for vals in extend_vals:
-            self.extend_attr('data_cols', vals)
-
 
 class ScanScenarioConfig(ScenarioConfig):
     """Class with methods for scanner scenario configs."""
@@ -362,6 +360,49 @@ class ScanDevConfig(DevConfig):
         # Extra strata are added to all the cols settings in dev config.
         self.add_extra_strata_from_config_if_exists(config)
         self.add_extra_data_cols_from_config(config)
+        self.remove_data_cols_from_config(config)
+
+    def add_extra_data_cols_from_config(
+        self,
+        config: ScenarioConfig,
+    ) -> None:
+        """Add the extra data cols specificed in the scenario config.
+
+        Adds:
+
+        * 'sales_value_col'
+        * 'discount_col' (if 'remove_discounts' is True)
+
+        from the preprocessing section of the ScanScenarioConfig to the
+        data_cols attr.
+        """
+        # sales_value_col and discount_col may change with every scenario
+        # so we add to data_cols here.
+        extend_vals = [config.preprocessing['sales_value_col']]
+
+        if config.preprocessing['remove_discounts']:
+            extend_vals.append(config.preprocessing['discount_col'])
+
+        self.extend_attr('data_cols', extend_vals)
+
+    def remove_data_cols_from_config(
+        self,
+        config: ScenarioConfig,
+    ) -> None:
+        """Remove unnecessary data cols from scenario config options.
+
+        Removes:
+
+        * 'standardised_size' and 'weight_type_ons' (if the
+          'use_unit_prices' option is False)
+
+        from the :attr:`data_cols`.
+        """
+        if not config.preprocessing['use_unit_prices']:
+            self.remove_from_attr(
+                'data_cols',
+                ['standardised_size', 'weight_type_ons'],
+            )
 
 
 class WebScrapedDevConfig(DevConfig):

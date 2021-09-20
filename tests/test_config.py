@@ -347,8 +347,8 @@ def scenario_scan_config(test_config, monkeypatch, mock_dev_config):
     ) -> ScanScenarioConfig:
         test_config(yaml_input, name='scenario_config')
 
-        # Monkeypatch each of the methods given by mock_methods_on_init.The
-        # methods return None, so just patch with that.
+        # Monkeypatch each of the methods given by mock_methods_on_init.
+        # The methods return None, so just patch with that.
         if mock_methods_on_init is True:
             mock_methods_on_init = ['prepend_dir', 'combine_input_data']
         elif not mock_methods_on_init:
@@ -367,6 +367,37 @@ def scenario_scan_config(test_config, monkeypatch, mock_dev_config):
                 dev_config=mock_dev_config,
                 subdir=None,
             )
+    return _
+
+
+@pytest.fixture
+def mock_init(test_config, monkeypatch):
+    """Mocks the class methods called on initialisation to do nothing."""
+    def _(
+        class_initialiser: Config,
+        mock_methods_on_init: Sequence[str],
+        yaml_input: str = "my_attr: test",
+        name: str = 'mocked_config',
+        *args,
+        **kwargs,
+    ) -> Config:
+        """ """
+        test_config(yaml_input, name=name)
+
+        with monkeypatch.context() as mp:
+            for method in mock_methods_on_init:
+                mp.setattr(
+                    class_initialiser,
+                    method,
+                    lambda *args, **kwargs: None,
+                )
+
+            return class_initialiser(
+                name,
+                *args,
+                **kwargs,
+            )
+
     return _
 
 
@@ -521,9 +552,8 @@ class TestWebScrapedScenarioConfig:
 
 
 @pytest.fixture
-def dev_config(test_config):
-    """Return DevConfig file with columns to be removed."""
-    test_config(yaml_input="""
+def dev_config_yaml():
+    return """
     strata_cols:
         - col_1
         - col_2
@@ -533,8 +563,13 @@ def dev_config(test_config):
     data_cols:
         - col_6
         - col_7
-    """)
+    """
 
+
+@pytest.fixture
+def dev_config(test_config, dev_config_yaml):
+    """Return DevConfig file with columns to be removed."""
+    test_config(yaml_input=dev_config_yaml)
     return DevConfig("my_config")
 
 
@@ -626,44 +661,47 @@ class TestDevConfig:
         assert dev_config.preprocess_cols == exp_preprocess_cols
         assert dev_config.data_cols == exp_data_cols
 
-    @pytest.mark.skip(reason='wrongly implemented in code for discount_col so commented out discount col for now.')
-    def test_add_extra_data_cols_from_config(
-        self, dev_config, scenario_scan_config,
-    ):
-        """Test it adds preprocess columns to data_cols attribute."""
-        scenario_yaml = """
-        preprocessing:
-            sales_value_col: sales_value
-            discount_col: discount_col
-        """
-        config = scenario_scan_config(scenario_yaml, mock_methods_on_init=True)
-
-        dev_config.add_extra_data_cols_from_config(config)
-        assert dev_config.data_cols == ['col_6', 'col_7', 'sales_value', 'discount_col']
-
 
 class TestScanDevConfig:
     """Tests for the ScanDevConfig."""
 
     @pytest.fixture
-    def scan_dev_config(self, dev_config, scenario_scan_config):
-        """Create an instance of ScanDevConfig with extra strata and
-        preprocessing sections.
-        """
+    def scenario_scan(self, scenario_scan_config):
+        """A scanner scenario for use in ScanDevConfig tests."""
         yaml_input = """
         extra_strata:
             - sedimentary
             - igneous
         preprocessing:
             sales_value_col: sales_value
+            remove_discounts: True
             discount_col: discount_col
+            use_unit_prices: True
         """
-        config = scenario_scan_config(yaml_input, mock_methods_on_init=True)
+        return scenario_scan_config(yaml_input, mock_methods_on_init=True)
 
+    @pytest.fixture
+    def scan_dev_config(self, dev_config, scenario_scan):
+        """Create an instance of ScanDevConfig with extra strata and
+        preprocessing sections.
+        """
         # my_config.yaml is created by the dev_config fixture.
-        return ScanDevConfig("my_config", subdir=None, config=config)
+        return ScanDevConfig("my_config", subdir=None, config=scenario_scan)
 
-    @pytest.mark.skip(reason='wrongly implemented in code for discount_col so commented out discount col for now.')
+    @pytest.fixture
+    def scan_dev_config_mocked(self, dev_config_yaml, scenario_scan, mock_init):
+        return mock_init(
+            class_initialiser=ScanDevConfig,
+            mock_methods_on_init=[
+                'add_extra_strata_from_config_if_exists',
+                'add_extra_data_cols_from_config',
+                'remove_data_cols_from_config',
+            ],
+            yaml_input=dev_config_yaml,
+            subdir=None,
+            config=scenario_scan,
+        )
+
     def test_adds_extra_strata_to_cols_attrs_on_init(self, scan_dev_config):
         assert all([
             new_col in getattr(scan_dev_config, attr)
@@ -671,14 +709,59 @@ class TestScanDevConfig:
             for new_col in ['sedimentary', 'igneous']
         ])
 
-    @pytest.mark.skip(reason='wrongly implemented in code for discount_col so commented out discount col for now.')
-    def test_adds_config_cols_to_data_cols_on_init(
-        self, scan_dev_config
-    ):
+    def test_adds_config_cols_to_data_cols_on_init(self, scan_dev_config):
         assert all([
             new_col in getattr(scan_dev_config, 'data_cols')
             for new_col in ['sales_value', 'discount_col']
         ])
+
+    def test_add_extra_data_cols_from_config_discount_is_True(
+        self, scan_dev_config_mocked, scenario_scan,
+    ):
+        """Test it adds preprocess columns to data_cols attribute."""
+        scan_dev_config_mocked.add_extra_data_cols_from_config(scenario_scan)
+        assert scan_dev_config_mocked.data_cols == [
+            'col_6', 'col_7', 'sales_value', 'discount_col'
+        ]
+
+    def test_add_extra_data_cols_from_config_discount_is_False(
+        self, scan_dev_config_mocked, scenario_scan_config,
+    ):
+        """Test it adds doesn't add discount col when remove_discounts is False."""
+        yaml_input = """
+        preprocessing:
+            sales_value_col: sales_value
+            remove_discounts: False
+            discount_col: discount_col
+        """
+        scenario_conf = scenario_scan_config(yaml_input, mock_methods_on_init=True)
+        scan_dev_config_mocked.add_extra_data_cols_from_config(scenario_conf)
+        assert scan_dev_config_mocked.data_cols == ['col_6', 'col_7', 'sales_value']
+
+    def test_removes_data_cols_from_config_when_use_unit_prices_is_False(
+        self, scan_dev_config_mocked, scenario_scan_config,
+    ):
+        """Test it removes 'standardised_size' and 'weight_type_ons'
+        when not using unit prices."""
+        yaml_input = """
+        preprocessing:
+            use_unit_prices: False
+        """
+        scenario_conf = scenario_scan_config(yaml_input, mock_methods_on_init=True)
+
+        scan_dev_config_mocked.data_cols = ['col_6', 'col_7', 'standardised_size', 'weight_type_ons']
+
+        scan_dev_config_mocked.remove_data_cols_from_config(scenario_conf)
+        assert scan_dev_config_mocked.data_cols == ['col_6', 'col_7']
+
+    def test_doesnt_remove_data_cols_from_config_when_use_unit_prices_is_True(
+        self, scan_dev_config_mocked, scenario_scan,
+    ):
+        """Test nothing removed when using unit prices."""
+        scan_dev_config_mocked.data_cols = ['standardised_size', 'weight_type_ons']
+
+        scan_dev_config_mocked.remove_data_cols_from_config(scenario_scan)
+        assert scan_dev_config_mocked.data_cols == ['standardised_size', 'weight_type_ons']
 
 
 @pytest.fixture
