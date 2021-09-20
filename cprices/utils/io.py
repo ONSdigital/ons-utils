@@ -19,6 +19,8 @@ from pyspark.sql import (
 )
 from epds_utils import hdfs
 
+from cprices.utils.pipeline_utils import nice_wrap
+
 
 def read_hive_table(
     spark: SparkSession,
@@ -217,7 +219,7 @@ def read_output(
         run.
     """
     if not directory:
-        directory = os.getenv('CPRICES_PROCESSED_DIR')
+        directory = get_directory_from_env_var('CPRICES_PROCESSED_DIR')
 
     path = Path(directory).joinpath(run_id, output).as_posix()
     return spark.read.parquet(path)
@@ -247,7 +249,7 @@ def get_recent_run_ids(
         The ``n`` recent run IDs, filtered for ``username`` if given.
     """
     if not directory:
-        directory = os.getenv('CPRICES_PROCESSED_DIR')
+        directory = get_directory_from_env_var('CPRICES_PROCESSED_DIR')
 
     dirs = hdfs.read_dir(directory)
     # Date and time are at the 5 and 6 indices respectively.
@@ -264,3 +266,23 @@ def get_recent_run_ids(
         run_ids = run_ids.loc[run_ids.str.contains(username)]
 
     return run_ids.head(n)
+
+
+def get_directory_from_env_var(env_var: str) -> Optional[str]:
+    """Get directory from given environment variable."""
+    directory = os.getenv(env_var)
+
+    if not os.getenv(env_var):
+        raise DirectoryError(env_var)
+
+    return directory
+
+
+class DirectoryError(Exception):
+
+    def __init__(self, env_var) -> None:
+        super().__init__(nice_wrap(f"""
+            No directory provided and no value available in {env_var}
+            environment variable. Pass directory argument or set the env
+            var before running again.
+        """))

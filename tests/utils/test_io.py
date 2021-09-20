@@ -194,3 +194,15 @@ def test_read_output():
 def test_get_recent_run_ids():
     """Test for this."""
     pass
+
+
+def test_get_directory_from_env_var(monkeypatch):
+    """Tests returns env var value."""
+    monkeypatch.setenv('CPRICES_TEST_DIR', '/test/dir')
+    assert get_directory_from_env_var('CPRICES_TEST_DIR') == '/test/dir'
+
+
+def test_get_directory_from_env_var_raises_when_no_var():
+    with pytest.raises(DirectoryError):
+        # Doesn't exist so raises error.
+        get_directory_from_env_var('CPRICES_TEST_DIR')
