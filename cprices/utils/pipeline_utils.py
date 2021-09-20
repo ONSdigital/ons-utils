@@ -141,8 +141,10 @@ class DataFrameEmptyError(Exception):
         )
 
 
-def nice_wrap(s: str, width: int = 100, border_char: str = None) -> str:
-    """Apply dedent and wrap triple quoted text nicely.
+def pretty_wrap(s: str, width: int = 100, border_char: str = None) -> str:
+    """Apply dedent to triple quoted text and wrap to width.
+
+    Option to add a border character that will top and tail the string.
 
     Parameters
     ----------
@@ -154,6 +156,11 @@ def nice_wrap(s: str, width: int = 100, border_char: str = None) -> str:
         A single char to be the border marker. The border will top and
         tail the string and will be of len ``width``. Leave as ``None``
         for no border.
+
+    Returns
+    -------
+    str
+        The wrapped and dedented string with optional border.
     """
     # Splitting and joining on double line break preserves the
     # paragraphs.
@@ -202,7 +209,7 @@ def count_rows_and_check_if_empty(
     """
     n_rows = df.cache().count()
     if n_rows == 0:
-        logger.warning(nice_wrap(f"""
+        logger.warning(pretty_wrap(f"""
             DataFrame after stage {stage} is empty for scenario
             {scenario_name}. Contact emerging platforms to investigate
             why. There will be no results for this scenario. Continuing

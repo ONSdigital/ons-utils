@@ -19,7 +19,7 @@ from pyspark.sql import (
 )
 from epds_utils import hdfs
 
-from cprices.utils.pipeline_utils import nice_wrap
+from cprices.utils.pipeline_utils import pretty_wrap
 
 
 def read_hive_table(
@@ -281,7 +281,7 @@ def get_directory_from_env_var(env_var: str) -> Optional[str]:
 class DirectoryError(Exception):
 
     def __init__(self, env_var) -> None:
-        super().__init__(nice_wrap(f"""
+        super().__init__(pretty_wrap(f"""
             No directory provided and no value available in {env_var}
             environment variable. Pass directory argument or set the env
             var before running again.
