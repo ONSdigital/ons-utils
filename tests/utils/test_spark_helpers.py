@@ -619,6 +619,44 @@ class TestConcat:
         with pytest.raises(TypeError):
             concat([df1, df2])
 
+    def test_warns_when_dtypes_for_same_column_are_different(
+        self, create_spark_df,
+    ):
+        """Test UnequalSchemaWarning warned correctly."""
+        df1 = create_spark_df([
+            ('id', 'animal'),
+            (1, 'dog'),
+            (2, 'cat'),
+        ])
+        # id are strings in df2
+        df2 = create_spark_df([
+            ('id', 'animal'),
+            ('1', 'dog'),
+            ('2', 'cat'),
+        ])
+
+        with pytest.warns(UnequalSchemaWarning):
+            concat([df1, df2])
+
+    def test_warns_if_column_exists_in_one_frame_but_not_others(
+        self, create_spark_df,
+    ):
+        """Test UnequalSchemaWarning warned correctly."""
+        df1 = create_spark_df([
+            ('id', 'animal', 'name'),
+            (1, 'dog', 'fido'),
+            (2, 'cat', 'jimmy'),
+        ])
+        # id are strings in df2
+        df2 = create_spark_df([
+            ('id', 'animal'),
+            (1, 'dog'),
+            (2, 'cat'),
+        ])
+
+        with pytest.warns(UnequalSchemaWarning):
+            concat([df1, df2])
+
 
 @pytest.mark.skip(reason="test shell")
 def test_to_list():
