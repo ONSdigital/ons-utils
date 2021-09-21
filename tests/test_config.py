@@ -1,4 +1,5 @@
 """Tests for the config classes in config.py."""
+import functools
 import yaml
 import pytest
 
@@ -339,65 +340,65 @@ def mock_dev_config(mocker):
 
 
 @pytest.fixture
-def scenario_scan_config(test_config, monkeypatch, mock_dev_config):
-    """Return a ScanScenarioConfig with the given yaml input."""
-    def _(
-        yaml_input: str,
-        mock_methods_on_init: Union[bool, Sequence[str]] = False
-    ) -> ScanScenarioConfig:
-        test_config(yaml_input, name='scenario_config')
-
-        # Monkeypatch each of the methods given by mock_methods_on_init.
-        # The methods return None, so just patch with that.
-        if mock_methods_on_init is True:
-            mock_methods_on_init = ['prepend_dir', 'combine_input_data']
-        elif not mock_methods_on_init:
-            mock_methods_on_init = []
-
-        with monkeypatch.context() as mp:
-            for method in mock_methods_on_init:
-                mp.setattr(
-                    ScanScenarioConfig,
-                    method,
-                    lambda *args, **kwargs: None,
-                )
-
-            return ScanScenarioConfig(
-                'scenario_config',
-                dev_config=mock_dev_config,
-                subdir=None,
-            )
-    return _
-
-
-@pytest.fixture
 def mock_init(test_config, monkeypatch):
     """Mocks the class methods called on initialisation to do nothing."""
     def _(
-        class_initialiser: Config,
-        mock_methods_on_init: Sequence[str],
+        cls: Config,
         yaml_input: str = "my_attr: test",
+        mock_methods_on_init: Optional[Sequence[str]] = None,
         name: str = 'mocked_config',
         *args,
         **kwargs,
     ) -> Config:
-        """ """
+        """
+        Parameters
+        ----------
+        cls
+            The class to be initialised with mocked methods.
+        yaml_input : str
+            A YAML input string.
+        mock_methods_on_init : bool or sequence of str
+            If True, mocks all methods on initialisation. If False,
+            doesn't mock methods on initialisation. Specific methods to
+            mock can be passed as a sequence, with method names as
+            strings.
+        name : str, default 'mocked_config'
+            The name of the config file created in tmpdir.
+        """
         test_config(yaml_input, name=name)
+
+        if not mock_methods_on_init:
+            mock_methods_on_init = []
 
         with monkeypatch.context() as mp:
             for method in mock_methods_on_init:
-                mp.setattr(
-                    class_initialiser,
-                    method,
-                    lambda *args, **kwargs: None,
-                )
+                mp.setattr(cls, method, lambda *args, **kwargs: None)
 
-            return class_initialiser(
-                name,
-                *args,
-                **kwargs,
-            )
+            return cls(name, *args, **kwargs)
+    return _
 
+
+@pytest.fixture
+def mock_scan_scenario_config(mock_init, mock_dev_config):
+    """Return a ScanScenarioConfig object given yaml input.
+
+    Option to mock one or more of the initialisation methods for the
+    initialisation only. Methods will not be mocked post initialisation.
+    """
+    def _(
+        yaml_input: str,
+        mock_methods_on_init: Optional[Union[bool, Sequence[str]]] = False,
+    ) -> ScanScenarioConfig:
+        if mock_methods_on_init is True:
+            mock_methods_on_init = ['prepend_dir', 'combine_input_data']
+
+        return mock_init(
+            ScanScenarioConfig,
+            yaml_input,
+            mock_methods_on_init,
+            dev_config=mock_dev_config,
+            subdir=None,
+        )
     return _
 
 
@@ -410,7 +411,7 @@ class TestScanScenarioConfig:
         pass
 
     def test_combines_input_data_on_init(
-        self, all_in_output, scenario_scan_config,
+        self, all_in_output, mock_scan_scenario_config,
     ):
         """Test that with supplier and without supplier input data is
         combined on init.
@@ -424,7 +425,7 @@ class TestScanScenarioConfig:
                 supplier_3:
                     retailer_3
         """
-        conf = scenario_scan_config(
+        conf = mock_scan_scenario_config(
             test_yaml,
             mock_methods_on_init=['prepend_dir'],
         )
@@ -486,14 +487,14 @@ class TestScanScenarioConfig:
     )
     def test_combine_input_data_works(
         self, all_in_output, yaml_input, expected,
-        scenario_scan_config,
+        mock_scan_scenario_config,
     ):
         """Test returns tuple pairs for supplier and retailer, when both
         without_supplier and with_supplier specified.
         """
         # Patches both init methods on creation so the
         # .combine_input_data() method can be called after.
-        conf = scenario_scan_config(yaml_input, mock_methods_on_init=True)
+        conf = mock_scan_scenario_config(yaml_input, mock_methods_on_init=True)
         conf.combine_input_data()
         # Use all_in_output because dict makes order ambiguous.
         assert all_in_output(
@@ -646,14 +647,14 @@ class TestDevConfig:
         ),
     )
     def test_add_extra_strata_if_exists(
-        self, scenario_scan_config, dev_config, scenario_yaml,
+        self, mock_scan_scenario_config, dev_config, scenario_yaml,
         exp_strata_cols, exp_preprocess_cols, exp_data_cols,
     ):
         """Test when the add_extra_strata_if_exists() method is called
         with a ScenarioConfig, that it does nothing when extra strata is
         empty or doesn't exist.
         """
-        config = scenario_scan_config(scenario_yaml, mock_methods_on_init=True)
+        config = mock_scan_scenario_config(scenario_yaml, mock_methods_on_init=True)
 
         dev_config.add_extra_strata_from_config_if_exists(config)
 
@@ -666,7 +667,7 @@ class TestScanDevConfig:
     """Tests for the ScanDevConfig."""
 
     @pytest.fixture
-    def scenario_scan(self, scenario_scan_config):
+    def scenario_scan(self, mock_scan_scenario_config):
         """A scanner scenario for use in ScanDevConfig tests."""
         yaml_input = """
         extra_strata:
@@ -678,7 +679,7 @@ class TestScanDevConfig:
             discount_col: discount_col
             use_unit_prices: True
         """
-        return scenario_scan_config(yaml_input, mock_methods_on_init=True)
+        return mock_scan_scenario_config(yaml_input, mock_methods_on_init=True)
 
     @pytest.fixture
     def scan_dev_config(self, dev_config, scenario_scan):
@@ -691,7 +692,7 @@ class TestScanDevConfig:
     @pytest.fixture
     def scan_dev_config_mocked(self, dev_config_yaml, scenario_scan, mock_init):
         return mock_init(
-            class_initialiser=ScanDevConfig,
+            ScanDevConfig,
             mock_methods_on_init=[
                 'add_extra_strata_from_config_if_exists',
                 'add_extra_data_cols_from_config',
@@ -725,7 +726,7 @@ class TestScanDevConfig:
         ]
 
     def test_add_extra_data_cols_from_config_discount_is_False(
-        self, scan_dev_config_mocked, scenario_scan_config,
+        self, scan_dev_config_mocked, mock_scan_scenario_config,
     ):
         """Test it adds doesn't add discount col when remove_discounts is False."""
         yaml_input = """
@@ -734,12 +735,12 @@ class TestScanDevConfig:
             remove_discounts: False
             discount_col: discount_col
         """
-        scenario_conf = scenario_scan_config(yaml_input, mock_methods_on_init=True)
+        scenario_conf = mock_scan_scenario_config(yaml_input, mock_methods_on_init=True)
         scan_dev_config_mocked.add_extra_data_cols_from_config(scenario_conf)
         assert scan_dev_config_mocked.data_cols == ['col_6', 'col_7', 'sales_value']
 
     def test_removes_data_cols_from_config_when_use_unit_prices_is_False(
-        self, scan_dev_config_mocked, scenario_scan_config,
+        self, scan_dev_config_mocked, mock_scan_scenario_config,
     ):
         """Test it removes 'standardised_size' and 'weight_type_ons'
         when not using unit prices."""
@@ -747,7 +748,7 @@ class TestScanDevConfig:
         preprocessing:
             use_unit_prices: False
         """
-        scenario_conf = scenario_scan_config(yaml_input, mock_methods_on_init=True)
+        scenario_conf = mock_scan_scenario_config(yaml_input, mock_methods_on_init=True)
 
         scan_dev_config_mocked.data_cols = ['col_6', 'col_7', 'standardised_size', 'weight_type_ons']
 
@@ -765,46 +766,38 @@ class TestScanDevConfig:
 
 
 @pytest.fixture
-def scenario_web_scraped_config(test_config, monkeypatch, mock_dev_config):
-    """Return a WebScrapedScenarioConfig with the given yaml input."""
+def mock_web_scraped_scenario_config(mock_init, mock_dev_config):
+    """Return a WebScrapedScenarioConfig object given yaml input.
+
+    Option to mock one or more of the initialisation methods for the
+    initialisation only. Methods will not be mocked post initialisation.
+    """
     def _(
         yaml_input: str,
-        mock_methods_on_init: Union[bool, Sequence[str]] = False
-    ) -> WebScrapedScenarioConfig:
-        test_config(yaml_input, name='scenario_config')
-
-        # Monkeypatch each of the methods given by mock_methods_on_init.
-        # The methods return None, so just patch with that.
+        mock_methods_on_init: Optional[Union[bool, Sequence[str]]] = False,
+    ) -> ScanScenarioConfig:
         if mock_methods_on_init is True:
             mock_methods_on_init = [
                 'prepend_dir',
                 'flatten_nested_dicts',
                 'get_key_value_pairs',
             ]
-        elif not mock_methods_on_init:
-            mock_methods_on_init = []
 
-        with monkeypatch.context() as mp:
-            for method in mock_methods_on_init:
-                mp.setattr(
-                    WebScrapedScenarioConfig,
-                    method,
-                    lambda *args, **kwargs: None,
-                )
-
-            return WebScrapedScenarioConfig(
-                'scenario_config',
-                dev_config=mock_dev_config,
-                subdir=None,
-            )
+        return mock_init(
+            WebScrapedScenarioConfig,
+            yaml_input,
+            mock_methods_on_init,
+            dev_config=mock_dev_config,
+            subdir=None,
+        )
     return _
 
 
-class WebScrapedDevConfig:
+class TestWebScrapedDevConfig:
     """Tests for the WebScrapedDevConfig"""
 
     @pytest.fixture
-    def web_dev_config(self, dev_config, scenario_web_scraped_config):
+    def web_dev_config(self, dev_config, mock_web_scraped_scenario_config):
         """Create an instance of ScanDevConfig with extra strata and
         preprocessing sections.
         """
@@ -813,7 +806,10 @@ class WebScrapedDevConfig:
             - sedimentary
             - igneous
         """
-        config = scenario_web_scraped_config(yaml_input, mock_methods_on_init=True)
+        config = mock_web_scraped_scenario_config(
+            yaml_input,
+            mock_methods_on_init=True,
+        )
         # my_config.yaml is created by the dev_config fixture.
         return WebScrapedDevConfig("my_config", subdir=None, config=config)
 
