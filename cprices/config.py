@@ -297,7 +297,6 @@ class ScanScenarioConfig(ScenarioConfig):
     def __init__(
         self,
         filename: str,
-        dev_config: DevConfig,
         subdir='scanner',
         **kwargs,
     ):
@@ -332,7 +331,6 @@ class WebScrapedScenarioConfig(ScenarioConfig):
     def __init__(
         self,
         filename: str,
-        dev_config: DevConfig,
         subdir='web_scraped',
         **kwargs,
     ):
