@@ -145,7 +145,7 @@ class TestConcat:
         ),
     )
     def test_union_dataframes_sequence_input_cases(
-        self, to_spark,
+        self, to_spark, suppress_warnings,
         input_data, keys, names, expected, schema
     ):
         """Test all the positive cases for unioning dataframes with concat."""
@@ -185,7 +185,7 @@ class TestConcat:
         assert_df_equality(actual, expected, ignore_nullable=True)
 
     def test_casts_lower_number_type_before_concat_to_prevent_nulls(
-        self, create_spark_df
+        self, create_spark_df, suppress_warnings,
     ):
         """Test that when one dataframe is float and other int, the
         concat works by casting the int column to float before
@@ -224,7 +224,7 @@ class TestConcat:
         assert actual.dtypes == df2.dtypes
 
     def test_casts_column_to_str_if_concatenating_str_column_with_non_str_column(
-        self, create_spark_df,
+        self, create_spark_df, suppress_warnings,
     ):
         """Test that if the type in a column of one of the frames to
         be concatenated is string, then the types of that column in the
@@ -262,7 +262,7 @@ class TestConcat:
         assert_df_equality(actual, expected)
 
     def test_fills_missing_column_with_Nones_before_concatenating(
-        self, create_spark_df,
+        self, create_spark_df, suppress_warnings,
     ):
         """When a column is missing, it should be filled with Nones
         before concatenating."""
@@ -290,7 +290,7 @@ class TestConcat:
         assert_df_equality(actual, expected)
 
     def test_can_handle_differing_types_and_missing_columns(
-        self, create_spark_df,
+        self, create_spark_df, suppress_warnings,
     ):
         """Test that concat is capable of coercing to the right types
         and filling missing columns."""
