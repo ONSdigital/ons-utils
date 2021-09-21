@@ -240,24 +240,3 @@ def test_is_list_or_tuple():
 def test_get_hive_table_columns():
     """Test for this."""
     pass
-
-
-if __name__ == "__main__":
-    from pyspark.sql import SparkSession
-    spark = (
-        SparkSession.builder.master('local')
-        .appName('cprices_test_context')
-        .config('spark.sql.shuffle.partitions', 1)
-        .config('spark.ui.showConsoleProgress', 'false')
-        .getOrCreate()
-    )
-
-    df1 = spark.createDataFrame(
-        [(1, 'dog'), (2, 'cat')],
-        schema=['id', 'animal'],
-    )
-    df2 = spark.createDataFrame(
-        [('1', 'dog'), ('2', 'cat')],
-        schema=['id', 'animal'],
-    )
-    concat([df1, df2])
