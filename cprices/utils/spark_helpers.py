@@ -14,7 +14,10 @@ from typing import (
     Tuple,
     Union,
 )
+import warnings
 
+import docrep
+import pandas as pd
 from py4j.protocol import Py4JError
 from pyspark.sql import (
     Column as SparkCol,
@@ -26,6 +29,8 @@ from pyspark.sql import (
 
 from .helpers import list_convert
 
+
+docstrings = docrep.DocstringProcessor()
 Key = Sequence[Union[str, Sequence[str]]]
 
 # The order of these is important, big ---> small.
@@ -93,10 +98,11 @@ def map_col(col_name: str, mapping: Mapping[Any, Any]) -> SparkCol:
     return map_expr[F.col(col_name)]
 
 
+@docstrings.get_sections(base='concat')
 def concat(
     frames: Union[Iterable[SparkDF], Mapping[Key, SparkDF]],
-    names: Optional[Union[str, Sequence[str]]] = None,
     keys: Optional[Key] = None,
+    names: Optional[Union[str, Sequence[str]]] = None,
 ) -> SparkDF:
     """
     Concatenate pyspark DataFrames with additional key columns.
@@ -114,15 +120,15 @@ def concat(
         If a mapping is passed, then the sorted keys will be used as the
         `keys` argument, unless it is passed, in which case the values
         will be selected.
-    names : str or list of str, optional
-        The name or names to give each new key column. Must match the
-        size of each key.
     keys : a sequence of str or str sequences, optional
         The keys to differentiate child dataframes in the concatenated
         dataframe. Each key can have multiple parts but each key should
         have an equal number of parts. The length of `names` should be
         equal to the number of parts. Keys must be passed if `frames` is
         a sequence.
+    names : str or list of str, optional
+        The name or names to give each new key column. Must match the
+        size of each key.
 
     Returns
     -------
@@ -176,15 +182,18 @@ def concat(
         # Get a set of all column schemas (name, type) across frames.
         col_schemas.update(frame.dtypes)
 
+    schemas_are_equal = _compare_schemas(frames, keys, names)
+
     # Allows dataframes with inconsistent schemas to be concatenated by
     # filling empty columns with Nulls and casting some column data
     # types where appropriate.
     #
     # Potentially remove when Spark 3.1.0 available.
-    frames = [
-        _ensure_consistent_schema(frame, col_schemas)
-        for frame in frames
-    ]
+    if not schemas_are_equal:
+        frames = [
+            _ensure_consistent_schema(frame, col_schemas)
+            for frame in frames
+        ]
 
     # Potentially update with commented line when Spark 3.1.0 available.
     # union = functools.partial(SparkDF.unionByName, allowMissingColumns=True)
@@ -377,3 +386,79 @@ def _get_largest_number_dtype(dtypes: Sequence[str]) -> str:
         dtype for dtype in SPARK_NUMBER_TYPES
         if dtype in dtypes
     ))
+
+
+def _compare_schemas(
+    frames: Sequence[pd.DataFrame],
+    keys: Optional[Key] = None,
+    names: Optional[Union[str, Sequence[str]]] = None,
+) -> bool:
+    """Return True if schemas are equal, else throw warning.
+
+    If unequal, throws a warning that displays the schemas for all the
+    unequal columns.
+
+    Parameters
+    ----------
+    %(concat.parameters)s
+
+    Returns
+    -------
+    True if column schemas are equal, else False.
+    """
+    schemas_df = _get_schemas_df(frames, keys, names)
+
+    equal_schemas = (
+        schemas_df
+        .apply(lambda col: col == schemas_df.iloc[:, 0])
+        .all(axis=1)
+    )
+
+    if not equal_schemas.all():
+        warnings.warn(
+            "column dtypes in the schemas are not equal, attempting to coerce"
+            f"\n\n{str(schemas_df.loc[~equal_schemas])}",
+            UnequalSchemaWarning,
+        )
+        return False
+    else:
+        return True
+
+
+def _get_schemas_df(
+    frames: Sequence[pd.DataFrame],
+    keys: Optional[Key] = None,
+    names: Optional[Union[str, Sequence[str]]] = None,
+) -> pd.DataFrame:
+    """
+    Return dataframe of column schemas for given frames.
+
+    Parameters
+    ----------
+    %(concat.parameters)s
+
+    Returns
+    -------
+    pandas DataFrame
+        The dtypes for each frame in each column of data, with column
+        names in the index. If names (and optionally keys) given, then
+        columns renamed to identify each frame. Otherwise columns are
+        named dtype_{i} where i is the position of the frame in the
+        sequence.
+    """
+    schemas_df = pd.DataFrame()
+    for df in frames:
+        col_names, dtypes = zip(*df.dtypes)
+        schema = pd.Series(dtypes, index=col_names)
+        schemas_df = pd.concat([schemas_df, schema], axis=1)
+
+    if keys:
+        schemas_df.columns = pd.MultiIndex.from_tuples(keys, names=names)
+    else:
+        schemas_df.columns = [f'dtype_{i+1}' for i in range(len(frames))]
+
+    return schemas_df
+
+
+class UnequalSchemaWarning(Warning):
+    pass

@@ -710,3 +710,24 @@ def test_are_all_number_types_negative_case():
 )
 def test_get_largest_number_dtype(input_types, expected):
     assert _get_largest_number_dtype(input_types) == expected
+
+
+if __name__ == "__main__":
+    from pyspark.sql import SparkSession
+    spark = (
+        SparkSession.builder.master('local')
+        .appName('cprices_test_context')
+        .config('spark.sql.shuffle.partitions', 1)
+        .config('spark.ui.showConsoleProgress', 'false')
+        .getOrCreate()
+    )
+
+    df1 = spark.createDataFrame(
+        [(1, 'dog'), (2, 'cat')],
+        schema=['id', 'animal'],
+    )
+    df2 = spark.createDataFrame(
+        [('1', 'dog'), ('2', 'cat')],
+        schema=['id', 'animal'],
+    )
+    concat([df1, df2])
