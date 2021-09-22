@@ -15,7 +15,7 @@ from datetime import datetime
 import logging
 import os
 import textwrap
-from typing import Callable, Dict, Mapping, Optional
+from typing import Callable, Dict, List, Mapping, Optional
 
 from humanfriendly import format_timespan
 import matplotlib as mpl
@@ -23,6 +23,7 @@ import pandas as pd
 
 from pyspark.sql import (
     DataFrame as SparkDF,
+    functions as F,
     SparkSession,
 )
 
@@ -193,3 +194,49 @@ def count_rows_and_check_if_empty(
     else:
         logger.info(f"DataFrame after {stage} stage has {n_rows} rows.")
         return False
+
+
+def apply_mapper(
+    df: SparkDF,
+    mapper: SparkDF,
+    keys: List[str],
+    null_values: str,
+    new_values: str,
+) -> SparkDF:
+    """Apply mapper and replace column null values with specified column
+    values.
+
+    Parameters
+    ----------
+    df : spark dataframe
+        The original dataframe containing key_cols.
+    mapper : spark dataframe
+        The imported mapper containing key_cols.
+    keys : list of str
+        The name of the join columns. The columns must exist on both
+        sides.
+    null_values : str
+        The name of the column containing null values to be updated.
+    new_values : str
+        The name of the column to update the null values with.
+
+    Returns
+    -------
+    SparkDF
+        The original dataframe joined to the mapper with updated column.
+    """
+    if isinstance(keys, str):
+        raise TypeError("Keys must be in a list format.")
+
+    for key in keys:
+        if key not in df.columns:
+            raise ValueError(
+                "Join column only exists in mapper."
+                " Update to a column on both sides."
+            )
+
+    return (
+        df
+        .join(mapper, on=[*keys], how='left')
+        .withColumn(null_values, F.coalesce(null_values, new_values))
+    )

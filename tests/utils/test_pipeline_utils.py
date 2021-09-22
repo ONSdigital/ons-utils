@@ -1,7 +1,13 @@
 """Tests for pipeline utils."""
+from chispa.dataframe_comparer import assert_df_equality
 from pyspark.sql.types import *
 import pytest
 
+from tests.conftest import (
+    Case,
+    create_dataframe,
+    parametrize_cases,
+)
 from cprices.utils.pipeline_utils import *
 
 
@@ -46,3 +52,128 @@ def test_check_empty(spark_session):
 
     with pytest.raises(DataFrameEmptyError):
         check_empty(df)
+
+
+class TestApplyMapper:
+    """Tests for the apply mapper function."""
+
+    @pytest.fixture
+    def df_one_key(self):
+        """Create a dataaframe that will map to one column."""
+        return create_dataframe([
+                ('sku', ),
+                ('item_a', ),
+                ('item_b', ),
+                ('item_c', ),
+        ])
+
+    @pytest.fixture
+    def mapper_one_key(self):
+        """Create a mapper with column that exists in input dataframe."""
+        return create_dataframe([
+                ('sku', 'relaunch_sku'),
+                ('item_a', 'item_b'),
+                ('item_c', 'item_d'),
+        ])
+
+    @parametrize_cases(
+        Case(
+            label="join_one_key",
+            df=pytest.lazy_fixture('df_one_key'),
+            mapper=pytest.lazy_fixture('mapper_one_key'),
+            keys=['sku'],
+            null_values='relaunch_sku',
+            new_values='sku',
+            expected=create_dataframe([
+                ('sku', 'relaunch_sku'),
+                ('item_a', 'item_b'),
+                ('item_b', 'item_b'),
+                ('item_c', 'item_d'),
+            ]),
+        ),
+        Case(
+            label="join_two_keys",
+            df=create_dataframe([
+                ('sku', 'retailer'),
+                ('item_a', 'retailer_a'),
+                ('item_b', 'retailer_a'),
+                ('item_c', 'retailer_a'),
+                ('item_a', 'retailer_b'),
+                ('item_b', 'retailer_b'),
+                ('item_c', 'retailer_b'),
+            ]),
+            mapper=create_dataframe([
+                ('sku', 'retailer', 'relaunch_sku'),
+                ('item_a', 'retailer_a', 'item_b'),
+                ('item_c', 'retailer_a', 'item_d'),
+            ]),
+            keys=['sku', 'retailer'],
+            null_values='relaunch_sku',
+            new_values='sku',
+            expected=create_dataframe([
+                ('sku', 'retailer', 'relaunch_sku'),
+                ('item_a', 'retailer_a', 'item_b'),
+                ('item_b', 'retailer_a', 'item_b'),
+                ('item_c', 'retailer_a', 'item_d'),
+                ('item_a', 'retailer_b', 'item_a'),
+                ('item_b', 'retailer_b', 'item_b'),
+                ('item_c', 'retailer_b', 'item_c'),
+            ]),
+        ),
+    )
+    def test_apply_mapper(
+        self,
+        to_spark,
+        df,
+        mapper,
+        keys,
+        null_values,
+        new_values,
+        expected,
+    ):
+        """Test mapper joins and null values are updated in defined column."""
+        actual = apply_mapper(
+            to_spark(df),
+            to_spark(mapper),
+            keys,
+            null_values,
+            new_values,
+        )
+
+        assert_df_equality(
+            actual,
+            to_spark(expected),
+            ignore_row_order=True,
+        )
+
+    def test_raises_error_with_string_key(
+        self,
+        to_spark,
+        df_one_key,
+        mapper_one_key,
+    ):
+        """Test error message is returned if key is string type."""
+        with pytest.raises(TypeError):
+            apply_mapper(
+                df=to_spark(df_one_key),
+                mapper=to_spark(mapper_one_key),
+                keys='sku',
+                null_values='relaunch_sku',
+                new_values='sku',
+            )
+
+    def test_raises_error_with_incorrect_key(
+        self,
+        to_spark,
+        df_one_key,
+        mapper_one_key,
+    ):
+        """Test error message is returned if key exists on one side only."""
+        with pytest.raises(ValueError):
+            apply_mapper(
+                df=to_spark(df_one_key),
+                mapper=to_spark(mapper_one_key),
+                keys=['relaunch_sku'],
+                null_values='relaunch_sku',
+                new_values='sku',
+            )
