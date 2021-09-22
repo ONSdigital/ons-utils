@@ -7,8 +7,8 @@ Provides:
 * :func:`validate_webscraped_scenario_config`
 
 Both functions return an error message that can be used to raise an
-exception. The intention is that the messages from all scenarios will be
-combined before being raised.
+exception. The intention is that the messages from all scenario configs
+will be combined before being raised.
 """
 from functools import lru_cache
 import logging
@@ -31,6 +31,15 @@ def validate_scan_scenario_config(
     spark: SparkSession = None,
 ) -> str:
     """Validate the config using required sections for scanner.
+
+    Parameters
+    ----------
+    config : Config
+        An instance of the Config object defined in
+        :mod:`cprices.config`. Haven't imported for type hint due to
+        co-dependency causing an issue.
+    spark : SparkSession
+       Used to validate Hive table existence.
 
     Returns
     -------
@@ -61,6 +70,15 @@ def validate_webscraped_scenario_config(
 ) -> str:
     """Validate the config using required sections for web scraped.
 
+    Parameters
+    ----------
+    config : Config
+        An instance of the Config object defined in
+        :mod:`cprices.config`. Haven't imported for type hint due to
+        co-dependency causing an issue.
+    spark : SparkSession
+        Used to validate Hive table existence.
+
     Returns
     -------
     str
@@ -87,11 +105,37 @@ def validate_webscraped_scenario_config(
 def get_all_errors(
     config,
     sections: Sequence[str],
-    mapper_sections: Sequence[str] = None,
+    hdfs_file_sections: Sequence[str] = None,
     hive_table_sections: Sequence[str] = None,
     spark: SparkSession = None,
 ) -> str:
-    """Combine cerberus and mapper error messages."""
+    """Combine cerberus and mapper error messages.
+
+    Parameters
+    ----------
+    config : Config
+        An instance of the Config object defined in
+        :mod:`cprices.config`. Haven't imported for type hint due to
+        co-dependency causing an issue.
+    sections : sequence of str
+        List of config sections to build the full schema. Schema
+        sections must be defined in :mod:`cprices.validation_schemas`.
+    hdfs_file_sections : sequence of str, optional
+        List of config sections that contain a mapping of label -> HDFS
+        filepath. Checks for file existence.
+    hive_table_sections : sequence of str, optional
+        List of config sections that contain a mapping of label ->
+        database_name.table_name. Checks for table existence.
+    spark : SparkSession, optional
+        Used to validate Hive table existence.
+
+    Returns
+    -------
+    str
+        A single string of all errors, including cerberus errors on
+        standard config sections, and filepath/table existence errors
+        for any HDFS files or Hive tables.
+    """
     if hive_table_sections and not spark:
         raise ValueError(
             "a spark session needs to be passed to spark if"
@@ -101,8 +145,8 @@ def get_all_errors(
     schema = full_schema(sections)
     err_msgs = get_cerberus_errors(vars(config), schema)
 
-    if mapper_sections:
-        err_msgs += get_mapper_errors(config, mapper_sections)
+    if hdfs_file_sections:
+        err_msgs += get_hdfs_filepath_errors(config, hdfs_file_sections)
     if hive_table_sections:
         err_msgs += get_hive_table_errors(spark, config, hive_table_sections)
 
@@ -131,12 +175,12 @@ def get_cerberus_errors(config: Mapping, schema: Mapping) -> Sequence[str]:
     return err_msgs
 
 
-def get_mapper_errors(config, sections: Sequence[str]) -> Sequence[str]:
-    """Validate that the mappers exist and output error messages."""
+def get_hdfs_filepath_errors(config, sections: Sequence[str]) -> Sequence[str]:
+    """Validate that the HDFS filepaths exist and output error messages."""
     # Get mapper errors.
     mapper_err_msgs = []
     for section in sections:
-        err_msgs = validate_filepaths(getattr(config, section))
+        err_msgs = validate_hdfs_filepaths(getattr(config, section))
         if err_msgs:
             mapper_err_msgs.append(
                 "\n".join(['\n' + section + ' errors:'] + err_msgs)
@@ -145,7 +189,11 @@ def get_mapper_errors(config, sections: Sequence[str]) -> Sequence[str]:
     return mapper_err_msgs
 
 
-def get_hive_table_errors(spark, config, sections: Sequence[str]):
+def get_hive_table_errors(
+    spark: SparkSession,
+    config,
+    sections: Sequence[str],
+) -> Sequence[str]:
     """Validate that the Hive tables exist and output error messages."""
     hive_table_err_msgs = []
     for section in sections:
@@ -159,12 +207,14 @@ def get_hive_table_errors(spark, config, sections: Sequence[str]):
 
 
 def validate_hive_tables(
-    spark,
+    spark: SparkSession,
     tables: Mapping[Hashable, str],
 ) -> Sequence[str]:
     """Validate a dict of Hive tables and output resulting errors."""
     err_msgs = []
     for key, table_spec in tables.items():
+        # The table spec is in the format database_name.table_name, so
+        # need to split on the period.
         if not hive_table_exists(spark, *table_spec.split('.')):
             err_msgs.append(
                 f"{key}: table at {table_spec} does not exist."
@@ -173,7 +223,9 @@ def validate_hive_tables(
     return err_msgs
 
 
-def validate_filepaths(filepaths: Mapping[Hashable, str]) -> Sequence[str]:
+def validate_hdfs_filepaths(
+    filepaths: Mapping[Hashable, str]
+) -> Sequence[str]:
     """Validate a dict of filepaths and output resulting errors."""
     err_msgs = []
     logger = logging.getLogger()
