@@ -142,22 +142,48 @@ class DataFrameEmptyError(Exception):
         )
 
 
-def nice_wrap(s: str) -> str:
-    """Apply dedent and wrap triple quoted text nicely."""
+def pretty_wrap(s: str, width: int = 100, border_char: str = None) -> str:
+    """Apply dedent to triple quoted text and wrap to width.
+
+    Option to add a border character that will top and tail the string.
+
+    Parameters
+    ----------
+    s : str
+        The triple quoted string to dedent and wrap.
+    width : int, default 100
+        Number of chars to wrap to.
+    border_char : str, optional
+        A single char to be the border marker. The border will top and
+        tail the string and will be of len ``width``. Leave as ``None``
+        for no border.
+
+    Returns
+    -------
+    str
+        The wrapped and dedented string with optional border.
+    """
     # Splitting and joining on double line break preserves the
     # paragraphs.
-    final_str = (
+    wrapped_str = (
         '\n\n'.join([
-            textwrap.fill(paragraph, 100)
+            textwrap.fill(paragraph, width)
+            # Stops lists being wrapped.
+            if not paragraph.startswith(('*', '-'))
+            else paragraph
             for paragraph in textwrap.dedent(s).split('\n\n')
         ])
     )
-    if final_str[0] == ' ':
+    if wrapped_str[0] == ' ':
         # Remove the first char as it's whitespace. Occurs when doing a
         # line break straight after triple quotes.
-        final_str = final_str[1:]
+        wrapped_str = wrapped_str[1:]
 
-    return final_str
+    if border_char:
+        border_str = border_char*width
+        wrapped_str = '\n'.join([border_str, wrapped_str, border_str])
+
+    return wrapped_str
 
 
 def to_title(s: str) -> str:
@@ -184,7 +210,7 @@ def count_rows_and_check_if_empty(
     """
     n_rows = df.cache().count()
     if n_rows == 0:
-        logger.warning(nice_wrap(f"""
+        logger.warning(pretty_wrap(f"""
             DataFrame after stage {stage} is empty for scenario
             {scenario_name}. Contact emerging platforms to investigate
             why. There will be no results for this scenario. Continuing
