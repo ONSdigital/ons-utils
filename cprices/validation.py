@@ -17,6 +17,7 @@ from typing import Dict, Sequence, Mapping, Union, Hashable
 import cerberus
 from flatten_dict import flatten
 from epds_utils import hdfs
+from pyspark.sql import SparkSession
 
 from cprices.validation_schemas import full_schema
 
@@ -25,7 +26,10 @@ class ConfigValidationError(Exception):
     """Error for Config Validation."""
 
 
-def validate_scan_scenario_config(config) -> str:
+def validate_scan_scenario_config(
+    config,
+    spark: SparkSession = None,
+) -> str:
     """Validate the config using required sections for scanner.
 
     Returns
@@ -44,13 +48,17 @@ def validate_scan_scenario_config(config) -> str:
             'flag_low_expenditures',
             'indices',
         ],
-        mapper_sections=[
+        hive_table_sections=[
             'consumption_segment_mappers',
         ],
+        spark=spark,
     )
 
 
-def validate_webscraped_scenario_config(config) -> str:
+def validate_webscraped_scenario_config(
+    config,
+    spark: SparkSession = None,
+) -> str:
     """Validate the config using required sections for web scraped.
 
     Returns
@@ -69,22 +77,34 @@ def validate_webscraped_scenario_config(config) -> str:
             'grouping',
             'indices',
         ],
-        mapper_sections=[
+        hive_table_sections=[
             'consumption_segment_mappers',
         ],
+        spark=spark,
     )
 
 
 def get_all_errors(
     config,
     sections: Sequence[str],
-    mapper_sections: Sequence[str]
+    mapper_sections: Sequence[str] = None,
+    hive_table_sections: Sequence[str] = None,
+    spark: SparkSession = None,
 ) -> str:
     """Combine cerberus and mapper error messages."""
+    if hive_table_sections and not spark:
+        raise ValueError(
+            "a spark session needs to be passed to spark if"
+            " hive_table_sections is passed"
+        )
     # Get section errors.
     schema = full_schema(sections)
     err_msgs = get_cerberus_errors(vars(config), schema)
-    err_msgs += get_mapper_errors(config, mapper_sections)
+
+    if mapper_sections:
+        err_msgs += get_mapper_errors(config, mapper_sections)
+    if hive_table_sections:
+        err_msgs += get_hive_table_errors(spark, config, hive_table_sections)
 
     # Get header.
     if err_msgs:
@@ -116,21 +136,48 @@ def get_mapper_errors(config, sections: Sequence[str]) -> Sequence[str]:
     # Get mapper errors.
     mapper_err_msgs = []
     for section in sections:
-        pass
-#         err_msgs = validate_filepaths(getattr(config, section))
-#         if err_msgs:
-#             mapper_err_msgs.append(
-#                 "\n".join(['\n' + section + ' errors:'] + err_msgs)
-#             )
+        err_msgs = validate_filepaths(getattr(config, section))
+        if err_msgs:
+            mapper_err_msgs.append(
+                "\n".join(['\n' + section + ' errors:'] + err_msgs)
+            )
 
     return mapper_err_msgs
+
+
+def get_hive_table_errors(spark, config, sections: Sequence[str]):
+    """Validate that the Hive tables exist and output error messages."""
+    hive_table_err_msgs = []
+    for section in sections:
+        err_msgs = validate_hive_tables(spark, getattr(config, section))
+        if err_msgs:
+            hive_table_err_msgs.append(
+                "\n".join(['\n' + section + ' errors:'] + err_msgs)
+            )
+
+    return hive_table_err_msgs
+
+
+def validate_hive_tables(
+    spark,
+    tables: Mapping[Hashable, str],
+) -> Sequence[str]:
+    """Validate a dict of Hive tables and output resulting errors."""
+    err_msgs = []
+    for key, table_spec in tables.items():
+        if not hive_table_exists(spark, *table_spec.split('.')):
+            err_msgs.append(
+                f"{key}: table at {table_spec} does not exist."
+            )
+
+    return err_msgs
 
 
 def validate_filepaths(filepaths: Mapping[Hashable, str]) -> Sequence[str]:
     """Validate a dict of filepaths and output resulting errors."""
     err_msgs = []
     logger = logging.getLogger()
-    # Flatten so it can handle any nesting level.
+
     for key, path in filepaths.items():
         if not file_exists_on_hdfs(path):
             err_msgs.append(
@@ -144,6 +191,11 @@ def validate_filepaths(filepaths: Mapping[Hashable, str]) -> Sequence[str]:
 @lru_cache(maxsize=32)
 def file_exists_on_hdfs(path: str):
     return hdfs.test(path)
+
+
+def hive_table_exists(spark, database: str, table: str) -> bool:
+    """Checks the Spark catalog and returns True if a table exists."""
+    return spark._jsparkSession.catalog().tableExists(database, table)
 
 
 def get_underlined_header(header: str, char: str = '-') -> str:
