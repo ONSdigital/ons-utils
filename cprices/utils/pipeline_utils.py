@@ -222,7 +222,7 @@ def count_rows_and_check_if_empty(
         return False
 
 
-def apply_mapper(
+def apply_remap_mapper(
     df: SparkDF,
     mapper: SparkDF,
     keys: List[str],

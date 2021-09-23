@@ -54,12 +54,12 @@ def test_check_empty(spark_session):
         check_empty(df)
 
 
-class TestApplyMapper:
-    """Tests for the apply mapper function."""
+class TestApplyRemapMapper:
+    """Tests for the apply_remap_mapper function."""
 
     @pytest.fixture
     def input_df(self):
-        """Create a dataaframe that will map to one column."""
+        """Create a dataframe that will map to one column."""
         return create_dataframe([
                 ('default_values', ),
                 ('item_a', ),
@@ -225,7 +225,7 @@ class TestApplyMapper:
         expected,
     ):
         """Test mapper joins and null values are updated in defined column."""
-        actual = apply_mapper(
+        actual = apply_remap_mapper(
             to_spark(df),
             to_spark(mapper),
             keys,
