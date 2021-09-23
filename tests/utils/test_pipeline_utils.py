@@ -167,6 +167,36 @@ class TestApplyMapper:
                 ('item_c', 'retailer_b', 'item_c'),
             ]),
         ),
+        Case(
+            label="join_grouping_mapper",
+            df=create_dataframe([
+                ('product_id', 'supplier'),
+                ('item_a', 'supplier_a'),
+                ('item_b', 'supplier_a'),
+                ('item_c', 'supplier_a'),
+                ('item_a', 'supplier_b'),
+                ('item_b', 'supplier_b'),
+                ('item_c', 'supplier_b'),
+            ]),
+            mapper=create_dataframe([
+                ('product_id', 'supplier', 'group_id'),
+                ('item_a', 'supplier_a', 'item_b'),
+                ('item_c', 'supplier_a', 'item_d'),
+            ]),
+            keys=['product_id', 'supplier'],
+            mapped_col_name='product_id',
+            column_to_fill='group_id',
+            fill_values='product_id',
+            expected=create_dataframe([
+                ('product_id', 'supplier', 'group_id'),
+                ('item_b', 'supplier_a', 'item_b'),
+                ('item_b', 'supplier_a', None),
+                ('item_d', 'supplier_a', 'item_d'),
+                ('item_a', 'supplier_b', None),
+                ('item_b', 'supplier_b', None),
+                ('item_c', 'supplier_b', None),
+            ]),
+        ),
     )
     def test_apply_mapper(
         self,
