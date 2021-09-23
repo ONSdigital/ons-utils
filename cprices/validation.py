@@ -46,6 +46,7 @@ def validate_scan_scenario_config(config) -> str:
         ],
         mapper_sections=[
             'consumption_segment_mappers',
+            ('relaunch_linking', 'mappers'),
         ],
     )
 
