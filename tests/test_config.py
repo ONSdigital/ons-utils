@@ -332,14 +332,6 @@ class TestConfig:
 
 
 @pytest.fixture
-def mock_dev_config(mocker):
-    """Mock up a dev_config class with the mappers_dir attribute."""
-    dev_config_mock = mocker.MagicMock()
-    dev_config_mock.mappers_dir = 'my_dir'
-    return dev_config_mock
-
-
-@pytest.fixture
 def mock_init(test_config, monkeypatch):
     """Mocks the class methods called on initialisation to do nothing."""
     def _(
@@ -379,7 +371,7 @@ def mock_init(test_config, monkeypatch):
 
 
 @pytest.fixture
-def mock_scan_scenario_config(mock_init, mock_dev_config):
+def mock_scan_scenario_config(mock_init):
     """Return a ScanScenarioConfig object given yaml input.
 
     Option to mock one or more of the initialisation methods for the
@@ -390,13 +382,12 @@ def mock_scan_scenario_config(mock_init, mock_dev_config):
         mock_methods_on_init: Optional[Union[bool, Sequence[str]]] = False,
     ) -> ScanScenarioConfig:
         if mock_methods_on_init is True:
-            mock_methods_on_init = ['prepend_dir', 'combine_input_data']
+            mock_methods_on_init = ['combine_input_data']
 
         return mock_init(
             ScanScenarioConfig,
             yaml_input,
             mock_methods_on_init,
-            dev_config=mock_dev_config,
             subdir=None,
         )
     return _
@@ -425,10 +416,7 @@ class TestScanScenarioConfig:
                 supplier_3:
                     retailer_3
         """
-        conf = mock_scan_scenario_config(
-            test_yaml,
-            mock_methods_on_init=['prepend_dir'],
-        )
+        conf = mock_scan_scenario_config(test_yaml)
         assert all_in_output(
             output=conf.input_data,
             values=[
@@ -507,7 +495,7 @@ class TestWebScrapedScenarioConfig:
     """Tests for the web scraped scenario configs."""
 
     @pytest.fixture
-    def scenario_conf(self, test_config, mock_dev_config):
+    def scenario_conf(self, test_config):
         """Return a Scenario Config with both scanner and web_scraped
         input_data and item_mappers.
         """
@@ -524,11 +512,7 @@ class TestWebScrapedScenarioConfig:
                 multi_item_timber: /mapper/path/multi_item_timber.parquet
         """)
         # my_config.yaml created by the call to test_config
-        return WebScrapedScenarioConfig(
-            'my_config',
-            dev_config=mock_dev_config,
-            subdir=None,
-        )
+        return WebScrapedScenarioConfig('my_config', subdir=None)
 
     def test_init_gets_keys_value_pairs_for_input_data(
         self, all_in_output, scenario_conf
@@ -766,7 +750,7 @@ class TestScanDevConfig:
 
 
 @pytest.fixture
-def mock_web_scraped_scenario_config(mock_init, mock_dev_config):
+def mock_web_scraped_scenario_config(mock_init):
     """Return a WebScrapedScenarioConfig object given yaml input.
 
     Option to mock one or more of the initialisation methods for the
@@ -778,7 +762,6 @@ def mock_web_scraped_scenario_config(mock_init, mock_dev_config):
     ) -> ScanScenarioConfig:
         if mock_methods_on_init is True:
             mock_methods_on_init = [
-                'prepend_dir',
                 'flatten_nested_dicts',
                 'get_key_value_pairs',
             ]
@@ -787,7 +770,6 @@ def mock_web_scraped_scenario_config(mock_init, mock_dev_config):
             WebScrapedScenarioConfig,
             yaml_input,
             mock_methods_on_init,
-            dev_config=mock_dev_config,
             subdir=None,
         )
     return _

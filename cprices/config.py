@@ -8,6 +8,7 @@ from typing import Any, Collection, Mapping, Optional, Sequence, Union
 import yaml
 
 from flatten_dict import flatten
+from pyspark.sql import SparkSession
 
 from cprices._typing import PathLike
 from cprices import validation
@@ -243,7 +244,7 @@ class ScenarioConfig(Config, ABC):
     """Base class for scenario configs."""
 
     @abstractmethod
-    def validate(self) -> str:
+    def validate(self, spark: SparkSession = None) -> str:
         """Validate the scenario config against the schema.
 
         Returns
@@ -297,7 +298,6 @@ class ScanScenarioConfig(ScenarioConfig):
     def __init__(
         self,
         filename: str,
-        dev_config: DevConfig,
         subdir='scanner',
         **kwargs,
     ):
@@ -305,8 +305,8 @@ class ScanScenarioConfig(ScenarioConfig):
         super().__init__(filename, subdir=subdir, **kwargs)
         self.combine_input_data()
 
-    def validate(self) -> str:
-        return validation.validate_scan_scenario_config(self)
+    def validate(self, spark: SparkSession = None) -> str:
+        return validation.validate_scan_scenario_config(self, spark)
 
     def combine_input_data(self) -> None:
         """Combine with supplier dict and without supplier list."""
@@ -332,7 +332,6 @@ class WebScrapedScenarioConfig(ScenarioConfig):
     def __init__(
         self,
         filename: str,
-        dev_config: DevConfig,
         subdir='web_scraped',
         **kwargs,
     ):
@@ -341,8 +340,8 @@ class WebScrapedScenarioConfig(ScenarioConfig):
         self.flatten_nested_dicts(['consumption_segment_mappers'])
         self.get_key_value_pairs(['input_data'])
 
-    def validate(self) -> str:
-        return validation.validate_webscraped_scenario_config(self)
+    def validate(self, spark: SparkSession = None) -> str:
+        return validation.validate_webscraped_scenario_config(self, spark)
 
 
 class ScanDevConfig(DevConfig):
