@@ -83,7 +83,7 @@ class TestApplyMapper:
             mapper=pytest.lazy_fixture('mapper_one_key'),
             keys=['sku'],
             column_to_fill='relaunch_sku',
-            new_values='sku',
+            fill_values='sku',
             expected=create_dataframe([
                 ('sku', 'relaunch_sku'),
                 ('item_a', 'item_b'),
@@ -109,7 +109,7 @@ class TestApplyMapper:
             ]),
             keys=['sku', 'retailer'],
             column_to_fill='relaunch_sku',
-            new_values='sku',
+            fill_values='sku',
             expected=create_dataframe([
                 ('sku', 'retailer', 'relaunch_sku'),
                 ('item_a', 'retailer_a', 'item_b'),
@@ -128,7 +128,7 @@ class TestApplyMapper:
         mapper,
         keys,
         column_to_fill,
-        new_values,
+        fill_values,
         expected,
     ):
         """Test mapper joins and null values are updated in defined column."""
@@ -137,7 +137,7 @@ class TestApplyMapper:
             to_spark(mapper),
             keys,
             column_to_fill,
-            new_values,
+            fill_values,
         )
 
         assert_df_equality(
@@ -159,7 +159,7 @@ class TestApplyMapper:
                 mapper=to_spark(mapper_one_key),
                 keys='sku',
                 column_to_fill='relaunch_sku',
-                new_values='sku',
+                fill_values='sku',
             )
 
     def test_raises_error_with_incorrect_key(
@@ -175,5 +175,5 @@ class TestApplyMapper:
                 mapper=to_spark(mapper_one_key),
                 keys=['relaunch_sku'],
                 column_to_fill='relaunch_sku',
-                new_values='sku',
+                fill_values='sku',
             )
