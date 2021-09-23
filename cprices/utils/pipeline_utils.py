@@ -226,7 +226,7 @@ def apply_mapper(
     df: SparkDF,
     mapper: SparkDF,
     keys: List[str],
-    null_values: str,
+    column_to_fill: str,
     new_values: str,
 ) -> SparkDF:
     """Apply mapper and replace column null values with specified column
@@ -241,7 +241,7 @@ def apply_mapper(
     keys : list of str
         The name of the join columns. The columns must exist on both
         sides.
-    null_values : str
+    column_to_fill : str
         The name of the column containing null values to be updated.
     new_values : str
         The name of the column to update the null values with.
@@ -264,5 +264,5 @@ def apply_mapper(
     return (
         df
         .join(mapper, on=[*keys], how='left')
-        .withColumn(null_values, F.coalesce(null_values, new_values))
+        .withColumn(column_to_fill, F.coalesce(column_to_fill, new_values))
     )
