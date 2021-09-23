@@ -78,6 +78,21 @@ class TestApplyMapper:
 
     @parametrize_cases(
         Case(
+            label="keys_works_as_string",
+            df=pytest.lazy_fixture('input_df'),
+            mapper=pytest.lazy_fixture('mapper_df'),
+            expected=create_dataframe([
+                ('default_values', 'new_values'),
+                ('item_a', 'item_b'),
+                ('item_b', 'item_b'),
+                ('item_c', 'item_d'),
+            ]),
+            keys='default_values',
+            mapped_col_name='new_values',
+            column_to_fill='new_values',
+            fill_values='default_values',
+        ),
+        Case(
             label="overwrite_null_new_values_with_default_values",
             df=pytest.lazy_fixture('input_df'),
             mapper=pytest.lazy_fixture('mapper_df'),
@@ -224,37 +239,3 @@ class TestApplyMapper:
             to_spark(expected),
             ignore_row_order=True,
         )
-
-    def test_raises_error_with_string_key(
-        self,
-        to_spark,
-        input_df,
-        mapper_df,
-    ):
-        """Test error message is returned if key is string type."""
-        with pytest.raises(TypeError):
-            apply_mapper(
-                df=to_spark(input_df),
-                mapper=to_spark(mapper_df),
-                keys='default_values',
-                mapped_col_name='new_values',
-                column_to_fill='new_values',
-                fill_values='default_values',
-            )
-
-    def test_raises_error_with_incorrect_key(
-        self,
-        to_spark,
-        input_df,
-        mapper_df,
-    ):
-        """Test error message is returned if key exists on one side only."""
-        with pytest.raises(ValueError):
-            apply_mapper(
-                df=to_spark(input_df),
-                mapper=to_spark(mapper_df),
-                keys=['new_values'],
-                mapped_col_name='new_values',
-                column_to_fill='new_values',
-                fill_values='default_values',
-            )

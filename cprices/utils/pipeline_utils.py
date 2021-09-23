@@ -28,7 +28,7 @@ from pyspark.sql import (
 )
 
 from cprices.config import Config
-from cprices.utils.helpers import invert_nested_keys
+from cprices.utils.helpers import invert_nested_keys, list_convert
 from cprices.utils import spark_helpers
 
 LOGGER = logging.getLogger()
@@ -253,15 +253,7 @@ def apply_mapper(
     SparkDF
         The original dataframe joined to the mapper with updated column.
     """
-    if isinstance(keys, str):
-        raise TypeError("Keys must be in a list format.")
-
-    for key in keys:
-        if key not in df.columns:
-            raise ValueError(
-                "Join column only exists in mapper."
-                " Update to a column on both sides."
-            )
+    keys = list_convert(keys)
 
     return (
         df
