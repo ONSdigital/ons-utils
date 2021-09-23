@@ -62,6 +62,7 @@ def validate_scan_scenario_config(
         ],
         hive_table_sections=[
             'consumption_segment_mappers',
+            ('relaunch_linking', 'mappers'),
         ],
         spark=spark,
     )
