@@ -229,8 +229,7 @@ def apply_mapper(
     column_to_fill: str,
     fill_values: str,
 ) -> SparkDF:
-    """Apply mapper and replace column null values with specified column
-    values.
+    """Fill null values in column with new fill values from mapper.
 
     Parameters
     ----------
