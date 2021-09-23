@@ -262,6 +262,6 @@ def apply_mapper(
 
     return (
         df
-        .join(mapper, on=[*keys], how='left')
+        .join(mapper, on=keys, how='left')
         .withColumn(column_to_fill, F.coalesce(column_to_fill, fill_values))
     )
