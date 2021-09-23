@@ -226,6 +226,7 @@ def apply_mapper(
     df: SparkDF,
     mapper: SparkDF,
     keys: List[str],
+    mapped_col_name: str,
     column_to_fill: str,
     fill_values: str,
 ) -> SparkDF:
@@ -240,6 +241,8 @@ def apply_mapper(
     keys : list of str
         The name of the join columns. The columns must exist on both
         sides.
+    mapped_col_name : str
+        The name of the resulting column which has been coalesced.
     column_to_fill : str
         The name of the column containing null values to be updated.
     fill_values : str
@@ -263,5 +266,5 @@ def apply_mapper(
     return (
         df
         .join(mapper, on=keys, how='left')
-        .withColumn(column_to_fill, F.coalesce(column_to_fill, fill_values))
+        .withColumn(mapped_col_name, F.coalesce(column_to_fill, fill_values))
     )

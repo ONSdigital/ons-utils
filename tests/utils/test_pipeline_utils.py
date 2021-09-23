@@ -82,6 +82,7 @@ class TestApplyMapper:
             df=pytest.lazy_fixture('df_one_key'),
             mapper=pytest.lazy_fixture('mapper_one_key'),
             keys=['sku'],
+            mapped_col_name='relaunch_sku',
             column_to_fill='relaunch_sku',
             fill_values='sku',
             expected=create_dataframe([
@@ -108,6 +109,7 @@ class TestApplyMapper:
                 ('item_c', 'retailer_a', 'item_d'),
             ]),
             keys=['sku', 'retailer'],
+            mapped_col_name='relaunch_sku',
             column_to_fill='relaunch_sku',
             fill_values='sku',
             expected=create_dataframe([
@@ -127,6 +129,7 @@ class TestApplyMapper:
         df,
         mapper,
         keys,
+        mapped_col_name,
         column_to_fill,
         fill_values,
         expected,
@@ -136,6 +139,7 @@ class TestApplyMapper:
             to_spark(df),
             to_spark(mapper),
             keys,
+            mapped_col_name,
             column_to_fill,
             fill_values,
         )
@@ -158,6 +162,7 @@ class TestApplyMapper:
                 df=to_spark(df_one_key),
                 mapper=to_spark(mapper_one_key),
                 keys='sku',
+                mapped_col_name='relaunch_sku',
                 column_to_fill='relaunch_sku',
                 fill_values='sku',
             )
@@ -174,6 +179,7 @@ class TestApplyMapper:
                 df=to_spark(df_one_key),
                 mapper=to_spark(mapper_one_key),
                 keys=['relaunch_sku'],
+                mapped_col_name='relaunch_sku',
                 column_to_fill='relaunch_sku',
                 fill_values='sku',
             )
