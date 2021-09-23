@@ -61,7 +61,7 @@ class TestApplyMapper:
     def df_one_key(self):
         """Create a dataaframe that will map to one column."""
         return create_dataframe([
-                ('sku', ),
+                ('default_values', ),
                 ('item_a', ),
                 ('item_b', ),
                 ('item_c', ),
@@ -71,7 +71,7 @@ class TestApplyMapper:
     def mapper_one_key(self):
         """Create a mapper with column that exists in input dataframe."""
         return create_dataframe([
-                ('sku', 'relaunch_sku'),
+                ('default_values', 'new_values'),
                 ('item_a', 'item_b'),
                 ('item_c', 'item_d'),
         ])
@@ -81,12 +81,12 @@ class TestApplyMapper:
             label="join_one_key",
             df=pytest.lazy_fixture('df_one_key'),
             mapper=pytest.lazy_fixture('mapper_one_key'),
-            keys=['sku'],
-            mapped_col_name='relaunch_sku',
-            column_to_fill='relaunch_sku',
-            fill_values='sku',
+            keys=['default_values'],
+            mapped_col_name='new_values',
+            column_to_fill='new_values',
+            fill_values='default_values',
             expected=create_dataframe([
-                ('sku', 'relaunch_sku'),
+                ('default_values', 'new_values'),
                 ('item_a', 'item_b'),
                 ('item_b', 'item_b'),
                 ('item_c', 'item_d'),
@@ -95,7 +95,7 @@ class TestApplyMapper:
         Case(
             label="join_two_keys",
             df=create_dataframe([
-                ('sku', 'retailer'),
+                ('default_values', 'retailer'),
                 ('item_a', 'retailer_a'),
                 ('item_b', 'retailer_a'),
                 ('item_c', 'retailer_a'),
@@ -104,16 +104,16 @@ class TestApplyMapper:
                 ('item_c', 'retailer_b'),
             ]),
             mapper=create_dataframe([
-                ('sku', 'retailer', 'relaunch_sku'),
+                ('default_values', 'retailer', 'new_values'),
                 ('item_a', 'retailer_a', 'item_b'),
                 ('item_c', 'retailer_a', 'item_d'),
             ]),
-            keys=['sku', 'retailer'],
-            mapped_col_name='relaunch_sku',
-            column_to_fill='relaunch_sku',
-            fill_values='sku',
+            keys=['default_values', 'retailer'],
+            mapped_col_name='new_values',
+            column_to_fill='new_values',
+            fill_values='default_values',
             expected=create_dataframe([
-                ('sku', 'retailer', 'relaunch_sku'),
+                ('default_values', 'retailer', 'new_values'),
                 ('item_a', 'retailer_a', 'item_b'),
                 ('item_b', 'retailer_a', 'item_b'),
                 ('item_c', 'retailer_a', 'item_d'),
@@ -161,10 +161,10 @@ class TestApplyMapper:
             apply_mapper(
                 df=to_spark(df_one_key),
                 mapper=to_spark(mapper_one_key),
-                keys='sku',
-                mapped_col_name='relaunch_sku',
-                column_to_fill='relaunch_sku',
-                fill_values='sku',
+                keys='default_values',
+                mapped_col_name='new_values',
+                column_to_fill='new_values',
+                fill_values='default_values',
             )
 
     def test_raises_error_with_incorrect_key(
@@ -178,8 +178,8 @@ class TestApplyMapper:
             apply_mapper(
                 df=to_spark(df_one_key),
                 mapper=to_spark(mapper_one_key),
-                keys=['relaunch_sku'],
-                mapped_col_name='relaunch_sku',
-                column_to_fill='relaunch_sku',
-                fill_values='sku',
+                keys=['new_values'],
+                mapped_col_name='new_values',
+                column_to_fill='new_values',
+                fill_values='default_values',
             )
