@@ -36,7 +36,7 @@ def timer_args(name, logger):
         'name': name,
         'text': lambda secs: name + (
             # Returns minutes and seconds if at least 1 minute passed.
-            f": {secs/60:.0f} mins {secs:.2f} secs" if secs/60 > 1
+            f": {secs/60:.0f} mins {secs%60:.2f} secs" if secs/60 > 1
             else f": {secs:.2f} secs"
         ),
         'logger': logger,
