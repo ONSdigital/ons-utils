@@ -19,8 +19,8 @@ class TestListConvert:
     def test_wraps_other_objs_in_list_container(self, obj):
         assert list_convert(obj) == [obj]
 
-    def test_returns_None_if_None_passed(self):
-        assert list_convert(None) is None
+    def test_returns_None_wrapped_in_list_if_None_passed(self):
+        assert list_convert(None) == [None]
 
 
 class TestTupleConvert:

@@ -114,7 +114,9 @@ def _transform_args(
 ) -> Sequence[Any]:
     """Transform given args if condition is met."""
     return [
-        transform_func(arg) if conditional(varnames[i]) else arg
+        transform_func(arg)
+        if conditional(varnames[i]) and arg is not None
+        else arg
         for i, arg in enumerate(args)
     ]
 
@@ -126,6 +128,8 @@ def _transform_kwargs(
 ) -> Mapping[str, Any]:
     """Transform given kwargs if condition is met."""
     return {
-        k: transform_func(kwarg) if conditional(k) else kwarg
+        k: transform_func(kwarg)
+        if conditional(k) and kwargs is not None
+        else kwarg
         for k, kwarg in kwargs.items()
     }
