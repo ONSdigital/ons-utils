@@ -194,9 +194,9 @@ class TestApplyRemapMapper:
                 ('item_c', 'supplier_b'),
             ]),
             mapper=create_dataframe([
-                ('product_id', 'supplier', 'group_id'),
-                ('item_a', 'supplier_a', 'group_z'),
-                ('item_c', 'supplier_a', 'group_y'),
+                ('supplier', 'product_id', 'group_id'),
+                ('supplier_a', 'item_a', 'group_z'),
+                ('supplier_a', 'item_c', 'group_y'),
             ]),
             keys=['product_id', 'supplier'],
             mapped_col_name='product_id',
