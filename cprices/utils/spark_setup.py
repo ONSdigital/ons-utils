@@ -1,11 +1,9 @@
 """Contains spark setup function: start_spark_session."""
 from contextlib import contextmanager
-from copy import copy
 import logging
 import os
 from pathlib import Path
 import re
-import subprocess
 from typing import Union
 
 import pydoop.hdfs as hdfs
@@ -189,14 +187,14 @@ def find_miscmods_version(s: str) -> Union[float, None]:
 @contextmanager
 def checkpoints(spark, checkpoint_dir: FilePath = None) -> None:
     """Context manager to set checkpoint directory and clear after use."""
-    set_checkpoint_dir(spark, checkpoint_dir)
+    checkpoint_dir = set_checkpoint_dir(spark, checkpoint_dir)
     try:
         yield None
     finally:
-        clear_dir(checkpoint_dir)
+        hdfs.rm(checkpoint_dir.as_posix())
 
 
-def set_checkpoint_dir(spark, checkpoint_dir: FilePath = None) -> None:
+def set_checkpoint_dir(spark, checkpoint_dir: FilePath = None) -> Path:
     """Set the checkpoint directory.
 
     If no checkpoint dir specified, then use the Hadoop username
@@ -205,8 +203,7 @@ def set_checkpoint_dir(spark, checkpoint_dir: FilePath = None) -> None:
     doesn't exist.
     """
     if not checkpoint_dir:
-        username = os.getenv("HADOOP_USER_NAME")
-        checkpoint_dir = Path('/', 'user', username, 'checkpoints')
+        checkpoint_dir = get_default_checkpoint_dir()
     else:
         checkpoint_dir = Path(checkpoint_dir)
 
@@ -214,11 +211,13 @@ def set_checkpoint_dir(spark, checkpoint_dir: FilePath = None) -> None:
     checkpoint_dir = _get_unused_checkpoint_dir(checkpoint_dir)
     spark.sparkContext.setCheckpointDir(checkpoint_dir.as_posix())
 
+    return checkpoint_dir
 
-def clear_dir(dir_: FilePath) -> None:
-    """Recursively remove the given dir and its contents."""
-    cmd = ['hadoop',  'fs', '-rm', '-r', '-skipTrash', dir_]
-    subprocess.run(cmd)
+
+def get_default_checkpoint_dir() -> Path:
+    """Return the default checkpoint directory."""
+    username = os.getenv("HADOOP_USER_NAME")
+    return Path('/', 'user', username, 'checkpoints')
 
 
 def _get_unused_checkpoint_dir(checkpoint_dir: Path) -> Path:
@@ -231,8 +230,8 @@ def _get_unused_checkpoint_dir(checkpoint_dir: Path) -> Path:
     removing a directory that has other files in it.
     """
     n = 1
-    new_checkpoint_dir = copy(checkpoint_dir)
-    while hdfs.path.isdir(new_checkpoint_dir):
+    new_checkpoint_dir = checkpoint_dir.joinpath(str(n))
+    while hdfs.path.isdir(new_checkpoint_dir.as_posix()):
         new_checkpoint_dir = checkpoint_dir.joinpath(str(n))
         n += 1
 
