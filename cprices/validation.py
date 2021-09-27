@@ -212,9 +212,17 @@ def get_hive_table_errors(
     hive_table_err_msgs = []
     for section in sections:
         if is_non_string_sequence(section):
+            switch = getattr(config, section[0]).get('active')
+            if switch is not None and switch is False:
+                continue
+
             to_validate = get_inner(config, section)
             section = '.'.join(section)
         else:
+            switch = getattr(config, section).get('active')
+            if switch is not None and switch is False:
+                continue
+
             to_validate = getattr(config, section)
         err_msgs = validate_hive_tables(spark, to_validate)
         if err_msgs:
