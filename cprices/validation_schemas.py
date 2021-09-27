@@ -152,11 +152,7 @@ def grouping_schema() -> Dict:
         'mappers': {
             'type': 'dict',
             'keyschema': {'type': 'string'},
-            'valueschema': {
-                'type': 'dict',
-                'keyschema': {'type': 'string'},
-                'valueschema': {'type': 'string'},
-            },
+            'valueschema': {'type': 'string'},
         },
     }
 
