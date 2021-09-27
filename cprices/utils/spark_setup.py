@@ -8,7 +8,7 @@ import re
 import subprocess
 from typing import Union
 
-from epds_utils.hdfs import hdfs_utils
+import pydoop.hdfs as hdfs
 from pyspark.sql import SparkSession
 import IPython
 
@@ -111,7 +111,8 @@ def start_spark_session(
             .config("spark.executor.cores", 5)
             .config("spark.dynamicAllocation.enabled", "true")
             .config("spark.dynamicAllocation.maxExecutors", 12)
-            .config("spark.sql.shuffle.partitions", 240)  # = multiple of cores x max executors
+            # partitions = multiple of cores x max executors
+            .config("spark.sql.shuffle.partitions", 240)
             .config("spark.shuffle.service.enabled", "true")
             .config("spark.ui.showConsoleProgress", "false")
             .config('spark.driver.maxResultSize', '6g')
@@ -231,7 +232,7 @@ def _get_unused_checkpoint_dir(checkpoint_dir: Path) -> Path:
     """
     n = 1
     new_checkpoint_dir = copy(checkpoint_dir)
-    while hdfs_utils.isdir(new_checkpoint_dir):
+    while hdfs.path.isdir(new_checkpoint_dir):
         new_checkpoint_dir = checkpoint_dir.joinpath(str(n))
         n += 1
 
