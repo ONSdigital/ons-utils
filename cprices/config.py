@@ -304,6 +304,9 @@ class ScanScenarioConfig(ScenarioConfig):
         """Init like config, then run .combine_input_data()."""
         super().__init__(filename, subdir=subdir, **kwargs)
         self.combine_input_data()
+        self.flatten_nested_dicts(
+            ['consumption_segment_mappers', 'relaunch_linking']
+        )
 
     def validate(self, spark: SparkSession = None) -> str:
         return validation.validate_scan_scenario_config(self, spark)
