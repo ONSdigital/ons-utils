@@ -55,6 +55,7 @@ def validate_scan_scenario_config(
         sections=[
             # 'input_data',
             'preprocessing',
+            'relaunch_linking',
             'outlier_detection',
             'averaging',
             'flag_low_expenditures',
