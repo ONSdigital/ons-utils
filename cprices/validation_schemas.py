@@ -22,6 +22,7 @@ def schema_sections() -> Dict[str, Dict]:
     """Return a schema with all the sections."""
     section_schemas = {
         'preprocessing': preprocessing_schema(),
+        'relaunch_linking': relaunch_linking_schema(),
         'outlier_detection': outlier_detection_schema(),
         'averaging': averaging_schema(),
         'grouping': grouping_schema(),
@@ -103,6 +104,18 @@ def consumption_segment_mappers_schema() -> Dict:
     }
 
 
+def relaunch_linking_schema() -> Dict:
+    """Return schema for relaunch linking validation."""
+    return {
+        'active': {'type': 'boolean'},
+        'mappers': {
+            'type': 'dict',
+            'keyschema': {'type': 'string'},
+            'valueschema': {'type': 'string'},
+        },
+    }
+
+
 def outlier_detection_schema() -> Dict:
     """Return schema for outlier detection validation."""
     return {
@@ -152,11 +165,7 @@ def grouping_schema() -> Dict:
         'mappers': {
             'type': 'dict',
             'keyschema': {'type': 'string'},
-            'valueschema': {
-                'type': 'dict',
-                'keyschema': {'type': 'string'},
-                'valueschema': {'type': 'string'},
-            },
+            'valueschema': {'type': 'string'},
         },
     }
 

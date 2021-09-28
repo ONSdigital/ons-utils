@@ -505,11 +505,6 @@ class TestWebScrapedScenarioConfig:
                 - single_item_1
             supplier_2:
                 - multi_item_timber
-        consumption_segment_mappers:
-            supplier_1:
-                single_item_1: /mapper/path/single_item_1.parquet
-            supplier_2:
-                multi_item_timber: /mapper/path/multi_item_timber.parquet
         """)
         # my_config.yaml created by the call to test_config
         return WebScrapedScenarioConfig('my_config', subdir=None)
@@ -525,15 +520,6 @@ class TestWebScrapedScenarioConfig:
                 ('supplier_2', 'multi_item_timber'),
             ]
         )
-
-    def test_init_flattens_consumption_segment_mappers_dict(
-        self, scenario_conf
-    ):
-        """Test consumption segment mappers nested dict is flat."""
-        assert scenario_conf.consumption_segment_mappers == {
-            ('supplier_1', 'single_item_1'): '/mapper/path/single_item_1.parquet',
-            ('supplier_2', 'multi_item_timber'): '/mapper/path/multi_item_timber.parquet',
-        }
 
 
 @pytest.fixture
