@@ -200,6 +200,31 @@ def validate_indices() -> Mapping:
         'tornqvist',
     }
 
+    multilateral_method_options = {
+        'initial_window_methods': {
+            'type': 'list',
+            'allowed': {
+                'revised',
+                'expanding'
+            }
+        },
+        'extension_methods': {
+            'type': 'list',
+            'allowed': {
+                'pure',
+                'expanding_window',
+                'movement_splice',
+                'window_splice',
+                'half_window_splice',
+                'december_link_splice'
+            }
+        },
+        'window': {
+            'type': 'integer',
+            'min': 3,
+        }
+    }
+
     return {
         'bilateral_index_options': {
             'type': 'dict',
@@ -233,28 +258,7 @@ def validate_indices() -> Mapping:
                             'type': 'list',
                             'allowed': bilateral_index_methods
                         },
-                        'initial_window_methods': {
-                            'type': 'list',
-                            'allowed': {
-                                'revised',
-                                'expanding'
-                            }
-                        },
-                        'extension_methods': {
-                            'type': 'list',
-                            'allowed': {
-                                'pure',
-                                'expanding_window',
-                                'movement_splice',
-                                'window_splice',
-                                'half_window_splice',
-                                'december_link_splice'
-                            }
-                        },
-                        'window': {
-                            'type': 'integer',
-                            'min': 3,
-                        },
+                        **multilateral_method_options
                     }
                 },
                 'geary_khamis': {
