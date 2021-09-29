@@ -264,13 +264,8 @@ def indices_schema() -> Mapping:
                 },
                 'geary_khamis': {
                     'type': 'dict',
-                    'schema': {
-                        'window': {
-                            'type': 'integer',
-                            'min': 3,
-                        }
-                    }
-                }
+                    'schema': multilateral_method_options
+                },
             }
         }
     }
