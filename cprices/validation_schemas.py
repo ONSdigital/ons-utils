@@ -266,6 +266,20 @@ def indices_schema() -> Mapping:
                     'type': 'dict',
                     'schema': multilateral_method_options
                 },
+                'time_product_dummy': {
+                    'type': 'dict',
+                    'schema': multilateral_method_options
+                },
+                'time_dummy_hedonic': {
+                    'type': 'dict',
+                    'schema': {
+                        'characteristics': {
+                            'type': 'list',
+                            'schema': {'type': 'string'}
+                        },
+                        **multilateral_method_options
+                    }
+                }
             }
         }
     }
