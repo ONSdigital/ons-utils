@@ -224,51 +224,54 @@ def validate_indices() -> Mapping:
         },
         'multilateral_method_options': {
             'type': 'dict',
-            'geks': {
-                'type': 'dict',
-                'schema': {
+            'schema': {
+                'geks': {
                     'type': 'dict',
-                    'index_method_pairings': {
-                        'type': 'list',
-                        'allowed': {
-                            'carli',
-                            'jevons',
-                            'dutot',
-                            'laspeyres',
-                            'paasche',
-                            'fisher',
-                            'tornqvist',
+                    'schema': {
+                        'index_method_pairings': {
+                            'type': 'list',
+                            'allowed': {
+                                'carli',
+                                'jevons',
+                                'dutot',
+                                'laspeyres',
+                                'paasche',
+                                'fisher',
+                                'tornqvist',
+                            },
                         },
-                    },
-                    'initial_window_methods': {
-                        'type': 'list',
-                        'allowed': {
-                            'revised',
-                            'expanding'
+                        'initial_window_methods': {
+                            'type': 'list',
+                            'allowed': {
+                                'revised',
+                                'expanding'
+                            }
+                        },
+                        'extension_methods': {
+                            'type': 'list',
+                            'allowed': {
+                                'pure',
+                                'expanding_window',
+                                'movement_splice',
+                                'window_splice',
+                                'half_window_splice',
+                                'december_link_splice'
+                            }
+                        },
+                        'window': {
+                            'type': 'integer',
+                            'min': 3,
+                        },
+                    }
+                },
+                'geary_khamis': {
+                    'type': 'dict',
+                    'schema': {
+                        'window': {
+                            'type': 'integer',
+                            'min': 3,
                         }
-                    },
-                    'extension_methods': {
-                        'type': 'list',
-                        'allowed': {
-                            'pure',
-                            'expanding_window',
-                            'movement_splice',
-                            'window_splice',
-                            'half_window_splice',
-                            'december_link_splice'
-                        }
-                    },
-                    'window': {
-                        'type': 'integer',
-                        'min': 3,
-                    },
-                }
-            },
-            'geary_khamis': {
-                'type': 'dict',
-                'window': {
-                    'type': 'integer',
-                    'min': 3,
+                    }
                 }
             }
         }
