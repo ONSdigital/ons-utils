@@ -213,7 +213,6 @@ def validate_indices() -> Mapping:
                         'chained',
                         'fixed_base_with_rebase'
                     },
-                    'nullable': True,
                 },
                 'base_period': {
                     'type': 'integer',
