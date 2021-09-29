@@ -191,49 +191,85 @@ def flag_low_expenditures_schema() -> Dict:
 def validate_indices() -> Mapping:
     """Return schema for indices validation."""
     return {
-        'base_price_methods': {
-            'type': 'list',
-            'allowed': {
-                'fixed_base',
-                'chained',
-                'bilateral',
-                'fixed_base_with_rebase',
+        'bilateral_index_options': {
+            'type': 'dict',
+            'schema': {
+                'index_methods': {
+                    'type': 'list',
+                    'allowed': {
+                        'carli',
+                        'jevons',
+                        'dutot',
+                        'laspeyres',
+                        'paasche',
+                        'fisher',
+                        'tornqvist',
+                    }
+                },
+                'index_types': {
+                    'type': 'list',
+                    'allowed': {
+                        'fixed_base',
+                        'chained',
+                        'fixed_base_with_rebase'
+                    },
+                    'nullable': True,
+                },
+                'base_period': {
+                    'type': 'integer',
+                    'min': 1,
+                    'max': 12,
+                },
+            }
+        },
+        'multilateral_method_options': {
+            'type': 'dict',
+            'geks': {
+                'type': 'dict',
+                'schema': {
+                    'type': 'dict',
+                    'index_method_pairings': {
+                        'type': 'list',
+                        'allowed': {
+                            'carli',
+                            'jevons',
+                            'dutot',
+                            'laspeyres',
+                            'paasche',
+                            'fisher',
+                            'tornqvist',
+                        },
+                    },
+                    'initial_window_methods': {
+                        'type': 'list',
+                        'allowed': {
+                            'revised',
+                            'expanding'
+                        }
+                    },
+                    'extension_methods': {
+                        'type': 'list',
+                        'allowed': {
+                            'pure',
+                            'expanding_window',
+                            'movement_splice',
+                            'window_splice',
+                            'half_window_splice',
+                            'december_link_splice'
+                        }
+                    },
+                    'window': {
+                        'type': 'integer',
+                        'min': 3,
+                    },
+                }
             },
-            'nullable': True,
-        },
-        'index_methods': {
-            'type': 'list',
-            'allowed': {
-                'carli',
-                'jevons',
-                'dutot',
-                'laspeyres',
-                'paasche',
-                'fisher',
-                'tornqvist',
-                'geary-khamis',
-            },
-        },
-        'multilateral_methods': {
-            'type': 'list',
-            'allowed': {
-                'ewgeks',
-                'rygeks',
-                'geks_movement_splice',
-                'geks_window_splice',
-                'geks_half_window_splice',
-                'geks_december_link_splice',
-                'geks_mean_splice',
-            },
-            'nullable': True,
-        },
-        'base_period': {
-            'type': 'integer',
-            'min': 1,
-            'max': 12,
-        },
-        'window': {
-            'type': 'integer',
-            'min': 3,
-        },
+            'geary_khamis': {
+                'type': 'dict',
+                'window': {
+                    'type': 'integer',
+                    'min': 3,
+                }
+            }
+        }
     }
