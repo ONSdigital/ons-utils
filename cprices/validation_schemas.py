@@ -190,21 +190,23 @@ def flag_low_expenditures_schema() -> Dict:
 
 def validate_indices() -> Mapping:
     """Return schema for indices validation."""
+    bilateral_index_methods = {
+        'carli',
+        'jevons',
+        'dutot',
+        'laspeyres',
+        'paasche',
+        'fisher',
+        'tornqvist',
+    }
+
     return {
         'bilateral_index_options': {
             'type': 'dict',
             'schema': {
                 'index_methods': {
                     'type': 'list',
-                    'allowed': {
-                        'carli',
-                        'jevons',
-                        'dutot',
-                        'laspeyres',
-                        'paasche',
-                        'fisher',
-                        'tornqvist',
-                    }
+                    'allowed': bilateral_index_methods
                 },
                 'index_types': {
                     'type': 'list',
@@ -229,15 +231,7 @@ def validate_indices() -> Mapping:
                     'schema': {
                         'index_method_pairings': {
                             'type': 'list',
-                            'allowed': {
-                                'carli',
-                                'jevons',
-                                'dutot',
-                                'laspeyres',
-                                'paasche',
-                                'fisher',
-                                'tornqvist',
-                            },
+                            'allowed': bilateral_index_methods
                         },
                         'initial_window_methods': {
                             'type': 'list',
