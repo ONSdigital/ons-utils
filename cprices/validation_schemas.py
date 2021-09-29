@@ -26,7 +26,7 @@ def schema_sections() -> Dict[str, Dict]:
         'averaging': averaging_schema(),
         'grouping': grouping_schema(),
         'flag_low_expenditures': flag_low_expenditures_schema(),
-        'indices': validate_indices(),
+        'indices': indices_schema(),
     }
     # For nested schema, needs 'type' and 'schema'.
     return {
@@ -188,7 +188,7 @@ def flag_low_expenditures_schema() -> Dict:
     }
 
 
-def validate_indices() -> Mapping:
+def indices_schema() -> Mapping:
     """Return schema for indices validation."""
     bilateral_index_methods = {
         'carli',
@@ -216,7 +216,8 @@ def validate_indices() -> Mapping:
                 'movement_splice',
                 'window_splice',
                 'half_window_splice',
-                'december_link_splice'
+                'december_link_splice',
+                'mean_splice',
             }
         },
         'window': {
