@@ -304,9 +304,24 @@ def remove_list_wrappers(
 
 
 if __name__ == "__main__":
+    from pyspark.sql import SparkSession
+    spark = (
+        SparkSession.builder.appName('test-small')
+        .config("spark.executor.memory", "1g")
+        .config("spark.executor.cores", 1)
+        .config("spark.dynamicAllocation.enabled", "true")
+        .config("spark.dynamicAllocation.maxExecutors", 3)
+        .config("spark.sql.shuffle.partitions", 12)
+        .config("spark.shuffle.service.enabled", "true")
+        .config("spark.ui.showConsoleProgress", "false")
+        .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+        .config('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+        .enableHiveSupport()
+        .getOrCreate()
+    )
     from cprices.config import ScanScenarioConfig, WebScrapedScenarioConfig
     sc_config = ScanScenarioConfig('scenario_scan', subdir='scanner')
-    print(validate_scan_scenario_config(sc_config))
+    print(validate_scan_scenario_config(sc_config, spark))
 
     sc_config = WebScrapedScenarioConfig('scenario_web', subdir='web_scraped')
-    print(validate_webscraped_scenario_config(sc_config))
+    print(validate_webscraped_scenario_config(sc_config, spark))

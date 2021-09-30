@@ -26,7 +26,7 @@ def schema_sections() -> Dict[str, Dict]:
         'averaging': averaging_schema(),
         'grouping': grouping_schema(),
         'flag_low_expenditures': flag_low_expenditures_schema(),
-        'indices': validate_indices(),
+        'indices': indices_schema(),
     }
     # For nested schema, needs 'type' and 'schema'.
     return {
@@ -188,52 +188,98 @@ def flag_low_expenditures_schema() -> Dict:
     }
 
 
-def validate_indices() -> Mapping:
+def indices_schema() -> Mapping:
     """Return schema for indices validation."""
-    return {
-        'base_price_methods': {
+    bilateral_index_methods = {
+        'carli',
+        'jevons',
+        'dutot',
+        'laspeyres',
+        'paasche',
+        'fisher',
+        'tornqvist',
+    }
+
+    multilateral_method_options = {
+        'initial_window_methods': {
             'type': 'list',
             'allowed': {
-                'fixed_base',
-                'chained',
-                'bilateral',
-                'fixed_base_with_rebase',
-            },
-            'nullable': True,
+                'revised',
+                'expanding'
+            }
         },
-        'index_methods': {
+        'extension_methods': {
             'type': 'list',
             'allowed': {
-                'carli',
-                'jevons',
-                'dutot',
-                'laspeyres',
-                'paasche',
-                'fisher',
-                'tornqvist',
-                'geary-khamis',
-            },
-        },
-        'multilateral_methods': {
-            'type': 'list',
-            'allowed': {
-                'ewgeks',
-                'rygeks',
-                'geks_movement_splice',
-                'geks_window_splice',
-                'geks_half_window_splice',
-                'geks_december_link_splice',
-                'geks_mean_splice',
-            },
-            'nullable': True,
-        },
-        'base_period': {
-            'type': 'integer',
-            'min': 1,
-            'max': 12,
+                'pure',
+                'expanding_window',
+                'movement_splice',
+                'window_splice',
+                'half_window_splice',
+                'december_link_splice',
+                'mean_splice',
+            }
         },
         'window': {
             'type': 'integer',
             'min': 3,
+        }
+    }
+
+    return {
+        'bilateral_index_options': {
+            'type': 'dict',
+            'schema': {
+                'index_methods': {
+                    'type': 'list',
+                    'allowed': bilateral_index_methods
+                },
+                'index_types': {
+                    'type': 'list',
+                    'allowed': {
+                        'fixed_base',
+                        'chained',
+                        'fixed_base_with_rebase'
+                    },
+                },
+                'base_period': {
+                    'type': 'integer',
+                    'min': 1,
+                    'max': 12,
+                },
+            }
         },
+        'multilateral_method_options': {
+            'type': 'dict',
+            'schema': {
+                'geks': {
+                    'type': 'dict',
+                    'schema': {
+                        'index_method_pairings': {
+                            'type': 'list',
+                            'allowed': bilateral_index_methods
+                        },
+                        **multilateral_method_options
+                    }
+                },
+                'geary_khamis': {
+                    'type': 'dict',
+                    'schema': multilateral_method_options
+                },
+                'time_product_dummy': {
+                    'type': 'dict',
+                    'schema': multilateral_method_options
+                },
+                'time_dummy_hedonic': {
+                    'type': 'dict',
+                    'schema': {
+                        'characteristics': {
+                            'type': 'list',
+                            'schema': {'type': 'string'}
+                        },
+                        **multilateral_method_options
+                    }
+                }
+            }
+        }
     }
