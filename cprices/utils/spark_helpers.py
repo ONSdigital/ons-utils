@@ -132,3 +132,10 @@ def get_hive_table_columns(spark, table_path) -> List[str]:
 def transform(self, f, *args, **kwargs):
     """Chain Pyspark function."""
     return f(self, *args, **kwargs)
+
+
+def get_first_group(df: SparkDF, groups: Sequence[str]) -> SparkDF:
+    """Return a sample pyspark dataframe filtered to the first group."""
+    row = df.select(groups).head(1)[0]
+    query = " AND ".join([f"{group}=='{row[group]}'" for group in groups])
+    return df.filter(query)
