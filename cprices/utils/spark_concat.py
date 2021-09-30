@@ -6,7 +6,6 @@ from typing import (
     Mapping,
     Optional,
     Sequence,
-    Set,
     Tuple,
     Union,
 )
@@ -110,17 +109,15 @@ def concat(
     else:
         frames = list(frames)
 
-    col_schemas = set()
     for frame in frames:
         if not isinstance(frame, SparkDF):
             raise TypeError(
                 f"cannot concatenate object of type '{type(frame)}'; "
                 "only pyspark.sql.DataFrame objs are valid"
             )
-        # Get a set of all column schemas (name, type) across frames.
-        col_schemas.update(frame.dtypes)
 
-    schemas_are_equal = _compare_schemas(frames, keys, names)
+    schemas_df = _get_schemas_df(frames, keys, names)
+    schemas_are_equal = _compare_schemas(schemas_df)
 
     # Allows dataframes with inconsistent schemas to be concatenated by
     # filling empty columns with Nulls and casting some column data
@@ -129,7 +126,7 @@ def concat(
     # Potentially remove when Spark 3.1.0 available.
     if not schemas_are_equal:
         frames = [
-            _ensure_consistent_schema(frame, col_schemas)
+            _ensure_consistent_schema(frame, schemas_df)
             for frame in frames
         ]
 
@@ -168,7 +165,7 @@ def concat(
 
 def _ensure_consistent_schema(
     frame: SparkDF,
-    column_schemas: Set[Tuple[str, str]],
+    schemas_df: pd.DataFrame,
 ) -> SparkDF:
     """Ensure the dataframe is consistent with the schema.
 
@@ -196,27 +193,10 @@ def _ensure_consistent_schema(
     SparkDF
         Input dataframe with consistent schema.
     """
-    for column, dtype in column_schemas-set(frame.dtypes):
-        # Check for multiple dtypes in the column schemas for each
-        # column name.
-        col_dtypes = _get_column_types(column_schemas, column)
+    final_schema = _get_final_schema(schemas_df)
+    missing_fields = [f for f in final_schema if f not in frame.dtypes]
 
-        if len(col_dtypes) > 1:
-            # If multiple number dtypes, then cast all columns of
-            # same name to largest number dtype present.
-            if _are_all_number_types(col_dtypes):
-                dtype = _get_largest_number_dtype(col_dtypes)
-            # If multiple dtypes and string dtype present, then cast
-            # all columns of same name to string dtype.
-            elif any(dtype == 'string' for dtype in col_dtypes):
-                dtype = 'string'
-            else:
-                raise TypeError(
-                    "Spark column data type mismatch for column:"
-                    f" '{column}'. Can't auto-convert between types"
-                    f" {col_dtypes}."
-                )
-
+    for column, dtype in missing_fields:
         # If current frame missing the column in the schema, then
         # set values to Null.
         vals = (
@@ -229,34 +209,42 @@ def _ensure_consistent_schema(
     return frame
 
 
-def _get_column_types(
-    column_schemas: Sequence[Tuple[str, str]],
-    column_name: str,
-) -> Set[str]:
-    """Return a set of all data types present for a given column name.
+def _get_final_schema(
+    schemas_df: pd.DataFrame
+) -> Sequence[Tuple[str, str]]:
+    """Get the final schema by coercing the types."""
+    # For a given column, if one of the types is string coerce all types
+    # to string.
+    schemas_df = schemas_df.mask(
+        schemas_df.eq('string').any(axis=1),
+        'string',
+    )
 
-    Parameters
-    ----------
-    column_schemas
-        A sequence of simple column schemas in the form (name, dtype).
-    column_name
-        The column name to match on in the sequence of column schemas.
+    # For a given column, if all types are number types coerce all types
+    # to the largest spark number type present.
+    number_types = (
+        schemas_df
+        .fillna('int')
+        .isin(SPARK_NUMBER_TYPES)
+        .all(axis=1)
+    )
+    largest_num_types = schemas_df[number_types].apply(
+        lambda row: _get_largest_number_dtype(row.to_list()),
+        axis=1,
+    )
+    schemas_df = schemas_df.mask(number_types, largest_num_types, axis=0)
 
-    Returns
-    -------
-    set
-        A set of all dtypes present in the column_schemas for a given
-        column name.
-    """
-    return {
-        dtype for name, dtype in column_schemas
-        if name == column_name
-    }
-
-
-def _are_all_number_types(dtypes: Sequence[str]) -> bool:
-    """Return True if all dtypes are Spark number data types."""
-    return all(dtype in SPARK_NUMBER_TYPES for dtype in dtypes)
+    if not _check_equal_schemas(schemas_df).all():
+        raise TypeError(
+            "Spark column data type mismatch, can't auto-convert between"
+            f" types. \n\n{str(schemas_df[~_check_equal_schemas(schemas_df)])}"
+        )
+    # Return the final schema.
+    return [
+        (name, dtype)
+        # Only need the first two columns.
+        for name, dtype, *_ in schemas_df.reset_index().to_numpy()
+    ]
 
 
 def _get_largest_number_dtype(dtypes: Sequence[str]) -> str:
@@ -267,11 +255,7 @@ def _get_largest_number_dtype(dtypes: Sequence[str]) -> str:
     ))
 
 
-def _compare_schemas(
-    frames: Sequence[pd.DataFrame],
-    keys: Optional[Key] = None,
-    names: Optional[Union[str, Sequence[str]]] = None,
-) -> bool:
+def _compare_schemas(schemas_df: pd.DataFrame) -> bool:
     """Return True if schemas are equal, else throw warning.
 
     If unequal, throws a warning that displays the schemas for all the
@@ -279,29 +263,39 @@ def _compare_schemas(
 
     Parameters
     ----------
-    %(concat.parameters)s
+    schemas_df : pandas DataFrame
+        A dataframe of schemas with columns along the index, dataframe
+        name across the columns and the dtypes as the values. Create
+        with :func:`_get_schemas_df`.
 
     Returns
     -------
-    True if column schemas are equal, else False.
+    bool
+        True if column schemas are equal, else False.
     """
-    schemas_df = _get_schemas_df(frames, keys, names)
+    equal_schemas = _check_equal_schemas(schemas_df)
 
-    equal_schemas = (
-        schemas_df
-        .apply(lambda col: col == schemas_df.iloc[:, 0])
-        .all(axis=1)
-    )
+    # Fill types across missing columns. We only want to raise a warning
+    # if the types are different.
+    schemas_df_filled = schemas_df.bfill(1).ffill(1)
+    equal_ignoring_missing_cols = _check_equal_schemas(schemas_df_filled)
 
-    if not equal_schemas.all():
+    if not equal_ignoring_missing_cols.all():
         warnings.warn(
             "column dtypes in the schemas are not equal, attempting to coerce"
             f"\n\n{str(schemas_df.loc[~equal_schemas])}",
             UnequalSchemaWarning,
         )
         return False
+    elif not equal_schemas.all():
+        return False
     else:
         return True
+
+
+def _check_equal_schemas(df: pd.DataFrame) -> pd.DataFrame:
+    """Checks that the first schema matches the rest."""
+    return df.apply(lambda col: col.eq(df.iloc[:, 0])).all(axis=1)
 
 
 def _get_schemas_df(

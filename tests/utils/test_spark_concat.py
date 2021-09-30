@@ -8,8 +8,6 @@ from pytest_lazyfixture import lazy_fixture
 from cprices.utils.spark_concat import *
 from cprices.utils.spark_concat import (
     _get_largest_number_dtype,
-    _are_all_number_types,
-    _get_column_types,
 )
 from tests.conftest import create_dataframe, Case, parametrize_cases
 
@@ -428,67 +426,6 @@ class TestConcat:
 
         with pytest.warns(UnequalSchemaWarning):
             concat([df1, df2])
-
-    def test_warns_if_column_exists_in_one_frame_but_not_others(
-        self, create_spark_df,
-    ):
-        """Test UnequalSchemaWarning warned correctly."""
-        df1 = create_spark_df([
-            ('id', 'animal', 'name'),
-            (1, 'dog', 'fido'),
-            (2, 'cat', 'jimmy'),
-        ])
-        # id are strings in df2
-        df2 = create_spark_df([
-            ('id', 'animal'),
-            (1, 'dog'),
-            (2, 'cat'),
-        ])
-
-        with pytest.warns(UnequalSchemaWarning):
-            concat([df1, df2])
-
-
-@parametrize_cases(
-    Case(
-        input_schema=[
-            ('shoe', 'string'),
-            ('hat', 'string')
-        ],
-        column_name='shoe',
-        expected={'string'},
-    ),
-    Case(
-        input_schema=[
-            ('speed', 'string'),
-            ('attack', 'int'),
-            ('speed', 'int'),
-        ],
-        column_name='speed',
-        expected={'string', 'int'},
-    ),
-    Case(
-        input_schema=[
-            ('is_date', 'datetime'),
-            ('is_date', 'int'),
-            ('is_date', 'bool'),
-        ],
-        column_name='is_date',
-        expected={'datetime', 'int', 'bool'},
-    ),
-)
-def test_get_column_types(input_schema, column_name, expected):
-    assert _get_column_types(input_schema, column_name) == expected
-
-
-def test_are_all_number_types_positive_case():
-    assert _are_all_number_types(
-        ['float', 'bigint', 'tinyint', 'decimal(10,0)']
-    )
-
-
-def test_are_all_number_types_negative_case():
-    assert _are_all_number_types(['float', 'string', 'bool']) is False
 
 
 @parametrize_cases(
