@@ -34,6 +34,10 @@ def start_spark_session(
     as detailed here:
     http://np2rvlapxx507/DAP_CATS/guidance/-/blob/master/spark_session_sizes.ipynb
 
+    Further info on spark session configuration:
+    http://np2rvlapxx507/DAP_CATS/guidance/-/blob/master/Spark%20session%20guidance.md
+    http://np2rvlapxx507/DAP_CATS/troubleshooting/python-troubleshooting/blob/master/garbage_collection.md
+
     Parameters
     ----------
     session_size : {'small', 'medium', 'large', 'xl'}, str
@@ -106,11 +110,31 @@ def start_spark_session(
         LOGGER.debug('Setting up an extra large spark session')
         spark = (
             SparkSession.builder.appName(f'{appname}-xl')
-            .config("spark.executor.memory", "20g")
+            .config("spark.executor.memory", "20g")  # (memory+overhead) * max executors = 264GB
             .config("spark.yarn.executor.memoryOverhead", "2g")
             .config("spark.executor.cores", 5)
             .config("spark.dynamicAllocation.enabled", "true")
             .config("spark.dynamicAllocation.maxExecutors", 12)
+            .config("spark.sql.shuffle.partitions", 240)  # = multiple of cores x max executors
+            .config("spark.shuffle.service.enabled", "true")
+            .config("spark.ui.showConsoleProgress", "false")
+            .config('spark.driver.maxResultSize', '6g')
+            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+            .config('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+            .enableHiveSupport()
+            .getOrCreate()
+        )
+
+    elif session_size == 'xxl':
+        # This is still under construction!
+        LOGGER.debug('Setting up an extra extra large spark session')
+        spark = (
+            SparkSession.builder.appName(f'{appname}-xxl')
+            .config("spark.executor.memory", "40g")  # (memory+overhead) * max executors = 252GB
+            .config("spark.yarn.executor.memoryOverhead", "2g")
+            .config("spark.executor.cores", 5)
+            .config("spark.dynamicAllocation.enabled", "true")
+            .config("spark.dynamicAllocation.maxExecutors", 6)
             .config("spark.sql.shuffle.partitions", 240)  # = multiple of cores x max executors
             .config("spark.shuffle.service.enabled", "true")
             .config("spark.ui.showConsoleProgress", "false")
