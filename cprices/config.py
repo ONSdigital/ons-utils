@@ -337,7 +337,6 @@ class WebScrapedScenarioConfig(ScenarioConfig):
     ):
         """Init like config, then run .combine_input_data()."""
         super().__init__(filename, subdir=subdir, **kwargs)
-        self.flatten_nested_dicts(['consumption_segment_mappers'])
         self.get_key_value_pairs(['input_data'])
 
     def validate(self, spark: SparkSession = None) -> str:
