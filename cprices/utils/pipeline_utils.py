@@ -15,7 +15,7 @@ from datetime import datetime
 import logging
 import os
 import textwrap
-from typing import Callable, Dict, Mapping, Optional
+from typing import Callable, Dict, List, Mapping, Optional
 
 from humanfriendly import format_timespan
 import matplotlib as mpl
@@ -24,11 +24,12 @@ import pydoop.hdfs as hdfs
 
 from pyspark.sql import (
     DataFrame as SparkDF,
+    functions as F,
     SparkSession,
 )
 
 from cprices.config import Config
-from cprices.utils.helpers import invert_nested_keys
+from cprices.utils.helpers import invert_nested_keys, list_convert
 from cprices.utils import spark_helpers
 
 LOGGER = logging.getLogger()
@@ -227,3 +228,43 @@ def copy_local_to_hdfs(from_path: str, to_path: str) -> None:
     local_file_system = hdfs.hdfs(host='')
     hdfs_file_system = hdfs.hdfs()
     local_file_system.copy(from_path, hdfs_file_system, to_path)
+
+
+def apply_remap_mapper(
+    df: SparkDF,
+    mapper: SparkDF,
+    keys: List[str],
+    mapped_col_name: str,
+    column_to_fill: str,
+    fill_values: str,
+) -> SparkDF:
+    """Fill null values in column with new fill values from mapper.
+
+    Parameters
+    ----------
+    df : spark dataframe
+        The original dataframe containing key_cols.
+    mapper : spark dataframe
+        The imported mapper containing key_cols.
+    keys : list of str
+        The name of the join columns. The columns must exist on both
+        sides.
+    mapped_col_name : str
+        The name of the resulting column which has been coalesced.
+    column_to_fill : str
+        The name of the column containing null values to be updated.
+    fill_values : str
+        The name of the column to update the null values with.
+
+    Returns
+    -------
+    SparkDF
+        The original dataframe joined to the mapper with updated column.
+    """
+    keys = list_convert(keys)
+
+    return (
+        df
+        .join(mapper, on=keys, how='left')
+        .withColumn(mapped_col_name, F.coalesce(column_to_fill, fill_values))
+    )
