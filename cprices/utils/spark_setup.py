@@ -145,9 +145,6 @@ def start_spark_session(
             .getOrCreate()
         )
 
-    # leave a link to open the sparkUI
-    launch_spark_ui()
-
     return spark
 
 
