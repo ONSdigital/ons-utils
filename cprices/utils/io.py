@@ -17,7 +17,7 @@ from pyspark.sql import (
     functions as F,
     SparkSession,
 )
-from epds_utils import hdfs
+import pydoop.hdfs as hdfs
 
 from cprices.utils.pipeline_utils import pretty_wrap
 
@@ -251,14 +251,17 @@ def get_recent_run_ids(
     if not directory:
         directory = get_directory_from_env_var('CPRICES_PROCESSED_DIR')
 
-    dirs = hdfs.read_dir(directory)
+    dirs = hdfs.lsl(directory)
     # Date and time are at the 5 and 6 indices respectively.
-    datetimes = [d[5] + ' ' + d[6] for d in dirs]
+    datetimes = [
+        pd.to_datetime(d.get('last_mod'), unit='s')
+        for d in dirs
+    ]
     # The full file path is in the last index position.
-    run_ids = [Path(d[-1]).stem for d in dirs]
+    run_ids = [Path(d.get('name')).stem for d in dirs]
 
     run_ids = (
-        pd.Series(run_ids, index=pd.to_datetime(datetimes), name='run_id')
+        pd.Series(run_ids, index=datetimes, name='run_id')
         .sort_index(ascending=False)
     )
 
