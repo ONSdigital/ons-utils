@@ -6,7 +6,9 @@ from pathlib import Path
 import re
 from typing import Union
 
-import pydoop.hdfs as hdfs
+# Don't import pydoop on Jenkins.
+if not os.getenv('JENKINS_HOME'):
+    import pydoop.hdfs as hdfs
 from pyspark.sql import SparkSession
 import IPython
 

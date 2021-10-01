@@ -17,7 +17,9 @@ from pyspark.sql import (
     functions as F,
     SparkSession,
 )
-import pydoop.hdfs as hdfs
+# Don't import pydoop on Jenkins.
+if not os.getenv('JENKINS_HOME'):
+    import pydoop.hdfs as hdfs
 
 from cprices.utils.pipeline_utils import pretty_wrap
 

@@ -20,7 +20,9 @@ from typing import Callable, Dict, List, Mapping, Optional
 from humanfriendly import format_timespan
 import matplotlib as mpl
 import pandas as pd
-import pydoop.hdfs as hdfs
+# Don't import pydoop on Jenkins.
+if not os.getenv('JENKINS_HOME'):
+    import pydoop.hdfs as hdfs
 
 from pyspark.sql import (
     DataFrame as SparkDF,
