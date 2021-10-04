@@ -146,6 +146,12 @@ def start_spark_session(
             .getOrCreate()
         )
 
+    # Add the dependencies.zip needed to install cprices on the executor
+    # nodes so that the pandas_udfs works.
+    spark.sparkContext.addPyFile(
+        Path.home().joinpath('dependencies.zip').as_posix()
+    )
+
     return spark
 
 
