@@ -20,6 +20,9 @@ from typing import Callable, Dict, List, Mapping, Optional
 from humanfriendly import format_timespan
 import matplotlib as mpl
 import pandas as pd
+# Don't import pydoop on Jenkins.
+if not os.getenv('JENKINS_HOME'):
+    import pydoop.hdfs as hdfs
 
 from pyspark.sql import (
     DataFrame as SparkDF,
@@ -220,6 +223,13 @@ def count_rows_and_check_if_empty(
     else:
         logger.info(f"DataFrame after {stage} stage has {n_rows} rows.")
         return False
+
+
+def copy_local_to_hdfs(from_path: str, to_path: str) -> None:
+    """Copy a local file or directory to the default HDFS."""
+    local_file_system = hdfs.hdfs(host='')
+    hdfs_file_system = hdfs.hdfs()
+    local_file_system.copy(from_path, hdfs_file_system, to_path)
 
 
 def apply_remap_mapper(

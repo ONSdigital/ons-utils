@@ -427,7 +427,7 @@ class LoggingConfig:
         self.log_id = self.create_log_id()
         self.log_dir = self.get_logs_dir()
         self.filename = f'{self.log_id}.log'
-        self.full_path = self.log_dir.joinpath(self.filename)
+        self.full_path = self.log_dir.joinpath(self.filename).as_posix()
 
     def create_log_id(self) -> str:
         """Create the unique log ID from the current timestamp."""

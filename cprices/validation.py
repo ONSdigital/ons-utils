@@ -12,11 +12,14 @@ will be combined before being raised.
 """
 from functools import lru_cache
 import logging
+import os
 from typing import Dict, Sequence, Mapping, Union, Hashable, Optional, Tuple
 
 import cerberus
 from flatten_dict import flatten
-from epds_utils import hdfs
+# Don't import pydoop on Jenkins.
+if not os.getenv('JENKINS_HOME'):
+    import pydoop.hdfs as hdfs
 from pyspark.sql import SparkSession
 
 from cprices.utils.helpers import is_non_string_sequence
@@ -277,8 +280,8 @@ def validate_hdfs_filepaths(
 
 
 @lru_cache(maxsize=32)
-def file_exists_on_hdfs(path: str):
-    return hdfs.test(path)
+def file_exists_on_hdfs(path: str) -> bool:
+    return hdfs.path.isfile(path)
 
 
 def hive_table_exists(spark, database: str, table: str) -> bool:
