@@ -189,6 +189,8 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
         )
         os.environ['PYSPARK_PYTHON'] = miscmods_path
 
+    os.environ['PYSPARK_PYTHON'] = "./environment/bin/python3"
+
 
 def find_miscmods_version(s: str) -> Optional[float]:
     """Find the miscmods version from environment variable string."""
