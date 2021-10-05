@@ -4,7 +4,7 @@ import logging
 import os
 from pathlib import Path
 import re
-from typing import Union
+from typing import Callable, Optional
 
 # Don't import pydoop on Jenkins.
 if not os.getenv('JENKINS_HOME'):
@@ -20,7 +20,10 @@ LOGGER = logging.getLogger('')
 def start_spark_session(
     session_size: str = 'medium',
     miscmods_version: float = 3.05,
-    appname: str = 'cprices'
+    appname: str = 'cprices',
+    enable_arrow: bool = True,
+    pyfiles_path: Optional[str] = None,
+    logger:  Optional[Callable[[str], None]] = print,
 ) -> SparkSession:
     """Start the Spark Session.
 
@@ -46,6 +49,13 @@ def start_spark_session(
         The minimum miscmods version number to use.
     appname : str
         The spark session app name, which is post-pended by the session size
+    enable_arrow : bool, default True
+        Enable compatibility setting for PyArrow >= 0.15.0 and Spark
+        2.3.x, 2.4.x
+    pyfiles_path : str, optional
+        The path for Python files to be uploaded to the executor.
+    logger : callable, default print, optional
+        To log the session size being created.
 
     Returns
     -------
@@ -54,103 +64,64 @@ def start_spark_session(
     # Overrides PYSPARK_PYTHON if lower miscmods version than specified.
     set_pyspark_python_env(miscmods_version=miscmods_version)
 
-    if session_size == 'small':
-        LOGGER.debug('Setting up a small spark session')
-        spark = (
-            SparkSession.builder.appName(f'{appname}-small')
-            .config("spark.executor.memory", "1g")
-            .config("spark.executor.cores", 1)
-            .config("spark.dynamicAllocation.enabled", "true")
-            .config("spark.dynamicAllocation.maxExecutors", 3)
-            .config("spark.sql.shuffle.partitions", 12)
-            .config("spark.shuffle.service.enabled", "true")
-            .config("spark.ui.showConsoleProgress", "false")
-            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .config('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .enableHiveSupport()
-            .getOrCreate()
-        )
+    # XXL sizes are still under construction!
+    settings = {
+        "spark.executor.memory": {
+            "small": "1g",
+            "medium": "8g",
+            "large": "10g",
+            "xl": "20g",
+            "xxl": "40g",
+        },
+        "spark.executor.cores": {
+            "small": 1,
+            "medium": 3,
+            "large": 5,
+            "xl": 5,
+            "xxl": 5,
+        },
+        "spark.dynamicAllocation.maxExecutors": {
+            "small": 3,
+            "medium": 3,
+            "large": 5,
+            "xl": 12,
+            "xxl": 6,
+        },
+        "spark.sql.shuffle.partitions": {
+            "small": 12,
+            "medium": 18,
+            "large": 200,
+            "xl": 240,
+            "xxl": 240,
+        },
+        "spark.driver.maxResultSize": {
+            "small": "1g",
+            "medium": "1g",
+            "large": "3g",
+            "xl": "6g",
+            "xxl": "6g",
+        },
+    }
 
-    elif session_size == 'medium':
-        LOGGER.debug('Setting up a medium spark session')
-        spark = (
-            SparkSession.builder.appName(f'{appname}-medium')
-            .config("spark.executor.memory", "8g")
-            .config("spark.executor.cores", 3)
-            .config("spark.dynamicAllocation.enabled", "true")
-            .config("spark.dynamicAllocation.maxExecutors", 3)
-            .config("spark.sql.shuffle.partitions", 18)
-            .config("spark.shuffle.service.enabled", "true")
-            .config("spark.ui.showConsoleProgress", "false")
-            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .config('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .enableHiveSupport()
-            .getOrCreate()
-          )
-
-    elif session_size == 'large':
-        LOGGER.debug('Setting up a large spark session')
-        spark = (
-            SparkSession.builder.appName(f'{appname}-large')
-            .config("spark.executor.memory", "10g")
-            .config("spark.yarn.executor.memoryOverhead", "1g")
-            .config("spark.executor.cores", 5)
-            .config("spark.dynamicAllocation.enabled", "true")
-            .config("spark.dynamicAllocation.maxExecutors", 5)
-            .config("spark.sql.shuffle.partitions", 200)
-            .config("spark.shuffle.service.enabled", "true")
-            .config("spark.ui.showConsoleProgress", "false")
-            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .config('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .enableHiveSupport()
-            .getOrCreate()
-        )
-
-    elif session_size == 'xl':
-        LOGGER.debug('Setting up an extra large spark session')
-        spark = (
-            SparkSession.builder.appName(f'{appname}-xl')
-            .config("spark.executor.memory", "20g")  # (memory+overhead) * max executors = 264GB
-            .config("spark.yarn.executor.memoryOverhead", "2g")
-            .config("spark.executor.cores", 5)
-            .config("spark.dynamicAllocation.enabled", "true")
-            .config("spark.dynamicAllocation.maxExecutors", 12)
-            # partitions = multiple of cores x max executors
-            .config("spark.sql.shuffle.partitions", 240)
-            .config("spark.shuffle.service.enabled", "true")
-            .config("spark.ui.showConsoleProgress", "false")
-            .config('spark.driver.maxResultSize', '6g')
-            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .config('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .enableHiveSupport()
-            .getOrCreate()
-        )
-
-    elif session_size == 'xxl':
-        # This is still under construction!
-        LOGGER.debug('Setting up an extra extra large spark session')
-        spark = (
-            SparkSession.builder.appName(f'{appname}-xxl')
-            .config("spark.executor.memory", "40g")  # (memory+overhead) * max executors = 252GB
-            .config("spark.yarn.executor.memoryOverhead", "2g")
-            .config("spark.executor.cores", 5)
-            .config("spark.dynamicAllocation.enabled", "true")
-            .config("spark.dynamicAllocation.maxExecutors", 6)
-            .config("spark.sql.shuffle.partitions", 240)  # = multiple of cores x max executors
-            .config("spark.shuffle.service.enabled", "true")
-            .config("spark.ui.showConsoleProgress", "false")
-            .config('spark.driver.maxResultSize', '6g')
-            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .config('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .enableHiveSupport()
-            .getOrCreate()
-        )
-
-    # Add the dependencies.zip needed to install cprices on the executor
-    # nodes so that the pandas_udfs works.
-    spark.sparkContext.addPyFile(
-        Path.home().joinpath('dependencies.zip').as_posix()
+    logger(f'Setting up a {session_size} spark session...')
+    spark = (
+        SparkSession.builder.appName(f'{appname}-{session_size}')
+        .config("spark.dynamicAllocation.enabled", "true")
+        .config("spark.shuffle.service.enabled", "true")
+        .config("spark.ui.showConsoleProgress", "false")
+        .enableHiveSupport()
+        .getOrCreate()
     )
+
+    for setting, values in settings.items():
+        spark.conf.set(setting, values.get(session_size))
+
+    if enable_arrow:
+        spark.conf.set('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+        spark.conf.set('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+
+    if pyfiles_path:
+        spark.conf.set('spark.submit.pyFiles', pyfiles_path)
 
     return spark
 
@@ -207,7 +178,7 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
         os.environ['PYSPARK_PYTHON'] = miscmods_path
 
 
-def find_miscmods_version(s: str) -> Union[float, None]:
+def find_miscmods_version(s: str) -> Optional[float]:
     """Find the miscmods version from environment variable string."""
     version_no = re.search(r'(?<=miscMods_v)\d+\.\d+', s)
     return float(version_no.group()) if version_no else None
