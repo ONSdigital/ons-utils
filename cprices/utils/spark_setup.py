@@ -4,7 +4,7 @@ import logging
 import os
 from pathlib import Path
 import re
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence, Tuple, Union
 
 # Don't import pydoop on Jenkins.
 if not os.getenv('JENKINS_HOME'):
@@ -21,25 +21,25 @@ def start_spark_session(
     session_size: str = 'medium',
     miscmods_version: float = 3.05,
     appname: str = 'cprices',
-    enable_arrow: bool = True,
-    pyfiles_path: Optional[str] = None,
+    enable_arrow: bool = False,
+    config: Optional[Sequence[Tuple[str, Union[str, int]]]] = None,
     logger:  Optional[Callable[[str], None]] = print,
 ) -> SparkSession:
     """Start the Spark Session.
 
-    Provides the DAPCATs recommended (with some minor variation) session sizes:
+    Provides the `DAPCATs recommended session sizes
+    <http://np2rvlapxx507/DAP_CATS/guidance/-/blob/master/spark_session_sizes.ipynb>`_
+    (with some minor variation):
 
-        * small
-        * medium
-        * large (UAT or Prod only)
-        * XL (UAT or Prod only)
+    * small
+    * medium
+    * large (UAT or Prod only)
+    * XL (UAT or Prod only)
 
-    as detailed here:
-    http://np2rvlapxx507/DAP_CATS/guidance/-/blob/master/spark_session_sizes.ipynb
+    More guidance on spark session configuration:
 
-    Further info on spark session configuration:
-    http://np2rvlapxx507/DAP_CATS/guidance/-/blob/master/Spark%20session%20guidance.md
-    http://np2rvlapxx507/DAP_CATS/troubleshooting/python-troubleshooting/blob/master/garbage_collection.md
+    * `Spark Session Guidance <http://np2rvlapxx507/DAP_CATS/guidance/-/blob/master/Spark%20session%20guidance.md>`_
+    * `Garbage Collection <http://np2rvlapxx507/DAP_CATS/troubleshooting/python-troubleshooting/blob/master/garbage_collection.md>`_
 
     Parameters
     ----------
@@ -49,11 +49,13 @@ def start_spark_session(
         The minimum miscmods version number to use.
     appname : str
         The spark session app name, which is post-pended by the session size
-    enable_arrow : bool, default True
+    enable_arrow : bool, default False
         Enable compatibility setting for PyArrow >= 0.15.0 and Spark
         2.3.x, 2.4.x
-    pyfiles_path : str, optional
-        The path for Python files to be uploaded to the executor.
+    config : list of tuple, optional
+        A list of additional spark config properties coupled (as a
+        tuple) with the value to set them as. See `Spark Application
+        Properties <https://spark.apache.org/docs/latest/configuration.html#application-properties>`_.
     logger : callable, default print, optional
         To log the session size being created.
 
@@ -61,6 +63,15 @@ def start_spark_session(
     -------
     SparkSession
     """   # noqa: E501
+    # Get the node ID from the environment variable.
+    node_name = os.getenv('CDSW_NODE_NAME')
+    node_id = re.search(r'([a-z])\d{2}', node_name).group(1)
+
+    if session_size in {'large', 'xl', 'xxl'} and node_id == 'd':
+        raise ValueError(
+            "Given session size only available on Prod or UAT"
+        )
+
     # Overrides PYSPARK_PYTHON if lower miscmods version than specified.
     set_pyspark_python_env(miscmods_version=miscmods_version)
 
@@ -120,8 +131,9 @@ def start_spark_session(
         spark.conf.set('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
         spark.conf.set('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
 
-    if pyfiles_path:
-        spark.conf.set('spark.submit.pyFiles', pyfiles_path)
+    config = [] if not config else config
+    for setting, value in config:
+        spark.conf.set(setting, value)
 
     return spark
 
