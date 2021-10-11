@@ -15,14 +15,22 @@ import IPython
 
 from cprices._typing import FilePath
 
+
 LOGGER = logging.getLogger('')
 
+NODES = {
+    'd': 'DEVTEST',
+    'u': 'UAT',
+    'p': 'PROD',
+}
 
-def start_spark_session(
+
+def start_spark(
     session_size: str = 'medium',
-    miscmods_version: float = 3.05,
-    appname: str = 'cprices',
+    app_name: Optional[str] = None,
     enable_arrow: bool = False,
+    miscmods_version: Optional[float] = None,
+    archives: Optional[FilePath] = None,
     config: Optional[Sequence[Tuple[str, Union[str, int]]]] = None,
     logger:  Optional[Callable[[str], None]] = print,
 ) -> SparkSession:
@@ -46,13 +54,16 @@ def start_spark_session(
     ----------
     session_size : {'small', 'medium', 'large', 'xl'}, str
         The Spark session size.
-    miscmods_version : float, default 3.05
-        The minimum miscmods version number to use.
-    appname : str
+    app_name : str
         The spark session app name, which is post-pended by the session size
     enable_arrow : bool, default False
         Enable compatibility setting for PyArrow >= 0.15.0 and Spark
         2.3.x, 2.4.x
+    miscmods_version : optional, str
+        A miscmods version number to use if not using archives.
+    archives : optional, str
+        A file path to the virtual environment archives. These can be
+        local or on HDFS.
     config : list of tuple, optional
         A list of additional spark config properties coupled (as a
         tuple) with the value to set them as. See `Spark Application
@@ -64,17 +75,26 @@ def start_spark_session(
     -------
     SparkSession
     """   # noqa: E501
-    # Get the node ID from the environment variable.
-    node_name = os.getenv('CDSW_NODE_NAME')
-    node_id = re.search(r'([a-z])\d{2}', node_name).group(1)
+    platform = get_node_platform()
+    if session_size in {'large', 'xl', 'xxl'} and platform == 'DEVTEST':
+        raise ValueError("Given session size only available on Prod or UAT.")
 
-    if session_size in {'large', 'xl', 'xxl'} and node_id == 'd':
+    if miscmods_version and archives:
         raise ValueError(
-            "Given session size only available on Prod or UAT"
+            "Only one of miscmods_version and archives parameters"
+            " must be given."
+        )
+    if archives and len(archives.split('#')) != 1:
+        raise ValueError(
+            "Pass the archive file location without a tag. The function"
+            " adds the tag '#environment' to given archive."
         )
 
-    # Overrides PYSPARK_PYTHON if lower miscmods version than specified.
-    set_pyspark_python_env(miscmods_version=miscmods_version)
+    if miscmods_version:
+        set_pyspark_python_env(miscmods_version)
+    elif archives:
+        # Point to the python interpreter in the archived virtual env.
+        os.environ['PYSPARK_PYTHON'] = "./environment/bin/python"
 
     # XXL sizes are still under construction!
     settings = {
@@ -116,33 +136,55 @@ def start_spark_session(
     }
 
     logger(f'Setting up a {session_size} spark session...')
+
+    if app_name:
+        builder = SparkSession.builder.appName(f'{app_name}-{session_size}')
+    else:
+        builder = SparkSession.builder
+
     spark = (
-        SparkSession.builder.appName(f'{appname}-{session_size}')
+        builder
         .config("spark.dynamicAllocation.enabled", "true")
         .config("spark.shuffle.service.enabled", "true")
         .config("spark.ui.showConsoleProgress", "false")
         .enableHiveSupport()
-        .getOrCreate()
     )
 
     for setting, values in settings.items():
-        spark.conf.set(setting, values.get(session_size))
+        spark = spark.config(setting, values.get(session_size))
 
     if enable_arrow:
-        spark.conf.set('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-        spark.conf.set('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
+        spark = (
+            spark
+            .config("spark.sql.execution.arrow.enabled", "true")
+            .config("spark.sql.execution.arrow.fallback.enabled", "true")
+            .config("spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT", 1)
+            .config("spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT", 1)
+        )
+
+    if archives:
+        spark = spark.config(
+            "spark.yarn.dist.archives", f"{archives}#environment"
+        )
 
     config = [] if not config else config
     for setting, value in config:
-        spark.conf.set(setting, value)
+        spark = spark.config(setting, value)
 
-    return spark
+    return spark.getOrCreate()
 
 
 def launch_spark_ui() -> None:
     """Displays a link to launch the Spark UI."""
     url = f"spark-{os.environ['CDSW_ENGINE_ID']}.{os.environ['CDSW_DOMAIN']}"
     return IPython.display.HTML(f"<a href=http://{url}>Spark UI</a>")
+
+
+def get_node_platform():
+    """Get the node platform from the environment variable."""
+    node_name = os.getenv('CDSW_NODE_NAME')
+    node_id = re.search(r'([a-z])\d{2}', node_name).group(1)
+    return NODES.get(node_id)
 
 
 def set_pyspark_python_env(miscmods_version: str) -> None:
