@@ -146,7 +146,6 @@ def start_spark(
         builder
         .config("spark.dynamicAllocation.enabled", "true")
         .config("spark.shuffle.service.enabled", "true")
-        .config("spark.ui.showConsoleProgress", "false")
         .enableHiveSupport()
     )
 
