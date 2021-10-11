@@ -4,7 +4,7 @@ import logging
 import os
 from pathlib import Path
 import re
-from typing import Union
+from typing import Callable, Optional, Sequence, Tuple, Union
 
 # Don't import pydoop on Jenkins.
 if not os.getenv('JENKINS_HOME'):
@@ -14,139 +14,162 @@ import IPython
 
 from cprices._typing import FilePath
 
+
 LOGGER = logging.getLogger('')
 
+NODES = {
+    'd': 'DEVTEST',
+    'u': 'UAT',
+    'p': 'PROD',
+}
 
-def start_spark_session(
+
+def start_spark(
     session_size: str = 'medium',
-    miscmods_version: float = 3.05,
-    appname: str = 'cprices'
+    app_name: Optional[str] = None,
+    enable_arrow: bool = False,
+    miscmods_version: Optional[float] = None,
+    archives: Optional[FilePath] = None,
+    config: Optional[Sequence[Tuple[str, Union[str, int]]]] = None,
+    logger:  Optional[Callable[[str], None]] = print,
 ) -> SparkSession:
     """Start the Spark Session.
 
-    Provides the DAPCATs recommended (with some minor variation) session sizes:
+    Provides the `DAPCATs recommended session sizes
+    <http://np2rvlapxx507/DAP_CATS/guidance/-/blob/master/spark_session_sizes.ipynb>`_
+    (with some minor variation):
 
-        * small
-        * medium
-        * large (UAT or Prod only)
-        * XL (UAT or Prod only)
+    * small
+    * medium
+    * large (UAT or Prod only)
+    * XL (UAT or Prod only)
 
-    as detailed here:
-    http://np2rvlapxx507/DAP_CATS/guidance/-/blob/master/spark_session_sizes.ipynb
+    More guidance on spark session configuration:
 
-    Further info on spark session configuration:
-    http://np2rvlapxx507/DAP_CATS/guidance/-/blob/master/Spark%20session%20guidance.md
-    http://np2rvlapxx507/DAP_CATS/troubleshooting/python-troubleshooting/blob/master/garbage_collection.md
+    * `Spark Session Guidance <http://np2rvlapxx507/DAP_CATS/guidance/-/blob/master/Spark%20session%20guidance.md>`_
+    * `Garbage Collection <http://np2rvlapxx507/DAP_CATS/troubleshooting/python-troubleshooting/blob/master/garbage_collection.md>`_
 
     Parameters
     ----------
     session_size : {'small', 'medium', 'large', 'xl'}, str
         The Spark session size.
-    miscmods_version : float, default 3.05
-        The minimum miscmods version number to use.
-    appname : str
+    app_name : str
         The spark session app name, which is post-pended by the session size
+    enable_arrow : bool, default False
+        Enable compatibility setting for PyArrow >= 0.15.0 and Spark
+        2.3.x, 2.4.x
+    miscmods_version : optional, str
+        A miscmods version number to use if not using archives.
+    archives : optional, str
+        A file path to the virtual environment archives. These can be
+        local or on HDFS.
+    config : list of tuple, optional
+        A list of additional spark config properties coupled (as a
+        tuple) with the value to set them as. See `Spark Application
+        Properties <https://spark.apache.org/docs/latest/configuration.html#application-properties>`_.
+    logger : callable, default print, optional
+        To log the session size being created.
 
     Returns
     -------
     SparkSession
     """   # noqa: E501
-    # Overrides PYSPARK_PYTHON if lower miscmods version than specified.
-    set_pyspark_python_env(miscmods_version=miscmods_version)
+    platform = get_node_platform()
+    if session_size in {'large', 'xl', 'xxl'} and platform == 'DEVTEST':
+        raise ValueError("Given session size only available on Prod or UAT.")
 
-    if session_size == 'small':
-        LOGGER.debug('Setting up a small spark session')
-        spark = (
-            SparkSession.builder.appName(f'{appname}-small')
-            .config("spark.executor.memory", "1g")
-            .config("spark.executor.cores", 1)
-            .config("spark.dynamicAllocation.enabled", "true")
-            .config("spark.dynamicAllocation.maxExecutors", 3)
-            .config("spark.sql.shuffle.partitions", 12)
-            .config("spark.shuffle.service.enabled", "true")
-            .config("spark.ui.showConsoleProgress", "false")
-            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .config('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .enableHiveSupport()
-            .getOrCreate()
+    if miscmods_version and archives:
+        raise ValueError(
+            "Only one of miscmods_version and archives parameters"
+            " must be given."
+        )
+    if archives and len(archives.split('#')) != 1:
+        raise ValueError(
+            "Pass the archive file location without a tag. The function"
+            " adds the tag '#environment' to given archive."
         )
 
-    elif session_size == 'medium':
-        LOGGER.debug('Setting up a medium spark session')
-        spark = (
-            SparkSession.builder.appName(f'{appname}-medium')
-            .config("spark.executor.memory", "8g")
-            .config("spark.executor.cores", 3)
-            .config("spark.dynamicAllocation.enabled", "true")
-            .config("spark.dynamicAllocation.maxExecutors", 3)
-            .config("spark.sql.shuffle.partitions", 18)
-            .config("spark.shuffle.service.enabled", "true")
-            .config("spark.ui.showConsoleProgress", "false")
-            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .config('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .enableHiveSupport()
-            .getOrCreate()
-          )
+    if miscmods_version:
+        os.environ['PYSPARK_PYTHON'] = get_miscmods_path(miscmods_version)
+    elif archives:
+        # Point to the python interpreter in the archived virtual env.
+        os.environ['PYSPARK_PYTHON'] = "./environment/bin/python"
 
-    elif session_size == 'large':
-        LOGGER.debug('Setting up a large spark session')
+    # XXL sizes are still under construction!
+    settings = {
+        "spark.executor.memory": {
+            "small": "1g",
+            "medium": "8g",
+            "large": "10g",
+            "xl": "20g",
+            "xxl": "40g",
+        },
+        "spark.executor.cores": {
+            "small": 1,
+            "medium": 3,
+            "large": 5,
+            "xl": 5,
+            "xxl": 5,
+        },
+        "spark.dynamicAllocation.maxExecutors": {
+            "small": 3,
+            "medium": 3,
+            "large": 5,
+            "xl": 12,
+            "xxl": 6,
+        },
+        "spark.sql.shuffle.partitions": {
+            "small": 12,
+            "medium": 18,
+            "large": 200,
+            "xl": 240,
+            "xxl": 240,
+        },
+        "spark.driver.maxResultSize": {
+            "small": "1g",
+            "medium": "1g",
+            "large": "3g",
+            "xl": "6g",
+            "xxl": "6g",
+        },
+    }
+
+    logger(f'Setting up a {session_size} spark session...')
+
+    if app_name:
+        builder = SparkSession.builder.appName(f'{app_name}-{session_size}')
+    else:
+        builder = SparkSession.builder
+
+    spark = (
+        builder
+        .config("spark.dynamicAllocation.enabled", "true")
+        .config("spark.shuffle.service.enabled", "true")
+        .enableHiveSupport()
+    )
+
+    for setting, values in settings.items():
+        spark = spark.config(setting, values.get(session_size))
+
+    if enable_arrow:
         spark = (
-            SparkSession.builder.appName(f'{appname}-large')
-            .config("spark.executor.memory", "10g")
-            .config("spark.yarn.executor.memoryOverhead", "1g")
-            .config("spark.executor.cores", 5)
-            .config("spark.dynamicAllocation.enabled", "true")
-            .config("spark.dynamicAllocation.maxExecutors", 5)
-            .config("spark.sql.shuffle.partitions", 200)
-            .config("spark.shuffle.service.enabled", "true")
-            .config("spark.ui.showConsoleProgress", "false")
-            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .config('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .enableHiveSupport()
-            .getOrCreate()
+            spark
+            .config("spark.sql.execution.arrow.enabled", "true")
+            .config("spark.sql.execution.arrow.fallback.enabled", "true")
+            .config("spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT", 1)
+            .config("spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT", 1)
         )
 
-    elif session_size == 'xl':
-        LOGGER.debug('Setting up an extra large spark session')
-        spark = (
-            SparkSession.builder.appName(f'{appname}-xl')
-            .config("spark.executor.memory", "20g")  # (memory+overhead) * max executors = 264GB
-            .config("spark.yarn.executor.memoryOverhead", "2g")
-            .config("spark.executor.cores", 5)
-            .config("spark.dynamicAllocation.enabled", "true")
-            .config("spark.dynamicAllocation.maxExecutors", 12)
-            # partitions = multiple of cores x max executors
-            .config("spark.sql.shuffle.partitions", 240)
-            .config("spark.shuffle.service.enabled", "true")
-            .config("spark.ui.showConsoleProgress", "false")
-            .config('spark.driver.maxResultSize', '6g')
-            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .config('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .enableHiveSupport()
-            .getOrCreate()
+    if archives:
+        spark = spark.config(
+            "spark.yarn.dist.archives", f"{archives}#environment"
         )
 
-    elif session_size == 'xxl':
-        # This is still under construction!
-        LOGGER.debug('Setting up an extra extra large spark session')
-        spark = (
-            SparkSession.builder.appName(f'{appname}-xxl')
-            .config("spark.executor.memory", "40g")  # (memory+overhead) * max executors = 252GB
-            .config("spark.yarn.executor.memoryOverhead", "2g")
-            .config("spark.executor.cores", 5)
-            .config("spark.dynamicAllocation.enabled", "true")
-            .config("spark.dynamicAllocation.maxExecutors", 6)
-            .config("spark.sql.shuffle.partitions", 240)  # = multiple of cores x max executors
-            .config("spark.shuffle.service.enabled", "true")
-            .config("spark.ui.showConsoleProgress", "false")
-            .config('spark.driver.maxResultSize', '6g')
-            .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .config('spark.workerEnv.ARROW_PRE_0_15_IPC_FORMAT', 1)
-            .enableHiveSupport()
-            .getOrCreate()
-        )
+    config = [] if not config else config
+    for setting, value in config:
+        spark = spark.config(setting, value)
 
-    return spark
+    return spark.getOrCreate()
 
 
 def launch_spark_ui() -> None:
@@ -155,56 +178,16 @@ def launch_spark_ui() -> None:
     return IPython.display.HTML(f"<a href=http://{url}>Spark UI</a>")
 
 
-def set_pyspark_python_env(miscmods_version: float) -> None:
-    """Set PYSPARK_PYTHON environment variable if necessary.
-
-    Checks current miscMods version in the PYSPARK_PYTHON environment
-    variable and updates the variable if the the version is less than
-    the miscmods version given. Also sets PYSPARK_PYTHON if not already
-    set or the PYSPARK_PYTHON path is not in a miscMods dir.
-
-    Parameters
-    ----------
-    miscmods_version: float
-        The version number for miscMods that CDSW requires to run.
-
-    Examples
-    --------
-    >>> # cprices pipeline needs > miscModsv3.05
-    >>> set_pyspark_python_env(miscmods_version=3.05)
-    """
-    current_env = os.getenv('PYSPARK_PYTHON')
-    # The PYSPARK_PYTHON variable is predefined so will try and check this.
-    LOGGER.debug(
-        f'PYSPARK_PYTHON environment variable is preset to {current_env}'
-    )
-
-    if current_env:
-        default_miscmods_version = find_miscmods_version(current_env)
-
-    if (
-        not current_env
-        or not default_miscmods_version
-        or (default_miscmods_version < miscmods_version)
-    ):
-        miscmods_path = (
-            Path(
-                '/opt/ons/virtualenv', f'miscMods_v{miscmods_version}',
-                'bin/python3.6',
-            )
-            .as_posix()
-        )
-
-        LOGGER.debug(
-            f'Setting PYSPARK_PYTHON environment variable to {miscmods_path}'
-        )
-        os.environ['PYSPARK_PYTHON'] = miscmods_path
+def get_node_platform():
+    """Get the node platform from the environment variable."""
+    node_name = os.getenv('CDSW_NODE_NAME')
+    node_id = re.search(r'([a-z])\d{2}', node_name).group(1)
+    return NODES.get(node_id)
 
 
-def find_miscmods_version(s: str) -> Union[float, None]:
-    """Find the miscmods version from environment variable string."""
-    version_no = re.search(r'(?<=miscMods_v)\d+\.\d+', s)
-    return float(version_no.group()) if version_no else None
+def get_miscmods_path(ver) -> str:
+    """Return the full miscMods path for the given version."""
+    return str(Path('/opt/ons/virtualenv/miscMods_v{ver}/bin/python3'))
 
 
 @contextmanager
