@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 import logging
 import os
+from packaging import version
 from pathlib import Path
 import re
 from typing import Callable, Optional, Sequence, Tuple, Union
@@ -144,7 +145,7 @@ def launch_spark_ui() -> None:
     return IPython.display.HTML(f"<a href=http://{url}>Spark UI</a>")
 
 
-def set_pyspark_python_env(miscmods_version: float) -> None:
+def set_pyspark_python_env(miscmods_version: str) -> None:
     """Set PYSPARK_PYTHON environment variable if necessary.
 
     Checks current miscMods version in the PYSPARK_PYTHON environment
@@ -154,31 +155,34 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
 
     Parameters
     ----------
-    miscmods_version: float
+    miscmods_version : str
         The version number for miscMods that CDSW requires to run.
 
     Examples
     --------
-    >>> # cprices pipeline needs > miscModsv3.05
-    >>> set_pyspark_python_env(miscmods_version=3.05)
+    >>> set_pyspark_python_env(miscmods_version='3.05')
     """
-    current_env = os.getenv('PYSPARK_PYTHON')
+    current_python = os.getenv('PYSPARK_PYTHON')
     # The PYSPARK_PYTHON variable is predefined so will try and check this.
     LOGGER.debug(
-        f'PYSPARK_PYTHON environment variable is preset to {current_env}'
+        f'PYSPARK_PYTHON environment variable is preset to {current_python}'
     )
 
-    if current_env:
-        default_miscmods_version = find_miscmods_version(current_env)
+    if current_python:
+        default_miscmods_version = find_miscmods_version(current_python)
 
     if (
-        not current_env
+        not current_python
         or not default_miscmods_version
-        or (default_miscmods_version < miscmods_version)
+        or (
+            version.parse(default_miscmods_version)
+            < version.parse(miscmods_version)
+        )
     ):
         miscmods_path = (
             Path(
-                '/opt/ons/virtualenv', f'miscMods_v{miscmods_version}',
+                '/opt/ons/virtualenv',
+                f'miscMods_v{miscmods_version}',
                 'bin/python3.6',
             )
             .as_posix()
@@ -189,13 +193,11 @@ def set_pyspark_python_env(miscmods_version: float) -> None:
         )
         os.environ['PYSPARK_PYTHON'] = miscmods_path
 
-    os.environ['PYSPARK_PYTHON'] = "./environment/bin/python3"
 
-
-def find_miscmods_version(s: str) -> Optional[float]:
+def find_miscmods_version(s: str) -> Optional[str]:
     """Find the miscmods version from environment variable string."""
     version_no = re.search(r'(?<=miscMods_v)\d+\.\d+', s)
-    return float(version_no.group()) if version_no else None
+    return version_no.group() if version_no else None
 
 
 @contextmanager
