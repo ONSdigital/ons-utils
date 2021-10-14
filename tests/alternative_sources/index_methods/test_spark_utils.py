@@ -27,16 +27,10 @@ class TestConvertToSparkCol:
             ['car', 'van'],
             (10, 'green', 'bottles'),
             {'ace': 'spades', 'queen': 'hearts'},
+            float('nan'),
         ]
     )
     def test_negative_cases(self, obj, spark_session):
         """Test negative case for convert_to_spark_col."""
-        result = convert_to_spark_col(obj)
-        assert isinstance(result, type(obj))
-        assert result == obj
-
-    def test_returns_nan_if_passed_nan(self, spark_session):
-        """Test negative case for convert_to_spark_col."""
-        result = convert_to_spark_col(float('nan'))
-        assert isinstance(result, type(float('nan')))
-        assert math.isnan(result)
+        with pytest.raises(ValueError):
+            convert_to_spark_col(obj)
