@@ -18,15 +18,19 @@ from pyspark.sql import (
 )
 from pyspark.sql.types import StructType
 from pyspark.sql.functions import pandas_udf, PandasUDFType
-from py4j.protocol import Py4JError
 
 
-def convert_to_spark_col(s: Any) -> Union[Any, SparkCol]:
+def convert_to_spark_col(s: Union[str, SparkCol]) -> SparkCol:
     """Convert strings to Spark Columns, otherwise returns input."""
-    try:
+    if isinstance(s, str):
         return F.col(s)
-    except (AttributeError, Py4JError):
+    elif isinstance(s, SparkCol):
         return s
+    else:
+        raise ValueError(
+            "expecting a string or pyspark column but received obj"
+            f" of type {type(s)}"
+        )
 
 
 def convert_to_pandas_udf(
