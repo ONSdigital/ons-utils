@@ -74,6 +74,7 @@ def start_spark(
     -------
     SparkSession
     """   # noqa: E501
+    session_size = session_size.lower()
     platform = get_node_platform()
     if session_size in {'large', 'xl', 'xxl'} and platform == 'DEVTEST':
         raise ValueError("Given session size only available on Prod or UAT.")
