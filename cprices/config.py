@@ -292,6 +292,14 @@ class DevConfig(Config):
             self.add_strata(config.extra_strata)
 
 
+class MainDevConfig(DevConfig):
+    """Class for the main Dev Config."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.spark['config'] = get_key_value_pairs(self.spark['config'])
+
+
 class ScanScenarioConfig(ScenarioConfig):
     """Class with methods for scanner scenario configs."""
 
