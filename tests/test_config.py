@@ -633,6 +633,39 @@ class TestDevConfig:
         assert dev_config.data_cols == exp_data_cols
 
 
+class TestMainDevConfig:
+    """Tests for MainDevConfig."""
+
+    def test_runs_when_no_spark_config(self, test_config):
+        """Make sure no error is thrown when there's no spark config."""
+        test_yaml = """
+        spark:
+            enable_arrow: True
+        """
+        test_config(test_yaml)
+        MainDevConfig("my_config")
+
+    def test_gets_tuple_pairs_for_spark_config(self, test_config, all_in_output):
+        """Test that it converts the spark config section to tuple pairs."""
+        test_yaml = """
+        spark:
+            enable_arrow: True
+            config:
+                spark.executor.cores: 3
+                spark.executor.memory: 5g
+        """
+        test_config(test_yaml)
+        dev_config = MainDevConfig("my_config")
+
+        assert all_in_output(
+            output=dev_config.spark['config'],
+            values=[
+                ('spark.executor.cores', 3),
+                ('spark.executor.memory', '5g'),
+            ]
+        )
+
+
 class TestScanDevConfig:
     """Tests for the ScanDevConfig."""
 

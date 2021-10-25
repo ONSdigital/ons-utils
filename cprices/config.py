@@ -297,7 +297,9 @@ class MainDevConfig(DevConfig):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.spark['config'] = get_key_value_pairs(self.spark['config'])
+
+        if self.spark.get('config'):
+            self.spark['config'] = get_key_value_pairs(self.spark['config'])
 
 
 class ScanScenarioConfig(ScenarioConfig):
