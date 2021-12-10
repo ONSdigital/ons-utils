@@ -10,7 +10,7 @@ import functools
 
 from typing import Any, Callable, Mapping, Optional, Sequence, Union
 
-from ._utils import list_convert
+from .generic import list_convert
 
 
 def args_kwargs_transformer_factory(

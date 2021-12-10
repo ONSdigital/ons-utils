@@ -2,11 +2,8 @@
 from collections import abc
 import itertools
 from typing import Mapping, Any, List, Tuple, Dict, Sequence, Optional
-import docrep
 
 from flatten_dict import flatten, unflatten
-
-docstrings = docrep.DocstringProcessor()
 
 
 def invert_nested_keys(d: Mapping[Any, Any]) -> Dict[Any, Any]:
@@ -28,7 +25,6 @@ def get_key_value_pairs(d: Mapping[Any, Any]) -> List[Tuple[Any, Any]]:
     return list(itertools.chain.from_iterable(pairs))
 
 
-@docstrings.get_sections(base='fill_tuples')
 def fill_tuples(
     tuples: Sequence[Any],
     length: Optional[int] = None,
@@ -69,7 +65,6 @@ def fill_tuples(
     return new_tups
 
 
-@docstrings.dedent
 def fill_tuple_keys(
     d: Mapping[Tuple[Any], Any],
     length: Optional[int] = None,
@@ -80,7 +75,14 @@ def fill_tuple_keys(
 
     Parameters
     ----------
-    %(fill_tuples.parameters)s.
+    length : int, optional
+        Fill tuples to a fixed length. If None, fills to max length of
+        the non-string sequence objects given by tuples.
+    repeat : bool, default False
+        If True then fills missing tuple values with the current value
+        at the end of the sequence given by ``at``. If False fills with None.
+    fill_method : {'bfill', 'ffill'}, str
+        Whether to forward fill or backfill the tuple values.
     """
     filled_keys = fill_tuples(d.keys(), length, repeat, fill_method)
     return dict(zip(filled_keys, d.values()))

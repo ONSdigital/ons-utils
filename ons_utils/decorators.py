@@ -7,9 +7,9 @@ Provides:
 * to_list: to specify parameters to be converted to a list before use.
 
 """
-from ._func_factories import args_kwargs_transformer_factory
-from ._spark_utils import convert_to_spark_col
-from ._utils import list_convert
+from .factories import args_kwargs_transformer_factory
+from .pyspark.general import convert_to_spark_col
+from .generic import list_convert
 
 
 to_spark_col = args_kwargs_transformer_factory(convert_to_spark_col)

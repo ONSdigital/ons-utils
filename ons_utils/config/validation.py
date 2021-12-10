@@ -17,59 +17,90 @@ from typing import Dict, Sequence, Mapping, Union, Hashable, Optional, Tuple
 
 import cerberus
 from flatten_dict import flatten
-# Don't import pydoop on Jenkins.
-if not os.getenv('JENKINS_HOME'):
-    import pydoop.hdfs as hdfs
 from pyspark.sql import SparkSession
 
-from cprices.utils.helpers import is_non_string_sequence
-from cprices.validation_schemas import full_schema
+from ons_utils.generic import is_non_string_sequence
+
 
 Sections = Sequence[Union[str, Tuple[str]]]
+
+
+# def full_schema(sections: Sequence[str]) -> Dict[str, Dict]:
+#     """Return the full schema for the given sections."""
+#     schema = non_section_schema()
+#     schema.update(consumption_segment_mappers_schema())
+#     schema.update({
+#         k: v for k, v in schema_sections().items()
+#         if k in sections
+#     })
+#     return schema
+
+
+# def schema_sections() -> Dict[str, Dict]:
+#     """Return a schema with all the sections."""
+#     section_schemas = {
+#         'preprocessing': preprocessing_schema(),
+#         'relaunch_linking': relaunch_linking_schema(),
+#         'outlier_detection': outlier_detection_schema(),
+#         'averaging': averaging_schema(),
+#         'grouping': grouping_schema(),
+#         'flag_low_expenditures': flag_low_expenditures_schema(),
+#         'indices': indices_schema(),
+#     }
+#     # For nested schema, needs 'type' and 'schema'.
+#     return {
+#         section: {
+#             'type': 'dict',
+#             'required': True,
+#             'schema': schema,
+#         }
+#         for section, schema in section_schemas.items()
+#     }
+
 
 
 class ConfigValidationError(Exception):
     """Error for Config Validation."""
 
 
-def validate_scan_scenario_config(
-    config,
-    spark: Optional[SparkSession] = None,
-) -> str:
-    """Validate the config using required sections for scanner.
+# def validate_scan_scenario_config(
+#     config,
+#     spark: Optional[SparkSession] = None,
+# ) -> str:
+#     """Validate the config using required sections for scanner.
 
-    Parameters
-    ----------
-    config : Config
-        An instance of the Config object defined in
-        :mod:`cprices.config`. Haven't imported for type hint due to
-        co-dependency causing an issue.
-    spark : SparkSession
-       Used to validate Hive table existence.
+#     Parameters
+#     ----------
+#     config : Config
+#         An instance of the Config object defined in
+#         :mod:`cprices.config`. Haven't imported for type hint due to
+#         co-dependency causing an issue.
+#     spark : SparkSession
+#        Used to validate Hive table existence.
 
-    Returns
-    -------
-    str
-        An error message with all validation errors. Returns an empty
-        string if no errors.
-    """
-    return get_all_errors(
-        config,
-        sections=[
-            # 'input_data',
-            'preprocessing',
-            'relaunch_linking',
-            'outlier_detection',
-            'averaging',
-            'flag_low_expenditures',
-            'indices',
-        ],
-        hive_table_sections=[
-            'consumption_segment_mappers',
-            ('relaunch_linking', 'mappers'),
-        ],
-        spark=spark,
-    )
+#     Returns
+#     -------
+#     str
+#         An error message with all validation errors. Returns an empty
+#         string if no errors.
+#     """
+#     return get_all_errors(
+#         config,
+#         sections=[
+#             # 'input_data',
+#             'preprocessing',
+#             'relaunch_linking',
+#             'outlier_detection',
+#             'averaging',
+#             'flag_low_expenditures',
+#             'indices',
+#         ],
+#         hive_table_sections=[
+#             'consumption_segment_mappers',
+#             ('relaunch_linking', 'mappers'),
+#         ],
+#         spark=spark,
+#     )
 
 
 def validate_webscraped_scenario_config(

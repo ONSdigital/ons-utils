@@ -11,16 +11,14 @@ from typing import (
 )
 import warnings
 
-import docrep
 import pandas as pd
 from pyspark.sql import (
     DataFrame as SparkDF,
     functions as F,
 )
 
-from .helpers import list_convert
+from ons_utils.generic import list_convert
 
-docstrings = docrep.DocstringProcessor()
 Key = Sequence[Union[str, Sequence[str]]]
 
 # The order of these is important, big ---> small.
@@ -35,7 +33,6 @@ SPARK_NUMBER_TYPES = (
 )
 
 
-@docstrings.get_sections(base='concat')
 def concat(
     frames: Union[Iterable[SparkDF], Mapping[Key, SparkDF]],
     keys: Optional[Key] = None,
@@ -303,22 +300,7 @@ def _get_schemas_df(
     keys: Optional[Key] = None,
     names: Optional[Union[str, Sequence[str]]] = None,
 ) -> pd.DataFrame:
-    """
-    Return dataframe of column schemas for given frames.
-
-    Parameters
-    ----------
-    %(concat.parameters)s
-
-    Returns
-    -------
-    pandas DataFrame
-        The dtypes for each frame in each column of data, with column
-        names in the index. If names (and optionally keys) given, then
-        columns renamed to identify each frame. Otherwise columns are
-        named dtype_{i} where i is the position of the frame in the
-        sequence.
-    """
+    """Return dataframe of column schemas for given frames."""
     schemas_df = pd.DataFrame()
     for df in frames:
         col_names, dtypes = zip(*df.dtypes)

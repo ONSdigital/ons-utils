@@ -3,7 +3,7 @@ from typing import Callable
 import pandas as pd
 from flatten_dict import flatten
 
-from .helpers import fill_tuple_keys
+from .generic import fill_tuple_keys
 
 
 def nested_dict_to_df(

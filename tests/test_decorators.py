@@ -1,7 +1,7 @@
 """Tests for functions in the _decorators.py module."""
 from pyspark.sql import Column as SparkCol
 
-from cprices.alternative_sources.index_methods._decorators import *
+from ons_utils.decorators import *
 
 
 @to_spark_col

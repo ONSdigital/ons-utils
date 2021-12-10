@@ -5,11 +5,15 @@ import pandas as pd
 import pytest
 from pytest_lazyfixture import lazy_fixture
 
-from cprices.utils.spark_concat import *
-from cprices.utils.spark_concat import (
+from ons_utils.pyspark.concat import *
+from ons_utils.pyspark.concat import (
     _get_largest_number_dtype,
 )
-from tests.conftest import create_dataframe, Case, parametrize_cases
+from tests.conftest import (
+    create_dataframe,
+    Case,
+    parametrize_cases,
+)
 
 
 class TestConcat:

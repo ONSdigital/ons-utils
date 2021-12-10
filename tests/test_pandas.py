@@ -4,7 +4,7 @@ import pytest
 from pandas.testing import assert_frame_equal
 
 from tests.conftest import create_dataframe
-from cprices.utils.pd_helpers import *
+from ons_utils.pandas import *
 
 
 def test_nested_dict_to_df():

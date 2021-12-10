@@ -1,8 +1,8 @@
 #
-"""Tests for the helpers module."""
+"""Tests for the generic module."""
 import pytest
 
-from cprices.utils.helpers import *
+from ons_utils.generic import *
 
 
 class TestInvertNestedKeys:
@@ -141,3 +141,7 @@ class TestListConvert:
     @pytest.mark.parametrize('obj', [None, 67, 2.75])
     def test_wraps_other_objs_in_list_container(self, obj):
         assert list_convert(obj) == [obj]
+
+    def test_returns_None_wrapped_in_list_if_None_passed(self):
+        """Need to look out for this case."""
+        assert list_convert(None) == [None]

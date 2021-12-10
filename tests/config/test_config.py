@@ -1,9 +1,8 @@
 """Tests for the config classes in config.py."""
-import functools
 import yaml
 import pytest
 
-from ons_utils.config import *
+from ons_utils.config.config import *
 from ons_utils import config
 
 from tests.conftest import (
