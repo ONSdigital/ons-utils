@@ -20,7 +20,7 @@ pytest-lazy-fixture = "^0.6.3"
 [[tool.poetry.source]]
 name = "art-p-01"
 url = "http://art-p-01/artifactory/api/pypi/yr-python/simple/"
-default = true
+secondary = true
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
