@@ -17,16 +17,6 @@ pytest = "^6.2.5"
 chispa = "^0.8.2"
 pytest-lazy-fixture = "^0.6.3"
 
-[[tool.poetry.source]]
-name = "PyPI"
-url = "https://pypi.org/simple/"
-default = true
-
-[[tool.poetry.source]]
-name = "art-p-01"
-url = "http://art-p-01/artifactory/api/pypi/yr-python/simple/"
-secondary = true
-
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
