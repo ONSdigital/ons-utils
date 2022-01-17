@@ -20,7 +20,7 @@ jobs:
       - name: Set up Java JDK
         uses: joschi/setup-jdk@v2
         with:
-          java-version: '11' # The OpenJDK version to make available on the path
+          java-version: '8' # The OpenJDK version to make available on the path
           architecture: 'x64' # defaults to 'x64'
 
       #----------------------------------------------
