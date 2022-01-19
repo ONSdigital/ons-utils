@@ -65,7 +65,7 @@ class TestGetWindowSpec:
             })
         )
 
-        assert_df_equality(actual_df, expected_df_sum_groups)
+        assert_df_equality(actual_df, expected_df_sum_groups, ignore_row_order=True)
 
     def test_with_no_levels_passed(self, input_df_get_window, to_spark):
         """Test that get_window_spec results in the expected output when
