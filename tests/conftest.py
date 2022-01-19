@@ -29,15 +29,12 @@ def suppress_py4j_logging():
 def spark_session():
     """Set up spark session fixture."""
     suppress_py4j_logging()
-    # os.environ['SPARK_HOME'] = str(Path(
-    #     os.environ.get('CONDA_PREFIX'),
-    #     'Lib', 'site-packages', 'pyspark',
-    # ))
-    os.environ['PYSPARK_PYTHON_PATH'] = sys.executable
+
     return (
         SparkSession.builder
         .master("local[2]")
         .appName("test_context")
+        .config('spark.ui.showConsoleProgress', 'false')
         # Compatibility for PyArrow with Spark 2.4-legacy IPC format.
         .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', '1')
         .getOrCreate()

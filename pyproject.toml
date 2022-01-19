@@ -7,7 +7,7 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = "~3.6.8"
-pyspark = "2.4.0"
+pyspark = "2.4.1"
 pandas = "1.1.5"
 pyyaml = "^6.0"
 flatten-dict = "^0.4.2"
@@ -16,11 +16,12 @@ flatten-dict = "^0.4.2"
 pytest = "^6.2.5"
 chispa = "^0.8.2"
 pytest-lazy-fixture = "^0.6.3"
+coverage = "^6.2"
 
-[[tool.poetry.source]]
-name = "art-p-01"
-url = "http://art-p-01/artifactory/api/pypi/yr-python/simple/"
-default = true
+# [[tool.poetry.source]]
+# name = "art-p-01"
+# url = "http://art-p-01/artifactory/api/pypi/yr-python/simple/"
+# default = true
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
