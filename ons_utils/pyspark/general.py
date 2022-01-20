@@ -23,6 +23,8 @@ from pyspark.sql import (
 from pyspark.sql.types import StructType
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
+from ons_utils.generic import list_convert
+
 
 def convert_to_spark_col(s: Union[str, SparkCol]) -> SparkCol:
     """Convert strings to Spark Columns, otherwise returns input."""
@@ -165,19 +167,19 @@ def is_list_or_tuple(x):
     return isinstance(x, tuple) or isinstance(x, list)
 
 
-def get_window_spec(levels: Sequence[str] = None) -> WindowSpec:
-    """Return WindowSpec partitioned by levels, defaulting to whole df."""
-    if not levels:
-        return whole_frame_window()
-    else:
-        return Window.partitionBy(levels)
+def get_window_spec(
+    groups: Union[str, Sequence[str]] = None
+) -> WindowSpec:
+    """Return WindowSpec partitioned by groups, defaulting to whole df.
 
-
-def whole_frame_window() -> WindowSpec:
-    """Return WindowSpec for whole DataFrame."""
-    return Window.rowsBetween(
-        Window.unboundedPreceding,
-        Window.unboundedFollowing,
+    Note that if groups is None, then the window will be over the whole
+    DataFrame and the partition will be 1. Only suitable for small
+    DataFrames - use with caution on large DataFrames and make sure
+    it is repartitioned if a new column is created.
+    """
+    return (
+        Window.partitionBy(list_convert(groups)) if groups
+        else Window.partitionBy()
     )
 
 
