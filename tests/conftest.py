@@ -1,9 +1,7 @@
 """Plugin that creates a spark session fixture to be used by all tests."""
 import logging
-import os
 from pathlib import Path
 from typing import Optional, Any, Mapping
-import sys
 import warnings
 
 import pandas as pd
@@ -35,8 +33,6 @@ def spark_session():
         .master("local[2]")
         .appName("test_context")
         .config('spark.ui.showConsoleProgress', 'false')
-        # Compatibility for PyArrow with Spark 2.4-legacy IPC format.
-        .config('spark.executorEnv.ARROW_PRE_0_15_IPC_FORMAT', '1')
         .getOrCreate()
     )
 
