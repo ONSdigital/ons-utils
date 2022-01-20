@@ -23,7 +23,7 @@ from pyspark.sql import (
 from pyspark.sql.types import StructType
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
-import ons_utils.generic as list_convert
+from ons_utils.generic import list_convert
 
 
 def convert_to_spark_col(s: Union[str, SparkCol]) -> SparkCol:
