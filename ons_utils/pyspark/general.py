@@ -23,7 +23,7 @@ from pyspark.sql import (
 from pyspark.sql.types import StructType
 from pyspark.sql.functions import pandas_udf, PandasUDFType
 
-from ons_utils.decorators import to_list
+import ons_utils.generic as to_list
 
 
 def convert_to_spark_col(s: Union[str, SparkCol]) -> SparkCol:
@@ -167,7 +167,6 @@ def is_list_or_tuple(x):
     return isinstance(x, tuple) or isinstance(x, list)
 
 
-@to_list
 def get_window_spec(
     groups: Union[str, Sequence[str]] = None
 ) -> WindowSpec:
@@ -178,7 +177,10 @@ def get_window_spec(
     DataFrames - use with caution on large DataFrames and make sure
     it is repartitioned if a new column is created.
     """
-    return Window.partitionBy(groups) if groups else Window.partitionBy()
+    return (
+        Window.partitionBy(list_convert(groups)) if groups
+        else Window.partitionBy()
+    )
 
 
 def to_list(df: SparkDF) -> List[Union[Any, List[Any]]]:
