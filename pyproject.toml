@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ons_utils"
-version = "0.1.1"
+version = "0.1.2-alpha.0"
 description = "A suite of pyspark, pandas and general pipeline utils for ONS projects."
 authors = ["Mitchell Edmunds <Mitchell.Edmunds@ext.ons.gov.uk>"]
 license = "MIT"
