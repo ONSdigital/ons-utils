@@ -48,13 +48,13 @@ class TestGetWindowSpec:
             })
         )
 
-    def test_with_levels_passed(self, input_df_get_window, to_spark):
+    def test_with_groups_passed(self, input_df_get_window, to_spark):
         """Test that get_window_spec results in the expected output when
-        levels are passed.
+        groups are passed.
         """
         actual_df = input_df_get_window.withColumn(
             'sum(val)',
-            F.sum('val').over(get_window_spec(levels='group'))
+            F.sum('val').over(get_window_spec(groups='group'))
         )
 
         expected_df_sum_groups = to_spark(
@@ -67,9 +67,9 @@ class TestGetWindowSpec:
 
         assert_df_equality(actual_df, expected_df_sum_groups, ignore_row_order=True)
 
-    def test_with_no_levels_passed(self, input_df_get_window, to_spark):
+    def test_with_no_groups_passed(self, input_df_get_window, to_spark):
         """Test that get_window_spec results in the expected output when
-        no levels are passed.
+        no groups are passed.
         """
         actual_df = input_df_get_window.withColumn(
             'sum(val)', F.sum('val').over(get_window_spec())
