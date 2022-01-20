@@ -11,6 +11,11 @@ def to_date(dt: str) -> datetime:
     return pd.Timestamp(dt).date()
 
 
+def to_datetime(dt: str) -> datetime.datetime:
+    """Convert datetime string to datetime.datetime type."""
+    return pd.to_datetime(dt).to_pydatetime()
+
+
 def create_dataframe(data):
     """Create pandas df from tuple data with a header."""
     return pd.DataFrame.from_records(data[1:], columns=data[0])
